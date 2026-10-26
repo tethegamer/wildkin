@@ -616,14 +616,217 @@
     }
   ];
 
-  // Items & Capture Prisms
+  // Items, Food Recovery, Level-Up Boosters & Capture Prisms
   const ITEMS = {
+    // 1. Food & Natural Recovery
+    sunberryRation: {
+      id: 'sunberryRation',
+      name: 'Sunberry Ration',
+      category: 'food',
+      marketTab: 'recovery',
+      healAmount: 45,
+      regenBoostSec: 300,
+      bondGain: 1,
+      cost: 55,
+      gemCost: 8,
+      color: '#fb923c',
+      icon: '🍖',
+      desc: 'Hearty trail ration that restores 45 HP immediately and speeds up natural HP regeneration by 3x for 5 minutes.'
+    },
+    heartwoodStew: {
+      id: 'heartwoodStew',
+      name: 'Grandpa’s Heartwood Stew',
+      category: 'food',
+      marketTab: 'recovery',
+      healPercent: 1.0,
+      canRevive: true,
+      bondGain: 1,
+      cost: 140,
+      gemCost: 18,
+      color: '#f97316',
+      icon: '🍲',
+      desc: 'Grandpa Rowan’s warm homestead recipe! Restores 100% HP, revives exhausted Kin, and cures all status effects.'
+    },
+    feastPlatter: {
+      id: 'feastPlatter',
+      name: 'Homestead Feast Platter',
+      category: 'food',
+      marketTab: 'recovery',
+      squadFullHeal: true,
+      canRevive: true,
+      bondGain: 1,
+      cost: 320,
+      gemCost: 40,
+      color: '#facc15',
+      icon: '🍱',
+      desc: 'Banquet for your entire party! Instantly restores 100% HP & Move Stamina to all 6 Squad Kin.'
+    },
+    heartwoodBerry: {
+      id: 'heartwoodBerry',
+      name: 'Heartwood Berry',
+      category: 'care',
+      marketTab: 'recovery',
+      healAmount: 25,
+      bondGain: 1,
+      xpGain: 45,
+      cost: 45,
+      gemCost: 6,
+      color: '#fb7185',
+      icon: '🍓',
+      desc: 'Sweet orchard berry grown at Grandpa Rowan’s Homestead. Restores 25 HP, raises Bond Level (+1), and grants +45 XP.'
+    },
+    apexNectar: {
+      id: 'apexNectar',
+      name: 'Apex Royal Nectar',
+      category: 'care',
+      marketTab: 'recovery',
+      healAmount: 80,
+      bondGain: 2,
+      xpGain: 160,
+      cost: 160,
+      gemCost: 22,
+      color: '#f59e0b',
+      icon: '🍯',
+      desc: 'Golden Aether nectar from Grandpa’s sanctuary. Restores 80 HP & Stamina, boosts Bond Level (+2), and grants +160 XP.'
+    },
+
+    // 2. Medical Tonics & Revives
+    dewTonic: {
+      id: 'dewTonic',
+      name: 'Vital Dew Tonic',
+      category: 'heal',
+      marketTab: 'recovery',
+      healAmount: 35,
+      cost: 40,
+      gemCost: 5,
+      color: '#4ade80',
+      icon: '🧪',
+      desc: 'Field tonic that restores 35 HP and clears status ailments on an injured Kin.'
+    },
+    vitalTonic: {
+      id: 'vitalTonic',
+      name: 'Vital Tonic',
+      category: 'heal',
+      marketTab: 'recovery',
+      healAmount: 35,
+      cost: 40,
+      gemCost: 5,
+      color: '#4ade80',
+      icon: '🧪',
+      desc: 'Restores 35 HP to an injured Kin in or out of battle.'
+    },
+    hiTonic: {
+      id: 'hiTonic',
+      name: 'Hi-Tonic',
+      category: 'heal',
+      marketTab: 'recovery',
+      healAmount: 90,
+      cost: 100,
+      gemCost: 12,
+      color: '#22d3ee',
+      icon: '⚗️',
+      desc: 'Concentrated Wellspring elixir that restores 90 HP.'
+    },
+    hyperTonic: {
+      id: 'hyperTonic',
+      name: 'Hyper Tonic',
+      category: 'heal',
+      marketTab: 'recovery',
+      healAmount: 120,
+      cost: 120,
+      gemCost: 15,
+      color: '#38bdf8',
+      icon: '💉',
+      desc: 'High-potency medical infusion that restores 120 HP and cures status effects.'
+    },
+    reviveLeaf: {
+      id: 'reviveLeaf',
+      name: 'Sylvan Revive',
+      category: 'revive',
+      marketTab: 'recovery',
+      healPercent: 0.5,
+      canRevive: true,
+      cost: 150,
+      gemCost: 20,
+      color: '#facc15',
+      icon: '🍃',
+      desc: 'Revives an exhausted (0 HP) Kin and restores 50% of its Max HP.'
+    },
+    phoenixDew: {
+      id: 'phoenixDew',
+      name: 'Phoenix Aether Dew',
+      category: 'revive',
+      marketTab: 'recovery',
+      healPercent: 1.0,
+      canRevive: true,
+      restoreStamina: true,
+      cost: 240,
+      gemCost: 30,
+      color: '#f43f5e',
+      icon: '🔥',
+      desc: 'Mythic phoenix essence that revives a fainted Kin to 100% HP & full Move Stamina instantly, even mid-battle!'
+    },
+
+    // 3. Level-Up, XP & Breeding Speed-Up Boosters
+    aetherCandy: {
+      id: 'aetherCandy',
+      name: 'Rare Aether Crystal',
+      category: 'booster',
+      marketTab: 'boosters',
+      levelGain: 1,
+      cost: 260,
+      gemCost: 32,
+      color: '#38bdf8',
+      icon: '💎',
+      desc: 'Crystallized Aether energy that instantly levels up any Kin by +1 Full Level and recalculates all stats!'
+    },
+    apexTome: {
+      id: 'apexTome',
+      name: 'Sovereign XP Tome',
+      category: 'booster',
+      marketTab: 'boosters',
+      levelGain: 3,
+      bondGain: 1,
+      cost: 680,
+      gemCost: 80,
+      color: '#c084fc',
+      icon: '📘',
+      desc: 'Ancient codex penned by Grandpa Rowan. Instantly grants +3 Full Levels and +1 Bond Level to any Kin!'
+    },
+    xpBooster2x: {
+      id: 'xpBooster2x',
+      name: '2x XP Surge Elixir (30m)',
+      category: 'booster',
+      marketTab: 'boosters',
+      xpBoostSec: 1800,
+      cost: 240,
+      gemCost: 28,
+      color: '#eab308',
+      icon: '⚡',
+      desc: 'Doubles all XP earned from wild encounters, Wardens, and the Aether Spire for 30 minutes!'
+    },
+    hatchAccelerator: {
+      id: 'hatchAccelerator',
+      name: 'Incubator Speed Core',
+      category: 'booster',
+      marketTab: 'boosters',
+      hatchBoost: true,
+      cost: 220,
+      gemCost: 26,
+      color: '#4ade80',
+      icon: '🥚',
+      desc: 'Guarantees S-Rank or SS-Rank Apex Genetics on your next Breeding Sanctuary hatch and waives the shard fee!'
+    },
+
+    // 4. Aether Prisms (Capture Devices)
     basicPrism: {
       id: 'basicPrism',
       name: 'Basic Prism',
       category: 'prism',
+      marketTab: 'boosters',
       catchMod: 1.0,
       cost: 50,
+      gemCost: 6,
       color: '#38bdf8',
       icon: '💠',
       desc: 'Standard geometric Aether Prism for binding weakened wild Kin (1.0x rate).'
@@ -632,8 +835,10 @@
       id: 'greaterPrism',
       name: 'Greater Prism',
       category: 'prism',
+      marketTab: 'boosters',
       catchMod: 1.75,
       cost: 120,
+      gemCost: 15,
       color: '#c084fc',
       icon: '🔮',
       desc: 'Resonant octo-prism with a 1.75x higher harmonic bind rate.'
@@ -642,65 +847,75 @@
       id: 'masteryPrism',
       name: 'Apex Prism',
       category: 'prism',
+      marketTab: 'boosters',
       catchMod: 3.2,
       cost: 300,
+      gemCost: 38,
       color: '#facc15',
       icon: '🌟',
       desc: 'Gold-forged sovereign prism with a massive 3.2x bind rate on rare & mythic Kin.'
-    },
-    dewTonic: {
-      id: 'dewTonic',
-      name: 'Dew Tonic',
-      category: 'heal',
-      healAmount: 35,
-      cost: 40,
-      color: '#4ade80',
-      icon: '🧪',
-      desc: 'Restores 35 HP to an injured Kin.'
-    },
-    hiTonic: {
-      id: 'hiTonic',
-      name: 'Hi-Tonic',
-      category: 'heal',
-      healAmount: 90,
-      cost: 100,
-      color: '#22d3ee',
-      icon: '⚗️',
-      desc: 'Concentrated Wellspring elixir that restores 90 HP.'
-    },
-    reviveLeaf: {
-      id: 'reviveLeaf',
-      name: 'Sylvan Revive',
-      category: 'revive',
-      healPercent: 0.5,
-      cost: 150,
-      color: '#facc15',
-      icon: '🍃',
-      desc: 'Revives an exhausted Kin and restores 50% of its Max HP.'
-    },
-    heartwoodBerry: {
-      id: 'heartwoodBerry',
-      name: 'Heartwood Berry',
-      category: 'care',
-      bondGain: 1,
-      xpGain: 45,
-      cost: 45,
-      color: '#fb7185',
-      icon: '🍓',
-      desc: 'Sweet orchard berry grown at Grandpa Rowan’s Homestead. Raises a Kin’s Bond Level (+1) and grants XP.'
-    },
-    apexNectar: {
-      id: 'apexNectar',
-      name: 'Apex Royal Nectar',
-      category: 'care',
-      bondGain: 2,
-      xpGain: 160,
-      cost: 160,
-      color: '#f59e0b',
-      icon: '🍯',
-      desc: 'Golden Aether nectar from Grandpa’s sanctuary. Boosts Bond Level (+2), restores Stamina, and grants high XP.'
     }
   };
+
+  ITEMS.aetherPrism = ITEMS.basicPrism;
+  ITEMS.masterPrism = ITEMS.masteryPrism;
+
+  // Real-Money / USD Gem & Recovery Bundles for the Aether Marketplace
+  const MARKETPLACE_BUNDLES = [
+    {
+      id: 'starter_recovery',
+      name: 'Starter Recovery Pack',
+      priceUsd: 1.99,
+      priceDisplay: '$1.99',
+      gems: 250,
+      shardsBonus: 300,
+      items: { heartwoodStew: 5, aetherCandy: 3, sunberryRation: 5 },
+      badge: 'BEST FOR NEW TAMERS',
+      color: '#4ade80',
+      icon: '🍖',
+      desc: '250 💎 Aether Gems + 300 🪙 Shards + 5x Grandpa’s Heartwood Stew + 3x Rare Aether Crystals (+1 Lv) + 5x Sunberry Rations.'
+    },
+    {
+      id: 'tamers_pouch',
+      name: 'Tamer’s Vitality Pouch',
+      priceUsd: 4.99,
+      priceDisplay: '$4.99',
+      gems: 700,
+      shardsBonus: 800,
+      items: { feastPlatter: 2, xpBooster2x: 1, phoenixDew: 3 },
+      badge: 'FAST RECOVERY',
+      color: '#38bdf8',
+      icon: '🍱',
+      desc: '700 💎 Aether Gems + 800 🪙 Shards + 2x Homestead Feast Platters (Full Squad Heal) + 1x 2x XP Surge Elixir + 3x Phoenix Dew.'
+    },
+    {
+      id: 'breeders_vault',
+      name: 'Breeder’s Level-Up Vault',
+      priceUsd: 9.99,
+      priceDisplay: '$9.99',
+      gems: 1600,
+      shardsBonus: 2000,
+      items: { apexTome: 3, masteryPrism: 2, hatchAccelerator: 2 },
+      badge: 'MOST POPULAR',
+      color: '#c084fc',
+      icon: '📘',
+      desc: '1,600 💎 Aether Gems + 2,000 🪙 Shards + 3x Sovereign XP Tomes (+9 Levels!) + 2x Apex Prisms + 2x Incubator Speed Cores.'
+    },
+    {
+      id: 'sovereign_treasury',
+      name: 'Sovereign Apex Treasury',
+      priceUsd: 19.99,
+      priceDisplay: '$19.99',
+      gems: 3800,
+      shardsBonus: 5000,
+      items: { aetherCandy: 10, masteryPrism: 5, feastPlatter: 5, apexTome: 2 },
+      vipShrinePass: true,
+      badge: 'BEST VALUE • VIP PASS',
+      color: '#facc15',
+      icon: '👑',
+      desc: '3,800 💎 Aether Gems + 5,000 🪙 Shards + 10x Rare Aether Crystals + 2x XP Tomes + 5x Apex Prisms + Permanent VIP Instant Shrine Pass!'
+    }
+  ];
 
   // 6 Explorable Worlds (24+ Hour Multi-World Progression)
   const ZONES = [
@@ -1277,6 +1492,7 @@
     MOVES,
     KIN_SPECIES,
     ITEMS,
+    MARKETPLACE_BUNDLES,
     ZONES,
     WARDENS,
     GENETIC_TIERS,

@@ -1520,3 +1520,164 @@ html, body {
     padding: 6px 8px;
   }
 }
+
+/* ==========================================================================
+   VITALITY RECOVERY SYSTEM & AETHER MARKETPLACE (Food, Boosters & USD Store)
+   ========================================================================== */
+.metric-chip-gems {
+  cursor: pointer;
+  border: 1px solid rgba(192, 132, 252, 0.55) !important;
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.65), rgba(15, 23, 42, 0.9)) !important;
+  color: #f3e8ff;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.metric-chip-gems:hover,
+.metric-chip-gems:active {
+  transform: scale(1.04);
+  box-shadow: 0 0 12px rgba(192, 132, 252, 0.45);
+}
+
+.market-plus-badge {
+  background: #a855f7;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 900;
+  padding: 1px 4px;
+  border-radius: 999px;
+  margin-left: 2px;
+}
+
+.recovery-alert-banner {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 52px;
+  z-index: 26;
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.92), rgba(15, 23, 42, 0.95));
+  border: 1.5px solid rgba(248, 113, 113, 0.75);
+  border-radius: 12px;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+}
+
+.recovery-alert-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fecaca;
+}
+
+.recovery-alert-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.recovery-btn-feed {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #fff;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.recovery-btn-market {
+  background: linear-gradient(135deg, #9333ea, #6b21a8);
+  color: #fff;
+  border: 1px solid #d8b4fe;
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.market-tab-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.market-tab-btn {
+  background: rgba(15, 23, 42, 0.85);
+  color: #94a3b8;
+  border: 1.5px solid rgba(51, 65, 85, 0.85);
+  border-radius: 10px;
+  padding: 8px 6px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.market-tab-btn.active {
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.85), rgba(88, 28, 135, 0.85));
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.3);
+}
+
+.usd-bundle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.usd-bundle-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(30, 27, 75, 0.92));
+  border: 1.5px solid rgba(168, 85, 247, 0.5);
+  border-radius: 12px;
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  position: relative;
+}
+
+.usd-bundle-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 900;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.18);
+  color: #fde047;
+  border: 1px solid rgba(250, 204, 21, 0.55);
+  letter-spacing: 0.05em;
+}
+
+.checkout-drawer-box {
+  background: linear-gradient(145deg, #090d1a, #1e1b4b);
+  border: 2px solid #a855f7;
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
+}
+
+.regen-timer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(234, 179, 8, 0.16);
+  color: #fde047;
+  border: 1px solid rgba(234, 179, 8, 0.45);
+}

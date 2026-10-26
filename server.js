@@ -322,6 +322,70 @@ app.get(['/api/arena/room/:code', '/api/pvp/room/:code'], handleGetRoom);
 app.post(['/api/arena/room/:code/join', '/api/pvp/room/:code/join'], handleJoinRoom);
 app.post(['/api/arena/room/:code/action', '/api/pvp/room/:code/action'], handleRoomAction);
 
+
+const ORDERS_FILE = path.join(DATA_DIR, 'marketplace-orders.json');
+
+app.get('/api/marketplace/catalog', (req, res) => {
+  res.json({
+    ok: true,
+    currency: 'USD',
+    stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+    bundles: WildkinData.MARKETPLACE_BUNDLES || [],
+    items: WildkinData.ITEMS || {}
+  });
+});
+
+app.post('/api/marketplace/checkout', (req, res) => {
+  const body = req.body || {};
+  const bundleId = String(body.bundleId || '').trim();
+  const paymentMethod = String(body.paymentMethod || 'apple_pay').trim();
+  const trainerName = String(body.trainerName || 'Tamer').trim().slice(0, 32) || 'Tamer';
+
+  const bundles = Array.isArray(WildkinData.MARKETPLACE_BUNDLES) ? WildkinData.MARKETPLACE_BUNDLES : [];
+  const bundle = bundles.find((b) => b.id === bundleId);
+  if (!bundle) {
+    return res.status(400).json({ ok: false, error: 'Unknown Marketplace bundleId' });
+  }
+
+  const orderId = 'WK-' + generateCode(8);
+  const now = new Date().toISOString();
+  const order = {
+    orderId,
+    bundleId: bundle.id,
+    bundleName: bundle.name,
+    priceUsd: bundle.priceUsd,
+    priceDisplay: bundle.priceDisplay,
+    paymentMethod,
+    trainerName,
+    status: 'completed',
+    mode: process.env.STRIPE_SECRET_KEY ? 'live_stripe' : 'instant_sandbox',
+    granted: {
+      gems: bundle.gems || 0,
+      shardsBonus: bundle.shards || bundle.shardsBonus || 0,
+      items: bundle.items || bundle.bonusItems || {},
+      vipShrinePass: Boolean(bundle.vipShrinePass)
+    },
+    createdAt: now
+  };
+
+  const store = readJsonFile(ORDERS_FILE, { list: [] });
+  const orders = Array.isArray(store.list) ? store.list : [];
+  orders.unshift(order);
+  writeJsonFile(ORDERS_FILE, { list: orders.slice(0, 100) });
+
+  return res.json({
+    ok: true,
+    mode: order.mode,
+    order
+  });
+});
+
+app.get('/api/marketplace/orders', (req, res) => {
+  const store = readJsonFile(ORDERS_FILE, { list: [] });
+  const orders = Array.isArray(store.list) ? store.list : [];
+  res.json({ ok: true, orders: orders.slice(0, 25) });
+});
+
 // 5. SPA Fallback
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();

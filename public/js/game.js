@@ -156,15 +156,34 @@
       zone: 'meadow',
       pos: { x: 7, y: 6, dir: 'down' },
       shards: 250,
+      gems: 50,
+      shrineCooldownUntil: 0,
+      regenBoostUntil: 0,
+      xpBoostUntil: 0,
+      vipShrinePass: false,
+      hatchBoostReady: false,
+      marketTab: 'recovery',
+      selectedMarketKinIdx: 0,
+      activeCheckoutBundleId: null,
       inventory: {
         basicPrism: 5,
         greaterPrism: 1,
         masteryPrism: 0,
         dewTonic: 3,
+        vitalTonic: 2,
         hiTonic: 1,
+        hyperTonic: 0,
         reviveLeaf: 1,
+        phoenixDew: 1,
+        sunberryRation: 3,
+        heartwoodStew: 1,
+        feastPlatter: 0,
         heartwoodBerry: 2,
-        apexNectar: 0
+        apexNectar: 0,
+        aetherCandy: 1,
+        apexTome: 0,
+        xpBooster2x: 0,
+        hatchAccelerator: 0
       },
       squad: [],
       vault: [],
@@ -469,6 +488,314 @@
     }, durationMs);
   }
 
+  function formatDurationMmSs(totalSec) {
+    const sec = Math.max(0, Math.ceil(Number(totalSec || 0)));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  function getPassiveRegenRatePerSec(targetState = state) {
+    const st = targetState || state;
+    const isHomestead = st && st.zone === 'meadow';
+    let rate = isHomestead ? (3 / 5) : (1 / 8); // +1 HP / 8s in wild, +3 HP / 5s at Grandpa's Homestead
+    if (st && st.regenBoostUntil && Number(st.regenBoostUntil) > Date.now()) {
+      rate *= 3; // 3x faster natural regen from Sunberry Ration!
+    }
+    return rate;
+  }
+
+  function getKinRecoveryEtaText(kin, targetState = state) {
+    if (!kin) return '';
+    if (kin.currentHp >= kin.maxHp) return '✓ Full HP';
+    const missing = Math.max(0, kin.maxHp - kin.currentHp);
+    const rate = getPassiveRegenRatePerSec(targetState);
+    const etaSec = Math.ceil(missing / Math.max(0.05, rate));
+    const boostActive = targetState && targetState.regenBoostUntil && Number(targetState.regenBoostUntil) > Date.now();
+    const prefix = kin.currentHp <= 0 ? '💤 Exhausted • ' : (boostActive ? '⚡ 3x Regen • ' : '⏱️ Regen ');
+    return prefix + formatDurationMmSs(etaSec);
+  }
+
+  function tickPassiveRecovery(targetState = state, elapsedSec = 8) {
+    const st = targetState || state;
+    if (!st || !Array.isArray(st.squad)) return { healedCount: 0, totalHpRestored: 0 };
+    if (st === state && battleState) return { healedCount: 0, totalHpRestored: 0 };
+
+    const rate = getPassiveRegenRatePerSec(st);
+    let healedCount = 0;
+    let totalHpRestored = 0;
+
+    st.squad.forEach((kin) => {
+      if (!kin || kin.currentHp >= kin.maxHp) {
+        if (kin) kin._regenFrac = 0;
+        return;
+      }
+      kin._regenFrac = Number(kin._regenFrac || 0) + rate * Number(elapsedSec || 0);
+      let gain = Math.floor(kin._regenFrac);
+      if (elapsedSec >= 8 && gain < 1) {
+        gain = 1;
+        kin._regenFrac = 0;
+      } else {
+        kin._regenFrac -= gain;
+      }
+      if (gain > 0) {
+        const before = kin.currentHp;
+        kin.currentHp = Math.min(kin.maxHp, kin.currentHp + gain);
+        const diff = kin.currentHp - before;
+        if (diff > 0) {
+          healedCount += 1;
+          totalHpRestored += diff;
+        }
+      }
+    });
+
+    if (totalHpRestored > 0 && st === state) {
+      updateHud();
+    }
+    return { healedCount, totalHpRestored };
+  }
+
+  function quickFeedOrHealKin(targetIdx = null) {
+    let idx = targetIdx;
+    if (idx === null || idx === undefined) {
+      let worstRatio = 2;
+      idx = 0;
+      (state.squad || []).forEach((k, i) => {
+        if (k && k.currentHp < k.maxHp) {
+          const r = k.currentHp / Math.max(1, k.maxHp);
+          if (r < worstRatio) {
+            worstRatio = r;
+            idx = i;
+          }
+        }
+      });
+    }
+    const kin = state.squad[idx];
+    if (!kin) return false;
+    const priorityOrder = kin.currentHp <= 0
+      ? ['phoenixDew', 'reviveLeaf', 'heartwoodStew', 'feastPlatter', 'sunberryRation']
+      : ['sunberryRation', 'heartwoodStew', 'vitalTonic', 'dewTonic', 'hiTonic', 'hyperTonic', 'heartwoodBerry', 'feastPlatter'];
+    const foundItem = priorityOrder.find((id) => (state.inventory[id] || 0) > 0);
+    if (foundItem) {
+      useRecoveryOrBoosterItem(foundItem, idx, state);
+      return true;
+    }
+    state.marketTab = 'recovery';
+    state.selectedMarketKinIdx = idx;
+    openModal('shop');
+    showToast('Out of recovery food in Pack! Opened 🛒 Aether Marketplace.', 3000);
+    return false;
+  }
+
+  function useRecoveryOrBoosterItem(itemId, kinIndex = 0, targetState = state) {
+    const st = targetState || state;
+    if (!st || !DATA || !DATA.ITEMS || !DATA.ITEMS[itemId]) {
+      return { ok: false, error: 'Unknown item' };
+    }
+    const item = DATA.ITEMS[itemId];
+    const owned = Number((st.inventory && st.inventory[itemId]) || 0);
+    if (owned <= 0) {
+      if (st === state) showToast(`Out of ${item.icon} ${item.name}! Buy more in the 🛒 Marketplace.`);
+      return { ok: false, error: 'Out of stock' };
+    }
+
+    const squad = st.squad || [];
+    const kin = squad[kinIndex] || squad[0] || null;
+
+    // 1. Whole-Squad Feast Platter
+    if (item.squadFullHeal) {
+      squad.forEach((k) => {
+        k.currentHp = k.maxHp;
+        k.status = null;
+        k.bondLevel = Math.min(10, Number(k.bondLevel || 1) + Number(item.bondGain || 1));
+        (k.moveSlots || []).forEach((ms) => {
+          const m = DATA.MOVES[ms.id];
+          ms.currentStamina = m ? m.stamina : ms.maxStamina;
+        });
+      });
+      st.inventory[itemId] = owned - 1;
+      const msg = `🍱 Used ${item.name}! Entire Squad restored to 100% HP & Stamina!`;
+      if (st === state) {
+        if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playShrineHeal();
+        saveGame();
+        updateHud();
+        showToast(msg, 3200);
+      }
+      return { ok: true, item, kin, message: msg };
+    }
+
+    // 2. Global Timed Boosters (2x XP Elixir or Hatch Accelerator)
+    if (item.xpBoostSec) {
+      st.xpBoostUntil = Math.max(Date.now(), Number(st.xpBoostUntil || 0)) + item.xpBoostSec * 1000;
+      st.inventory[itemId] = owned - 1;
+      const msg = `⚡ Activated ${item.name}! 2x Battle XP active for 30 minutes!`;
+      if (st === state) {
+        if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+        saveGame();
+        updateHud();
+        showToast(msg, 3200);
+      }
+      return { ok: true, item, kin, message: msg };
+    }
+
+    if (item.hatchBoost) {
+      st.hatchBoostReady = true;
+      st.inventory[itemId] = owned - 1;
+      const msg = `🥚 Activated ${item.name}! Next Ranch Breeding hatch is FREE & guaranteed S/SS-Rank!`;
+      if (st === state) {
+        if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+        saveGame();
+        updateHud();
+        showToast(msg, 3200);
+      }
+      return { ok: true, item, kin, message: msg };
+    }
+
+    if (!kin) {
+      return { ok: false, error: 'No target Kin in Squad' };
+    }
+
+    // 3. Instant Level-Up Boosters (Rare Aether Crystal +1 Lv, Sovereign XP Tome +3 Lvs)
+    if (item.levelGain) {
+      const gain = Number(item.levelGain || 1);
+      kin.level = Math.min(100, Number(kin.level || 5) + gain);
+      kin.xp = 0;
+      kin.xpToNext = DATA.xpForNextLevel(kin.level);
+      if (item.bondGain) {
+        kin.bondLevel = Math.min(10, Number(kin.bondLevel || 1) + Number(item.bondGain));
+      }
+      const sp = DATA.getSpeciesById(kin.speciesId);
+      const newStats = DATA.calculateStatsForLevel(sp.baseStats, kin.level, kin.isRadiant, kin.geneticBonus || 0, kin.bondLevel || 1);
+      kin.maxHp = newStats.maxHp;
+      kin.currentHp = newStats.maxHp;
+      kin.atk = newStats.atk;
+      kin.def = newStats.def;
+      kin.spd = newStats.spd;
+      kin.status = null;
+      (kin.moveSlots || []).forEach((ms) => {
+        const m = DATA.MOVES[ms.id];
+        ms.currentStamina = m ? m.stamina : ms.maxStamina;
+      });
+      if (sp.evolvesTo && kin.level >= sp.evolvesTo.level) {
+        const already = evoQueue.some((e) => e.kin.uid === kin.uid);
+        if (!already) evoQueue.push({ kin, fromSpeciesId: sp.id, toSpeciesId: sp.evolvesTo.id });
+      }
+      st.inventory[itemId] = owned - 1;
+      const msg = `${item.icon} ${kin.nickname} surged +${gain} Level${gain > 1 ? 's' : ''} → Lv.${kin.level} (100% HP)!`;
+      if (st === state) {
+        if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+        saveGame();
+        updateHud();
+        showToast(msg, 3200);
+      }
+      return { ok: true, item, kin, newLevel: kin.level, message: msg };
+    }
+
+    // 4. Food, Care, Medical Tonics & Revives
+    if (item.regenBoostSec) {
+      st.regenBoostUntil = Math.max(Date.now(), Number(st.regenBoostUntil || 0)) + item.regenBoostSec * 1000;
+    }
+    if (item.bondGain) {
+      kin.bondLevel = Math.min(10, Number(kin.bondLevel || 1) + Number(item.bondGain));
+    }
+    if (item.xpGain) {
+      kin.xp = (kin.xp || 0) + Number(item.xpGain);
+      while (kin.xp >= (kin.xpToNext || DATA.xpForNextLevel(kin.level))) {
+        kin.xp -= (kin.xpToNext || DATA.xpForNextLevel(kin.level));
+        kin.level += 1;
+        kin.xpToNext = DATA.xpForNextLevel(kin.level);
+      }
+      const sp = DATA.getSpeciesById(kin.speciesId);
+      const calc = DATA.calculateStatsForLevel(sp.baseStats, kin.level, kin.isRadiant, kin.geneticBonus || 0, kin.bondLevel || 1);
+      kin.maxHp = calc.maxHp;
+      kin.atk = calc.atk;
+      kin.def = calc.def;
+      kin.spd = calc.spd;
+    }
+
+    const beforeHp = kin.currentHp;
+    if (item.healPercent) {
+      const targetHp = Math.max(1, Math.round(kin.maxHp * Number(item.healPercent)));
+      kin.currentHp = Math.min(kin.maxHp, Math.max(kin.currentHp, targetHp));
+      if (item.healPercent >= 1.0) kin.currentHp = kin.maxHp;
+    } else if (item.healAmount) {
+      kin.currentHp = Math.min(kin.maxHp, Math.max(0, kin.currentHp) + Number(item.healAmount));
+    }
+    kin.status = null;
+    if (item.restoreStamina || item.category === 'food') {
+      (kin.moveSlots || []).forEach((ms) => {
+        const m = DATA.MOVES[ms.id];
+        ms.currentStamina = m ? m.stamina : ms.maxStamina;
+      });
+    }
+
+    st.inventory[itemId] = owned - 1;
+    const healedDelta = Math.max(0, kin.currentHp - beforeHp);
+    const msg = `${item.icon} Used ${item.name} on ${kin.nickname}! HP ${kin.currentHp}/${kin.maxHp} (+${healedDelta} HP)${item.regenBoostSec ? ' • 3x Regen Active!' : ''}`;
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playShrineHeal();
+      saveGame();
+      updateHud();
+      showToast(msg, 3000);
+    }
+    return { ok: true, item, kin, healedDelta, message: msg };
+  }
+
+  async function purchaseUsdBundle(bundleId, paymentMethod = 'apple_pay', targetState = state) {
+    const st = targetState || state;
+    const bundles = (DATA && DATA.MARKETPLACE_BUNDLES) || [];
+    const bundle = bundles.find((b) => b.id === bundleId);
+    if (!bundle) return { ok: false, error: 'Invalid bundleId' };
+
+    let serverOrder = null;
+    if (typeof fetch === 'function') {
+      try {
+        const res = await fetch('/api/marketplace/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bundleId: bundle.id,
+            paymentMethod,
+            trainerName: st.trainerName || 'Aether Tamer'
+          })
+        });
+        const data = await res.json();
+        if (data && data.ok && data.order) {
+          serverOrder = data.order;
+        }
+      } catch (_err) {
+        // Fallback to local grant if offline
+      }
+    }
+
+    st.gems = Number(st.gems || 0) + Number(bundle.gems || 0);
+    st.shards = Number(st.shards || 0) + Number(bundle.shardsBonus || 0);
+    if (bundle.vipShrinePass) {
+      st.vipShrinePass = true;
+      st.shrineCooldownUntil = 0;
+    }
+    if (bundle.items && st.inventory) {
+      Object.entries(bundle.items).forEach(([k, qty]) => {
+        st.inventory[k] = Number(st.inventory[k] || 0) + Number(qty || 0);
+      });
+    }
+    st.activeCheckoutBundleId = null;
+
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      showToast(`💎 Unlocked ${bundle.name} (${bundle.priceDisplay})! +${bundle.gems} Gems & Bonus Items added!`, 3800);
+    }
+    return {
+      ok: true,
+      bundle,
+      order: serverOrder,
+      gemsBalance: st.gems,
+      shardsBalance: st.shards
+    };
+  }
+
   function getZoneObj(zoneId) {
     if (!DATA || !DATA.ZONES) return { id: 'meadow', name: 'Sunleaf Meadow', levelRange: [2, 7], wildPool: [{ id: 10, weight: 50 }] };
     return DATA.ZONES.find((z) => z.id === zoneId) || DATA.ZONES[0];
@@ -481,7 +808,13 @@
     if (zoneEl) zoneEl.textContent = zoneObj.name;
 
     const shardsEl = $('hudShards');
-    if (shardsEl) shardsEl.textContent = String(state.shards);
+    if (shardsEl) shardsEl.textContent = String(state.shards || 0);
+
+    const gemsEl = $('hudGems');
+    if (gemsEl) {
+      if (state.gems === undefined || state.gems === null) state.gems = 50;
+      gemsEl.textContent = String(state.gems);
+    }
 
     const crestsEl = $('hudCrests');
     const totalWardens = (DATA && DATA.WARDENS && DATA.WARDENS.length) || 6;
@@ -498,9 +831,29 @@
       if (lead && DATA && root.WILDKIN_SPRITES) {
         const sp = DATA.getSpeciesById(lead.speciesId);
         const svg = root.WILDKIN_SPRITES.renderKinSvg(sp, 22, lead.isRadiant);
-        leadMini.innerHTML = `${svg} <span>${lead.nickname} <small style="color:#facc15">Lv.${lead.level}</small> (${lead.currentHp}/${lead.maxHp})</span>`;
+        const regenBadge = lead.currentHp < lead.maxHp
+          ? ` <span class="regen-timer-pill">${getKinRecoveryEtaText(lead)}</span>`
+          : '';
+        leadMini.innerHTML = `${svg} <span>${lead.nickname} <small style="color:#facc15">Lv.${lead.level}</small> (${lead.currentHp}/${lead.maxHp} HP)${regenBadge}</span>`;
       } else {
         leadMini.textContent = 'No Partner Bound';
+      }
+    }
+
+    // Contextual Vitality Recovery Alert Banner when any Squad Kin is wounded or exhausted
+    const recBanner = $('recoveryAlertBanner');
+    const recText = $('recoveryAlertText');
+    if (recBanner) {
+      const woundedList = (state.squad || []).filter((k) => k && k.currentHp < k.maxHp);
+      if (state.started && !battleState && woundedList.length > 0) {
+        woundedList.sort((a, b) => (a.currentHp / a.maxHp) - (b.currentHp / b.maxHp));
+        const worst = woundedList[0];
+        if (recText) {
+          recText.textContent = `${worst.nickname}: ${worst.currentHp}/${worst.maxHp} HP (${getKinRecoveryEtaText(worst)})`;
+        }
+        recBanner.classList.remove('hidden');
+      } else {
+        recBanner.classList.add('hidden');
       }
     }
 
@@ -760,7 +1113,24 @@
     drawPlayer(ctx, state.pos.x * tileW, state.pos.y * tileH, size, state.pos.dir, animTick);
   }
 
-  function healSquadAtShrine(silent = false) {
+  function healSquadAtShrine(silent = false, bypassWithGems = false) {
+    const now = Date.now();
+    const cooldownRemSec = Math.ceil((Number(state.shrineCooldownUntil || 0) - now) / 1000);
+    if (!silent && !state.vipShrinePass && cooldownRemSec > 0) {
+      if (bypassWithGems) {
+        if ((state.gems || 0) < 10) {
+          showToast('Need 10 💎 Aether Gems for an Instant Shrine Blessing, or use Food!');
+          return false;
+        }
+        state.gems -= 10;
+        state.shrineCooldownUntil = 0;
+      } else {
+        showToast(`⛲ Shrine recharging (${formatDurationMmSs(cooldownRemSec)})! Feed your Kin or use Marketplace Recovery!`, 3400);
+        openModal('shop');
+        return false;
+      }
+    }
+
     state.squad.forEach((kin) => {
       kin.currentHp = kin.maxHp;
       kin.status = null;
@@ -769,14 +1139,22 @@
         ms.currentStamina = m ? m.stamina : ms.maxStamina;
       });
     });
+    if (!silent && !state.vipShrinePass) {
+      state.shrineCooldownUntil = now + 15 * 60 * 1000; // 15-minute Shrine blessing cooldown
+    }
     if (root.WILDKIN_AUDIO && !silent) {
       root.WILDKIN_AUDIO.playShrineHeal();
     }
     saveGame();
     updateHud();
     if (!silent) {
-      showToast('⛲ Wellspring Shrine restored all Squad HP, Stamina & Status!');
+      showToast(
+        bypassWithGems
+          ? '⛲ Instant Shrine Blessing (10 💎)! Entire Squad restored to 100% HP & Stamina!'
+          : '⛲ Wellspring Shrine restored all Squad HP & Stamina! (Next free blessing in 15:00)'
+      );
     }
+    return true;
   }
 
   function travelToZone(targetZoneId) {
@@ -1274,13 +1652,17 @@
         });
       });
     } else if (battleState.activeTab === 'pack') {
-      const itemKeys = ['basicPrism', 'greaterPrism', 'masteryPrism', 'dewTonic', 'hiTonic', 'reviveLeaf'];
+      const itemKeys = [
+        'basicPrism', 'greaterPrism', 'masteryPrism',
+        'sunberryRation', 'heartwoodStew', 'feastPlatter',
+        'dewTonic', 'hiTonic', 'hyperTonic', 'reviveLeaf', 'phoenixDew'
+      ].filter((k, i, arr) => DATA.ITEMS[k] && (i < 6 || (state.inventory[k] || 0) > 0));
       deck.innerHTML = itemKeys.map((key) => {
         const item = DATA.ITEMS[key];
         const count = state.inventory[key] || 0;
         const extra = item.category === 'prism'
           ? (battleState.mode === 'wild' ? `${Math.round(calculateCatchChance(enemy, item) * 100)}% Bind` : 'Wild Only')
-          : `+${item.healAmount || '50%'} HP`;
+          : (item.squadFullHeal ? 'Squad 100% HP' : item.healPercent ? `${Math.round(item.healPercent * 100)}% HP` : `+${item.healAmount || 35} HP`);
         return `
           <button type="button" class="pack-btn" data-item-id="${key}" ${count <= 0 ? 'style="opacity:0.45"' : ''}>
             <div class="move-btn-top">
@@ -1585,18 +1967,39 @@
     battleState.busy = true;
     setBattleTurnBanner('phase-player', 'TURN 1 • PACK ITEM', `Using ${item.name}...`);
 
-    if (item.category === 'revive') {
-      const target = state.squad.find((k) => k.currentHp <= 0) || player;
-      target.currentHp = Math.max(1, Math.floor(target.maxHp * (item.healPercent || 0.5)));
-      target.status = null;
+    if (item.squadFullHeal) {
+      state.squad.forEach((k) => {
+        k.currentHp = k.maxHp;
+        k.status = null;
+        (k.moveSlots || []).forEach((ms) => {
+          const m = DATA.MOVES[ms.id];
+          ms.currentStamina = m ? m.stamina : ms.maxStamina;
+        });
+      });
       if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playShrineHeal();
-      setBattleLog(`🍃 Used ${item.name} on ${target.nickname}! Restored to ${target.currentHp} HP!`);
+      setBattleLog(`🍱 Used ${item.name}! Entire Squad restored to 100% HP & Stamina!`);
+    } else if (item.category === 'revive' || item.healPercent) {
+      const target = (item.category === 'revive' ? state.squad.find((k) => k.currentHp <= 0) : null) || player;
+      target.currentHp = Math.max(1, Math.round(target.maxHp * (item.healPercent || 0.5)));
+      target.status = null;
+      if (item.restoreStamina || item.category === 'food') {
+        (target.moveSlots || []).forEach((ms) => {
+          const m = DATA.MOVES[ms.id];
+          ms.currentStamina = m ? m.stamina : ms.maxStamina;
+        });
+      }
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playShrineHeal();
+      setBattleLog(`${item.icon} Used ${item.name} on ${target.nickname}! Restored to ${target.currentHp}/${target.maxHp} HP!`);
     } else {
-      const healed = Math.min(player.maxHp - player.currentHp, item.healAmount || 35);
-      player.currentHp = Math.min(player.maxHp, player.currentHp + (item.healAmount || 35));
+      if (item.regenBoostSec) {
+        state.regenBoostUntil = Math.max(Date.now(), Number(state.regenBoostUntil || 0)) + item.regenBoostSec * 1000;
+      }
+      const amt = item.healAmount || 35;
+      const healed = Math.min(player.maxHp - player.currentHp, amt);
+      player.currentHp = Math.min(player.maxHp, player.currentHp + amt);
       player.status = null;
       if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playShrineHeal();
-      setBattleLog(`🧪 Used ${item.name}! ${player.nickname} recovered ${healed} HP & cured status!`);
+      setBattleLog(`${item.icon} Used ${item.name}! ${player.nickname} recovered ${healed} HP & cured status!`);
     }
 
     renderBattleUI();
@@ -1726,7 +2129,9 @@
   function grantXpToActiveKin(xpAmount) {
     const player = state.squad[battleState ? battleState.playerIndex : 0];
     if (!player || !DATA) return { leveledUp: false };
-    player.xp = (player.xp || 0) + xpAmount;
+    const mult = (state.xpBoostUntil && Number(state.xpBoostUntil) > Date.now()) ? 2 : 1;
+    const finalXp = Math.round(xpAmount * mult);
+    player.xp = (player.xp || 0) + finalXp;
     let leveledUp = false;
 
     while (player.xp >= (player.xpToNext || DATA.xpForNextLevel(player.level))) {
@@ -1903,19 +2308,28 @@
     if (backdrop) backdrop.classList.add('hidden');
   }
 
-  function buyShopItem(itemId) {
+  function buyShopItem(itemId, payWithGems = false) {
     if (!DATA || !DATA.ITEMS[itemId]) return false;
     const item = DATA.ITEMS[itemId];
-    if (state.shards < item.cost) {
-      showToast(`Need ${item.cost}💎 Aether Shards to buy ${item.name}!`);
-      return false;
+    if (payWithGems) {
+      const gCost = Number(item.gemCost || Math.max(1, Math.ceil((item.cost || 40) / 8)));
+      if ((state.gems || 0) < gCost) {
+        showToast(`Need ${gCost} 💎 Aether Gems! Visit the Gem Store tab to top up.`);
+        return false;
+      }
+      state.gems -= gCost;
+    } else {
+      if ((state.shards || 0) < item.cost) {
+        showToast(`Need ${item.cost} 🪙 Shards to buy ${item.name}!`);
+        return false;
+      }
+      state.shards -= item.cost;
     }
-    state.shards -= item.cost;
     state.inventory[itemId] = (state.inventory[itemId] || 0) + 1;
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(720, 0.06);
     saveGame();
     updateHud();
-    showToast(`🛒 Purchased ${item.icon} ${item.name}! (x${state.inventory[itemId]})`);
+    showToast(`🛒 Purchased ${item.icon} ${item.name}! (In Pack: x${state.inventory[itemId]})`);
     return true;
   }
 
@@ -1942,9 +2356,11 @@
                 <div style="font-weight:800;font-size:0.8rem">${kin.nickname} ${kin.isRadiant ? '✨' : ''} <span class="genetic-badge" style="color:${(DATA.GENETIC_TIERS && DATA.GENETIC_TIERS[kin.geneticTier || 'B'] && DATA.GENETIC_TIERS[kin.geneticTier || 'B'].color) || '#94a3b8'}">${kin.geneticTier || 'B'}-Rank</span></div>
                 <div style="font-size:0.68rem;color:#facc15">Lv.${kin.level} • ${aff.icon} ${aff.name} • ❤️ Bond ${kin.bondLevel || 1}/10</div>
                 <div style="font-size:0.64rem;color:#cbd5e1">HP ${kin.currentHp}/${kin.maxHp} • ATK ${kin.atk}${kin.generation > 1 ? ` • Gen ${kin.generation}` : ''}</div>
+                ${!isVault && kin.currentHp < kin.maxHp ? `<div style="margin-top:2px"><span class="regen-timer-pill">${getKinRecoveryEtaText(kin)}</span></div>` : ''}
               </div>
             </div>
             <div class="mini-btn-row">
+              ${!isVault && kin.currentHp < kin.maxHp ? `<button class="mini-btn" style="background:#16a34a" data-quick-heal-idx="${idx}">🍖 Feed / Heal</button>` : ''}
               ${!isVault && idx > 0 ? `<button class="mini-btn" data-lead-idx="${idx}">Make Lead</button>` : ''}
               ${!isVault && state.squad.length > 1 ? `<button class="mini-btn secondary" data-to-vault="${idx}">To Vault</button>` : ''}
               ${isVault && state.squad.length < 6 ? `<button class="mini-btn" data-to-squad="${idx}">To Squad</button>` : ''}
@@ -1995,6 +2411,13 @@
           openModal('squad');
         });
       });
+      bodyEl.querySelectorAll('[data-quick-heal-idx]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const i = Number(btn.getAttribute('data-quick-heal-idx'));
+          quickFeedOrHealKin(i);
+          openModal('squad');
+        });
+      });
     } else if (tab === 'kindex') {
       const boundCount = Object.keys(state.kindexBound).length;
       const seenCount = Object.keys(state.kindexSeen).length;
@@ -2024,34 +2447,259 @@
           }).join('')}
         </div>
       `;
-    } else if (tab === 'shop') {
-      titleEl.textContent = `🛒 Prism & Tonic Emporium (Balance: ${state.shards}💎)`;
-      bodyEl.innerHTML = `
-        <div class="card-grid">
-          ${Object.values(DATA.ITEMS).map((item) => {
-            const owned = state.inventory[item.id] || 0;
-            return `
-              <div class="shop-card">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <strong style="font-size:0.78rem">${item.icon} ${item.name}</strong>
-                  <span style="color:#facc15;font-weight:800;font-size:0.74rem">${item.cost}💎</span>
-                </div>
-                <div style="font-size:0.64rem;color:#cbd5e1">${item.desc}</div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-                  <small style="color:#94a3b8">In Pack: x${owned}</small>
-                  <button class="mini-btn" data-buy-id="${item.id}" style="flex:0 0 auto">Buy +1</button>
-                </div>
-              </div>
-            `;
-          }).join('')}
+    } else if (tab === 'shop' || tab === 'market') {
+      const mTab = state.marketTab || 'recovery';
+      if (state.gems === undefined || state.gems === null) state.gems = 50;
+      const selKinIdx = Math.max(0, Math.min((state.squad.length || 1) - 1, Number(state.selectedMarketKinIdx || 0)));
+      const selKin = state.squad[selKinIdx] || state.squad[0];
+
+      titleEl.textContent = `🛒 Aether Marketplace (🪙 ${state.shards} Shards • 💎 ${state.gems} Gems)`;
+
+      // Squad Vitality & Target Selector Strip
+      const squadStripHtml = `
+        <div class="ranch-banner" style="margin-bottom:8px;border-color:rgba(56,189,248,0.45)">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+            <strong style="font-size:0.76rem;color:#fde047">🐾 Target Squad Kin for Instant Food / Level-Up:</strong>
+            <div style="display:flex;gap:6px;align-items:center">
+              ${state.vipShrinePass
+                ? '<span class="regen-timer-pill" style="color:#4ade80;border-color:#4ade80">👑 VIP Shrine Pass Active</span>'
+                : `<button class="mini-btn" id="btnMarketShrineBypass" style="background:#0284c7;padding:4px 8px">⛲ Full Squad Blessing (10 💎)</button>`
+              }
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:6px;margin-top:4px">
+            ${state.squad.map((k, idx) => {
+              const isSel = idx === selKinIdx;
+              const hpPct = Math.round((k.currentHp / Math.max(1, k.maxHp)) * 100);
+              return `
+                <button type="button" class="mini-btn ${isSel ? '' : 'secondary'}" data-select-market-kin="${idx}" style="text-align:left;padding:6px 8px;border:${isSel ? '1.5px solid #facc15' : '1px solid rgba(148,163,184,0.3)'}">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span>${isSel ? '🎯 ' : ''}${k.nickname}</span>
+                    <small style="color:#fde047">Lv.${k.level}</small>
+                  </div>
+                  <div style="font-size:0.62rem;color:${hpPct < 100 ? '#fca5a5' : '#86efac'}">
+                    HP ${k.currentHp}/${k.maxHp} • ${getKinRecoveryEtaText(k)}
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
         </div>
       `;
+
+      const tabBarHtml = `
+        <div class="market-tab-bar">
+          <button type="button" class="market-tab-btn ${mTab === 'recovery' ? 'active' : ''}" data-mtab="recovery">🍖 Food &amp; Recovery</button>
+          <button type="button" class="market-tab-btn ${mTab === 'boosters' ? 'active' : ''}" data-mtab="boosters">⚡ Level-Up &amp; Prisms</button>
+          <button type="button" class="market-tab-btn ${mTab === 'gems' ? 'active' : ''}" data-mtab="gems">💎 Gem Store (USD)</button>
+        </div>
+      `;
+
+      let tabContentHtml = '';
+
+      if (mTab === 'recovery') {
+        const recKeys = [
+          'sunberryRation', 'heartwoodStew', 'feastPlatter',
+          'vitalTonic', 'hyperTonic', 'phoenixDew',
+          'dewTonic', 'hiTonic', 'reviveLeaf',
+          'heartwoodBerry', 'apexNectar'
+        ].filter((k) => DATA.ITEMS[k]);
+
+        tabContentHtml = `
+          <div class="card-grid">
+            ${recKeys.map((key) => {
+              const item = DATA.ITEMS[key];
+              const owned = state.inventory[item.id] || 0;
+              const gCost = item.gemCost || Math.max(1, Math.ceil(item.cost / 8));
+              return `
+                <div class="shop-card">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <strong style="font-size:0.78rem;color:${item.color || '#f8fafc'}">${item.icon} ${item.name}</strong>
+                    <span style="font-size:0.68rem;color:#94a3b8">Bag: <strong style="color:#fde047">x${owned}</strong></span>
+                  </div>
+                  <div style="font-size:0.64rem;color:#cbd5e1;line-height:1.3">${item.desc}</div>
+                  <div class="mini-btn-row" style="margin-top:4px">
+                    <button class="mini-btn" data-buy-id="${item.id}">🪙 ${item.cost}</button>
+                    <button class="mini-btn secondary" data-buy-gem-id="${item.id}" style="background:#7e22ce">💎 ${gCost}</button>
+                    <button class="mini-btn" data-use-market-id="${item.id}" style="background:${owned > 0 ? '#16a34a' : '#334155'}">
+                      ✨ ${owned > 0 ? `Use on ${item.squadFullHeal ? 'Squad' : (selKin ? selKin.nickname : 'Kin')}` : 'Buy & Use'}
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } else if (mTab === 'boosters') {
+        const boostKeys = [
+          'aetherCandy', 'apexTome', 'xpBooster2x', 'hatchAccelerator',
+          'basicPrism', 'greaterPrism', 'masteryPrism'
+        ].filter((k) => DATA.ITEMS[k]);
+
+        const xpRem = Math.max(0, Math.ceil((Number(state.xpBoostUntil || 0) - Date.now()) / 1000));
+        const regRem = Math.max(0, Math.ceil((Number(state.regenBoostUntil || 0) - Date.now()) / 1000));
+
+        tabContentHtml = `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:0.68rem">
+            <span class="regen-timer-pill" style="color:#fde047">⚡ 2x XP Surge: ${xpRem > 0 ? formatDurationMmSs(xpRem) : 'Inactive'}</span>
+            <span class="regen-timer-pill" style="color:#fb923c">🍖 3x Natural Regen: ${regRem > 0 ? formatDurationMmSs(regRem) : 'Inactive'}</span>
+            <span class="regen-timer-pill" style="color:#4ade80">🥚 Ranch Speed Core: ${state.hatchBoostReady ? 'READY (Next Hatch S/SS)' : 'Inactive'}</span>
+          </div>
+          <div class="card-grid">
+            ${boostKeys.map((key) => {
+              const item = DATA.ITEMS[key];
+              const owned = state.inventory[item.id] || 0;
+              const gCost = item.gemCost || Math.max(1, Math.ceil(item.cost / 8));
+              const canUseDirect = item.category === 'booster';
+              return `
+                <div class="shop-card">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <strong style="font-size:0.78rem;color:${item.color || '#f8fafc'}">${item.icon} ${item.name}</strong>
+                    <span style="font-size:0.68rem;color:#94a3b8">Bag: <strong style="color:#fde047">x${owned}</strong></span>
+                  </div>
+                  <div style="font-size:0.64rem;color:#cbd5e1;line-height:1.3">${item.desc}</div>
+                  <div class="mini-btn-row" style="margin-top:4px">
+                    <button class="mini-btn" data-buy-id="${item.id}">🪙 ${item.cost}</button>
+                    <button class="mini-btn secondary" data-buy-gem-id="${item.id}" style="background:#7e22ce">💎 ${gCost}</button>
+                    ${canUseDirect ? `
+                      <button class="mini-btn" data-use-market-id="${item.id}" style="background:${owned > 0 ? '#0284c7' : '#334155'}">
+                        ⚡ ${owned > 0 ? (item.levelGain ? `Lv Up ${selKin ? selKin.nickname : 'Kin'}` : 'Activate') : 'Buy & Use'}
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } else {
+        const bundles = DATA.MARKETPLACE_BUNDLES || [];
+        const activeBundle = bundles.find((b) => b.id === state.activeCheckoutBundleId) || null;
+        const checkoutSheetHtml = activeBundle ? `
+          <div class="checkout-drawer-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <strong style="font-size:0.84rem;color:#fde047">💳 Instant Mobile Checkout — ${activeBundle.name} (${activeBundle.priceDisplay})</strong>
+              <button type="button" class="mini-btn secondary" id="btnCancelCheckout" style="flex:0 0 auto">Cancel</button>
+            </div>
+            <div style="font-size:0.68rem;color:#cbd5e1;margin-bottom:8px">${activeBundle.desc}</div>
+            <div class="mini-btn-row">
+              <button type="button" class="primary-cta" id="btnConfirmApplePay" style="padding:8px 12px;font-size:0.75rem;background:linear-gradient(135deg,#111827,#374151);border:1.5px solid #f8fafc">
+                 Pay ${activeBundle.priceDisplay} with Apple Pay
+              </button>
+              <button type="button" class="primary-cta" id="btnConfirmCardPay" style="padding:8px 12px;font-size:0.75rem">
+                💳 Pay ${activeBundle.priceDisplay} with Card
+              </button>
+            </div>
+          </div>
+        ` : '';
+
+        tabContentHtml = `
+          ${checkoutSheetHtml}
+          <div class="usd-bundle-grid">
+            ${bundles.map((b) => `
+              <div class="usd-bundle-card" style="border-color:${b.color || '#a855f7'}">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                    <span class="usd-bundle-badge">${b.badge}</span>
+                    <strong style="color:#4ade80;font-size:0.88rem">${b.priceDisplay}</strong>
+                  </div>
+                  <div style="font-weight:900;font-size:0.84rem;color:#ffffff;margin-bottom:4px">${b.icon} ${b.name}</div>
+                  <div style="font-size:0.66rem;color:#cbd5e1;line-height:1.35">${b.desc}</div>
+                </div>
+                <button type="button" class="primary-cta" data-checkout-bundle="${b.id}" style="padding:8px 10px;font-size:0.74rem">
+                  💎 Buy Pack (${b.priceDisplay})
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      bodyEl.innerHTML = squadStripHtml + tabBarHtml + tabContentHtml;
+
+      bodyEl.querySelectorAll('[data-mtab]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.marketTab = btn.getAttribute('data-mtab');
+          openModal('shop');
+        });
+      });
+
+      bodyEl.querySelectorAll('[data-select-market-kin]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.selectedMarketKinIdx = Number(btn.getAttribute('data-select-market-kin'));
+          openModal('shop');
+        });
+      });
+
+      const shrineBypassBtn = $('btnMarketShrineBypass');
+      if (shrineBypassBtn) {
+        shrineBypassBtn.addEventListener('click', () => {
+          if (healSquadAtShrine(false, true)) openModal('shop');
+        });
+      }
+
       bodyEl.querySelectorAll('[data-buy-id]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-buy-id');
-          if (buyShopItem(id)) openModal('shop');
+          if (buyShopItem(id, false)) openModal('shop');
         });
       });
+
+      bodyEl.querySelectorAll('[data-buy-gem-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-buy-gem-id');
+          if (buyShopItem(id, true)) openModal('shop');
+        });
+      });
+
+      bodyEl.querySelectorAll('[data-use-market-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-use-market-id');
+          if ((state.inventory[id] || 0) <= 0) {
+            if (!buyShopItem(id, false) && !buyShopItem(id, true)) return;
+          }
+          const res = useRecoveryOrBoosterItem(id, selKinIdx, state);
+          if (res.ok) {
+            if (evoQueue.length > 0) {
+              closeModal();
+              triggerNextEvolution();
+            } else {
+              openModal('shop');
+            }
+          }
+        });
+      });
+
+      bodyEl.querySelectorAll('[data-checkout-bundle]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.activeCheckoutBundleId = btn.getAttribute('data-checkout-bundle');
+          openModal('shop');
+        });
+      });
+
+      const cancelCheckoutBtn = $('btnCancelCheckout');
+      if (cancelCheckoutBtn) {
+        cancelCheckoutBtn.addEventListener('click', () => {
+          state.activeCheckoutBundleId = null;
+          openModal('shop');
+        });
+      }
+
+      const applePayBtn = $('btnConfirmApplePay');
+      if (applePayBtn && state.activeCheckoutBundleId) {
+        applePayBtn.addEventListener('click', async () => {
+          await purchaseUsdBundle(state.activeCheckoutBundleId, 'apple_pay', state);
+          openModal('shop');
+        });
+      }
+
+      const cardPayBtn = $('btnConfirmCardPay');
+      if (cardPayBtn && state.activeCheckoutBundleId) {
+        cardPayBtn.addEventListener('click', async () => {
+          await purchaseUsdBundle(state.activeCheckoutBundleId, 'card', state);
+          openModal('shop');
+        });
+      }
     } else if (tab === 'zones') {
       titleEl.textContent = '🗺️ Aether Realm Sanctuaries (Fast Travel)';
       bodyEl.innerHTML = `
@@ -2368,12 +3016,14 @@
             showToast('Choose two different Kin as Parent A and Parent B!');
             return;
           }
-          if (state.shards < 100) {
-            showToast('Need 100💎 Aether Shards for Breeding Sanctuary incubation!');
+          const freeBoost = Boolean(state.hatchBoostReady);
+          if (!freeBoost && state.shards < 100) {
+            showToast('Need 100 🪙 Aether Shards (or an 🥚 Incubator Speed Core) for Breeding!');
             return;
           }
-          state.shards -= 100;
-          const offspring = DATA.breedKinOffspring(parentA, parentB);
+          if (!freeBoost) state.shards -= 100;
+          state.hatchBoostReady = false;
+          const offspring = DATA.breedKinOffspring(parentA, parentB, freeBoost ? { guaranteedApex: true } : {});
           state.stats.kinBred = (state.stats.kinBred || 0) + 1;
           markBound(offspring.speciesId);
 
@@ -2675,6 +3325,29 @@
         openModal('ranch');
       });
     }
+    const btnTopMarket = $("btnTopMarket");
+    if (btnTopMarket) {
+      btnTopMarket.addEventListener("click", (e) => {
+        e.stopPropagation();
+        state.marketTab = 'gems';
+        openModal('shop');
+      });
+    }
+    const btnQuickFeedNow = $("btnQuickFeedNow");
+    if (btnQuickFeedNow) {
+      btnQuickFeedNow.addEventListener("click", (e) => {
+        e.stopPropagation();
+        quickFeedOrHealKin();
+      });
+    }
+    const btnQuickOpenMarket = $("btnQuickOpenMarket");
+    if (btnQuickOpenMarket) {
+      btnQuickOpenMarket.addEventListener("click", (e) => {
+        e.stopPropagation();
+        state.marketTab = 'recovery';
+        openModal('shop');
+      });
+    }
     const questTrackerHud = $("questTrackerHud");
     if (questTrackerHud) {
       questTrackerHud.addEventListener("click", (e) => {
@@ -2703,7 +3376,7 @@
     if (viewport) {
       viewport.addEventListener("pointerdown", (e) => {
         if (!state.started || battleState || activeEvo) return;
-        if (e.target && e.target.closest("button, .overlay-screen, .overworld-hud, .world-action-bar")) return;
+        if (e.target && e.target.closest("button, .overlay-screen, .overworld-hud, .world-action-bar, .recovery-alert-banner")) return;
 
         dragSteer.active = true;
         dragSteer.pointerId = e.pointerId;
@@ -2995,6 +3668,9 @@
       lastFrameTime = tNow;
 
       updateContinuous3DMovement(dtSec);
+      if (state.started && !battleState) {
+        tickPassiveRecovery(state, dtSec);
+      }
       renderOverworld();
 
       if (root.WILDKIN_3D && root.WILDKIN_MAPS) {
@@ -3043,6 +3719,10 @@
     movePlayer,
     interact,
     healSquadAtShrine,
+    tickPassiveRecovery,
+    useRecoveryOrBoosterItem,
+    purchaseUsdBundle,
+    getKinRecoveryEtaText,
     buyShopItem,
     startWildEncounter,
     startWardenBattle,

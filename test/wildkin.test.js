@@ -369,6 +369,73 @@ describe('4. public/js/renderer3d.js & Turn-by-Turn 3D Combat / Procedural Surfa
     assert.ok(gameSrc.includes('spawnBattleDamagePopup'), 'game.js should spawn floating 3D battle damage popups');
     assert.equal(typeof WildkinGame.selectStarter, 'function');
   });
+
+  it('supports Passive Natural HP Regeneration (tickPassiveRecovery) and Food / Level-Up Booster items (sunberryRation, heartwoodStew, feastPlatter, phoenixDew, aetherCandy, apexTome, xpBooster2x)', () => {
+    const st = WildkinGame.createInitialState(4); // Cinderkit starter
+    const lead = st.squad[0];
+    assert.ok(lead, 'Expected starter Kin in squad');
+    const maxHp = lead.maxHp;
+
+    // 1. Wounded Kin recovers HP via passive timed regeneration
+    lead.currentHp = 5;
+    st.zone = 'tidecove'; // standard wild zone (+1 HP / 8s)
+    const tickRes = WildkinGame.tickPassiveRecovery(st, 16);
+    assert.equal(tickRes.healedCount, 1);
+    assert.ok(lead.currentHp >= 7, 'Expected passive recovery to restore at least +2 HP over 16s');
+
+    // 2. Sunberry Ration restores 45 HP and activates 3x natural regen boost
+    lead.currentHp = 2;
+    st.inventory.sunberryRation = 2;
+    const rationRes = WildkinGame.useRecoveryOrBoosterItem('sunberryRation', 0, st);
+    assert.equal(rationRes.ok, true);
+    assert.equal(lead.currentHp, maxHp);
+    assert.ok(st.regenBoostUntil > Date.now(), 'Sunberry Ration should activate 3x natural regen timer');
+
+    // 3. Phoenix Aether Dew revives a 0 HP fainted Kin to 100% HP
+    lead.currentHp = 0;
+    st.inventory.phoenixDew = 1;
+    const dewRes = WildkinGame.useRecoveryOrBoosterItem('phoenixDew', 0, st);
+    assert.equal(dewRes.ok, true);
+    assert.equal(lead.currentHp, maxHp);
+
+    // 4. Grandpa's Heartwood Stew restores 100% HP and raises Bond Level
+    lead.currentHp = 1;
+    const prevBond = lead.bondLevel || 1;
+    st.inventory.heartwoodStew = 1;
+    const stewRes = WildkinGame.useRecoveryOrBoosterItem('heartwoodStew', 0, st);
+    assert.equal(stewRes.ok, true);
+    assert.equal(lead.currentHp, maxHp);
+    assert.ok(lead.bondLevel > prevBond, 'Heartwood Stew should increase Bond Level');
+
+    // 5. Homestead Feast Platter heals the entire Squad to 100% HP
+    const partner2 = WildkinData.createKinInstance(7, 6);
+    partner2.currentHp = 0;
+    lead.currentHp = 3;
+    st.squad.push(partner2);
+    st.inventory.feastPlatter = 1;
+    const feastRes = WildkinGame.useRecoveryOrBoosterItem('feastPlatter', 0, st);
+    assert.equal(feastRes.ok, true);
+    assert.equal(lead.currentHp, lead.maxHp);
+    assert.equal(partner2.currentHp, partner2.maxHp);
+
+    // 6. Rare Aether Crystal (aetherCandy) grants +1 Full Level and Sovereign XP Tome (apexTome) grants +3 Full Levels
+    const lvBefore = lead.level;
+    st.inventory.aetherCandy = 1;
+    const candyRes = WildkinGame.useRecoveryOrBoosterItem('aetherCandy', 0, st);
+    assert.equal(candyRes.ok, true);
+    assert.equal(lead.level, lvBefore + 1);
+
+    st.inventory.apexTome = 1;
+    const tomeRes = WildkinGame.useRecoveryOrBoosterItem('apexTome', 0, st);
+    assert.equal(tomeRes.ok, true);
+    assert.equal(lead.level, lvBefore + 4);
+
+    // 7. 2x XP Surge Elixir activates 30-min XP multiplier
+    st.inventory.xpBooster2x = 1;
+    const xpRes = WildkinGame.useRecoveryOrBoosterItem('xpBooster2x', 0, st);
+    assert.equal(xpRes.ok, true);
+    assert.ok(st.xpBoostUntil > Date.now(), '2x XP Surge Elixir should set xpBoostUntil');
+  });
 });
 
 describe('5. IP Hygiene Scan across all files in public/', () => {
@@ -555,5 +622,30 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     const actionData = await actionRes.json();
     assert.equal(actionData.ok, true);
     assert.equal(actionData.room.lastWinner, 'Tamer Nyx');
+  });
+
+  it('GET /api/marketplace/catalog and POST /api/marketplace/checkout return USD Gem Bundles and fulfill purchases', async () => {
+    const catRes = await fetch(`${baseUrl}/api/marketplace/catalog`);
+    assert.equal(catRes.status, 200);
+    const catData = await catRes.json();
+    assert.equal(catData.ok, true);
+    assert.ok(Array.isArray(catData.bundles) && catData.bundles.length >= 4, 'Should return at least 4 USD Marketplace bundles');
+    assert.ok(catData.items.sunberryRation && catData.items.heartwoodStew && catData.items.aetherCandy && catData.items.apexTome);
+
+    const checkoutRes = await fetch(`${baseUrl}/api/marketplace/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bundleId: 'starter_recovery',
+        paymentMethod: 'apple_pay',
+        trainerName: 'Tamer Aria'
+      })
+    });
+    assert.equal(checkoutRes.status, 200);
+    const checkoutData = await checkoutRes.json();
+    assert.equal(checkoutData.ok, true);
+    assert.equal(checkoutData.order.bundleId, 'starter_recovery');
+    assert.equal(checkoutData.order.granted.gems, 250);
+    assert.ok(checkoutData.order.granted.items.heartwoodStew >= 5);
   });
 });

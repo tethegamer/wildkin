@@ -26,10 +26,15 @@
       </div>
 
       <div class="hud-metrics">
-        <div class="metric-chip" title="Aether Shards (Currency)">
-          <span>💎</span>
+        <div class="metric-chip" title="Gold / Aether Shards">
+          <span>🪙</span>
           <strong id="hudShards">250</strong>
         </div>
+        <button class="metric-chip metric-chip-gems" id="btnTopMarket" type="button" title="Aether Gems — Tap to open Marketplace">
+          <span>💎</span>
+          <strong id="hudGems">50</strong>
+          <span class="market-plus-badge">+🛒</span>
+        </button>
         <div class="metric-chip" title="World Crests Earned">
           <span>👑</span>
           <strong id="hudCrests">0/6</strong>
@@ -70,6 +75,18 @@
         <div class="touch-vector-hud hidden" id="touchVectorHud">
           <div class="touch-vector-base" id="touchVectorBase">
             <div class="touch-vector-knob" id="touchVectorKnob"></div>
+          </div>
+        </div>
+
+        <!-- Contextual Vitality Recovery & Marketplace Banner (shows when Kin is low HP or fainted) -->
+        <div class="recovery-alert-banner hidden" id="recoveryAlertBanner">
+          <div class="recovery-alert-info">
+            <span class="recovery-pulse-dot">❤️‍🩹</span>
+            <span id="recoveryAlertText">Kin wounded! Passive Regen active (+1 HP / 8s)</span>
+          </div>
+          <div class="recovery-alert-actions">
+            <button class="recovery-btn-feed" id="btnQuickFeedNow" type="button">🍖 Feed / Heal Now</button>
+            <button class="recovery-btn-market" id="btnQuickOpenMarket" type="button">🛒 Marketplace</button>
           </div>
         </div>
 
@@ -256,7 +273,7 @@
       </button>
       <button class="dock-btn" id="btnDockShop" type="button">
         <span class="dock-ico">🛒</span>
-        <span>Shop</span>
+        <span>Market</span>
       </button>
       <button class="dock-btn" id="btnDockHeal" type="button">
         <span class="dock-ico">⛲</span>
