@@ -677,16 +677,39 @@
       color: '#facc15',
       icon: '🍃',
       desc: 'Revives an exhausted Kin and restores 50% of its Max HP.'
+    },
+    heartwoodBerry: {
+      id: 'heartwoodBerry',
+      name: 'Heartwood Berry',
+      category: 'care',
+      bondGain: 1,
+      xpGain: 45,
+      cost: 45,
+      color: '#fb7185',
+      icon: '🍓',
+      desc: 'Sweet orchard berry grown at Grandpa Rowan’s Homestead. Raises a Kin’s Bond Level (+1) and grants XP.'
+    },
+    apexNectar: {
+      id: 'apexNectar',
+      name: 'Apex Royal Nectar',
+      category: 'care',
+      bondGain: 2,
+      xpGain: 160,
+      cost: 160,
+      color: '#f59e0b',
+      icon: '🍯',
+      desc: 'Golden Aether nectar from Grandpa’s sanctuary. Boosts Bond Level (+2), restores Stamina, and grants high XP.'
     }
   };
 
-  // 4 Explorable Zones
+  // 6 Explorable Worlds (24+ Hour Multi-World Progression)
   const ZONES = [
     {
       id: 'meadow',
       name: 'Sunleaf Meadow',
-      subtitle: 'Lv 2–7 • Verdant Starter Sanctuary',
-      levelRange: [2, 7],
+      worldNumber: 1,
+      subtitle: 'World 1 • Lv 2–8 • Heartwood Homestead & Sanctuary',
+      levelRange: [2, 8],
       recommendedLevel: 2,
       themeColor: '#22c55e',
       bgGradient: ['#132a1c', '#1e3f29'],
@@ -698,13 +721,14 @@
         { id: 7,  weight: 8 }   // Wild Mossling
       ],
       wardenId: 'kael',
-      desc: 'Swaying emerald tall grass, the central Wellspring Shrine, and Sage Mira’s Sanctuary.'
+      desc: 'Home to Grandpa Rowan’s Heartwood Homestead & Breeding Ranch, the Wellspring Shrine, and swaying emerald meadows.'
     },
     {
       id: 'tidecove',
       name: 'Whispering Tidecove',
-      subtitle: 'Lv 7–14 • Bioluminescent Lagoon',
-      levelRange: [7, 14],
+      worldNumber: 2,
+      subtitle: 'World 2 • Lv 8–15 • Bioluminescent Archipelago',
+      levelRange: [8, 15],
       recommendedLevel: 8,
       themeColor: '#38bdf8',
       bgGradient: ['#0c2238', '#123556'],
@@ -717,14 +741,35 @@
         { id: 18, weight: 10 }  // Mistserpent
       ],
       wardenId: 'nerissa',
-      desc: 'Crystal tidepools and misty boardwalks teeming with Tide and Volt Kin.'
+      desc: 'Crystal tidepools, coral boardwalks, and misty sea arches teeming with Tide and Volt Kin.'
+    },
+    {
+      id: 'stormspire',
+      name: 'Stormspire Canopy',
+      worldNumber: 3,
+      subtitle: 'World 3 • Lv 14–22 • Ancient Tempest Highland',
+      levelRange: [14, 22],
+      recommendedLevel: 14,
+      themeColor: '#eab308',
+      bgGradient: ['#1f2410', '#313816'],
+      wildPool: [
+        { id: 11, weight: 24 }, // Galecrest
+        { id: 21, weight: 22 }, // Voltmouse
+        { id: 14, weight: 20 }, // Thornback
+        { id: 8,  weight: 14 }, // Briarhorn
+        { id: 22, weight: 12 }, // Arcfox
+        { id: 12, weight: 8 }   // Thunderhawk
+      ],
+      wardenId: 'orin',
+      desc: 'Giant redwood sky-bridges and lightning-charged monoliths where Grandpa Rowan trained in his youth.'
     },
     {
       id: 'cinderpeak',
       name: 'Cinderpeak Cavern',
-      subtitle: 'Lv 13–22 • Geothermal Caldera',
-      levelRange: [13, 22],
-      recommendedLevel: 14,
+      worldNumber: 4,
+      subtitle: 'World 4 • Lv 20–30 • Geothermal Caldera',
+      levelRange: [20, 30],
+      recommendedLevel: 20,
       themeColor: '#f97316',
       bgGradient: ['#2d120b', '#471c10'],
       wildPool: [
@@ -739,11 +784,32 @@
       desc: 'Basalt bridges over glowing magma rivers where Pyre and Terra Kin forge their strength.'
     },
     {
+      id: 'frostveil',
+      name: 'Frostveil Glacier',
+      worldNumber: 5,
+      subtitle: 'World 5 • Lv 28–40 • Aurora Crystal Peaks',
+      levelRange: [28, 40],
+      recommendedLevel: 28,
+      themeColor: '#67e8f9',
+      bgGradient: ['#0b2536', '#153e59'],
+      wildPool: [
+        { id: 18, weight: 24 }, // Mistserpent
+        { id: 5,  weight: 20 }, // Torrentjaw
+        { id: 20, weight: 18 }, // Lunawraith
+        { id: 25, weight: 16 }, // Craggolem
+        { id: 6,  weight: 12 }, // Abyssalking
+        { id: 12, weight: 10 }  // Thunderhawk
+      ],
+      wardenId: 'freya',
+      desc: 'Shoring ice spires under shimmering northern auroras, home to ancient Tide, Umbra, and Terra apex Kin.'
+    },
+    {
       id: 'sanctum',
       name: 'Astral Ruin Sanctum',
-      subtitle: 'Lv 20–32 • Mythic Starlight Citadel',
-      levelRange: [20, 32],
-      recommendedLevel: 21,
+      worldNumber: 6,
+      subtitle: 'World 6 • Lv 38–55 • Mythic Starlight Citadel & Spire',
+      levelRange: [38, 55],
+      recommendedLevel: 38,
       themeColor: '#c084fc',
       bgGradient: ['#1a1033', '#2d1b54'],
       wildPool: [
@@ -755,23 +821,23 @@
         { id: 27, weight: 9 }   // Aetherion (Mythic)
       ],
       wardenId: 'vesper',
-      desc: 'Floating obelisks at the edge of the sky where Mythic Kin and Grand Warden Vesper await.'
+      desc: 'Floating star-obelisks and the 100-Floor Aether Spire where Mythic Kin and Grand Warden Vesper await.'
     }
   ];
 
-  // 4 Realm Wardens (Bosses)
+  // 6 Realm Wardens (World Bosses across all 6 Worlds)
   const WARDENS = [
     {
       id: 'kael',
       name: 'Warden Kael',
-      title: 'Keeper of the Verdant Crest',
+      title: 'Keeper of the Verdant Crest (World 1)',
       zoneId: 'meadow',
       crestName: 'Verdant Crest',
       crestIcon: '🌿',
       affinity: 'Grove',
-      rewardShards: 220,
-      quoteIntro: 'The forest tests every new Tamer! Show me the bond between you and your Kin!',
-      quoteDefeat: 'Splendid harmony! Take the Verdant Crest—the Tidecove paths are yours to walk.',
+      rewardShards: 250,
+      quoteIntro: 'Grandpa Rowan told me about you! Let us see the bond between you and your Kin!',
+      quoteDefeat: 'Splendid harmony! Take the Verdant Crest—Grandpa Rowan will be proud, and Tidecove awaits!',
       squad: [
         { speciesId: 13, level: 6 },
         { speciesId: 8, level: 8 }
@@ -780,14 +846,14 @@
     {
       id: 'nerissa',
       name: 'Warden Nerissa',
-      title: 'Mistress of the Abyssal Crest',
+      title: 'Mistress of the Abyssal Crest (World 2)',
       zoneId: 'tidecove',
       crestName: 'Abyssal Crest',
       crestIcon: '🌊',
       affinity: 'Tide',
-      rewardShards: 380,
-      quoteIntro: 'Calm waters hide crashing currents. Can your squad weather the high tide?',
-      quoteDefeat: 'Like a lighthouse in the storm! The Abyssal Crest belongs to you.',
+      rewardShards: 420,
+      quoteIntro: 'Calm waters hide crashing currents. Can your raised Kin weather the high tide?',
+      quoteDefeat: 'Like a lighthouse in the storm! The Abyssal Crest belongs to you. Stormspire Canopy is now open!',
       squad: [
         { speciesId: 17, level: 12 },
         { speciesId: 18, level: 13 },
@@ -795,39 +861,190 @@
       ]
     },
     {
+      id: 'orin',
+      name: 'Warden Orin',
+      title: 'Sky-Caller of the Tempest Crest (World 3)',
+      zoneId: 'stormspire',
+      crestName: 'Tempest Crest',
+      crestIcon: '⚡',
+      affinity: 'Volt',
+      rewardShards: 620,
+      quoteIntro: 'Your grandfather Rowan and I once sparred atop these thunder ridges! Show me what he taught you!',
+      quoteDefeat: 'Thunderous precision! Claim the Tempest Crest and descend into Cinderpeak Cavern!',
+      squad: [
+        { speciesId: 11, level: 17 },
+        { speciesId: 22, level: 19 },
+        { speciesId: 12, level: 21 }
+      ]
+    },
+    {
       id: 'ignis',
       name: 'Warden Ignis',
-      title: 'Forgemaster of the Solar Crest',
+      title: 'Forgemaster of the Solar Crest (World 4)',
       zoneId: 'cinderpeak',
       crestName: 'Solar Crest',
       crestIcon: '🔥',
       affinity: 'Pyre',
-      rewardShards: 600,
-      quoteIntro: 'Only diamond-hard resolve survives Cinderpeak’s crucible! Ignite your spirit!',
-      quoteDefeat: 'Blazing brilliance! Take the Solar Crest and ascend to the Astral Sanctum!',
+      rewardShards: 850,
+      quoteIntro: 'Only diamond-hard resolve and well-bred Kin survive Cinderpeak’s crucible! Ignite your spirit!',
+      quoteDefeat: 'Blazing brilliance! Take the Solar Crest—the frozen peaks of Frostveil Glacier await!',
       squad: [
-        { speciesId: 16, level: 18 },
-        { speciesId: 24, level: 20 },
-        { speciesId: 3, level: 22 }
+        { speciesId: 16, level: 24 },
+        { speciesId: 24, level: 26 },
+        { speciesId: 3, level: 28 }
+      ]
+    },
+    {
+      id: 'freya',
+      name: 'Warden Freya',
+      title: 'Empress of the Frostveil Crest (World 5)',
+      zoneId: 'frostveil',
+      crestName: 'Frostveil Crest',
+      crestIcon: '❄️',
+      affinity: 'Tide',
+      rewardShards: 1150,
+      quoteIntro: 'Here beneath the aurora, only Tamers whose hearts beat as one with their Kin endure the frost!',
+      quoteDefeat: 'Your warmth melts even glacier ice! Take the Frostveil Crest and ascend to the Astral Ruin Sanctum!',
+      squad: [
+        { speciesId: 18, level: 32 },
+        { speciesId: 25, level: 34 },
+        { speciesId: 9, level: 35 },
+        { speciesId: 6, level: 37 }
       ]
     },
     {
       id: 'vesper',
       name: 'Grand Warden Vesper',
-      title: 'Sovereign of the Astral Crest',
+      title: 'Sovereign of the Astral Crest (World 6)',
       zoneId: 'sanctum',
       crestName: 'Astral Crest',
       crestIcon: '👑',
       affinity: 'Umbra',
-      rewardShards: 1200,
-      quoteIntro: 'Beyond flame, tide, and grove lies the Astral Rift. Prove you are worthy of Aetherion!',
-      quoteDefeat: 'Unbelievable! All four Warden Crests resonate as one—you are a true Realm Champion!',
+      rewardShards: 1800,
+      quoteIntro: 'Fifty years ago, Elder Rowan stood where you stand now. Prove your bloodline and claim the Astral Throne!',
+      quoteDefeat: 'Unbelievable! All six World Crests resonate as one—the 100-Floor Aether Spire is yours to conquer!',
       squad: [
-        { speciesId: 20, level: 25 },
-        { speciesId: 12, level: 26 },
-        { speciesId: 26, level: 28 },
-        { speciesId: 27, level: 30 }
+        { speciesId: 20, level: 40 },
+        { speciesId: 12, level: 42 },
+        { speciesId: 26, level: 44 },
+        { speciesId: 27, level: 46 }
       ]
+    }
+  ];
+
+  // Genetic Potential Tiers for Wild & Bred Kin
+  const GENETIC_TIERS = {
+    B:  { tier: 'B',  label: 'B-Rank (Standard)', bonus: 1.0,  color: '#94a3b8' },
+    A:  { tier: 'A',  label: 'A-Rank (Superior +8%)', bonus: 1.08, color: '#38bdf8' },
+    S:  { tier: 'S',  label: 'S-Rank (Alpha +18%)', bonus: 1.18, color: '#c084fc' },
+    SS: { tier: 'SS', label: 'SS-Rank (Apex +30%)', bonus: 1.30, color: '#facc15' }
+  };
+
+  // 8-Chapter Storyline Campaign ("The Legacy of Heartwood Homestead" — 24+ Hours of Progression)
+  const STORY_CHAPTERS = [
+    {
+      chapter: 1,
+      id: 'ch1_apprentice',
+      title: 'Ch. 1: Grandfather’s Apprentice',
+      worldId: 'meadow',
+      npcSpeaker: 'Grandpa Rowan',
+      lore: 'Having moved to Heartwood Homestead to live with your legendary grandfather Rowan, your first lesson is to step into the tall emerald grass of Sunleaf Meadow, battle wild Kin, and bind a second companion into an Aether Prism.',
+      grandpaTip: '"Welcome home, kiddo! Take the partner Kin I raised for you, walk into the swaying dark-green grass in Sunleaf Meadow, weaken a wild Kin in turn-based battle, and throw an Aether Prism to bind it!"',
+      objectiveText: 'Bind 1 Wild Kin in Sunleaf Meadow (2+ total Kin owned) & win 2 battles',
+      rewardShards: 200,
+      rewardItems: { aetherPrism: 3, heartwoodBerry: 3 },
+      rewardLabel: '200💎 + 3 Aether Prisms + 3 Heartwood Berries'
+    },
+    {
+      chapter: 2,
+      id: 'ch2_raising',
+      title: 'Ch. 2: Raising, Bonding & The First Crest',
+      worldId: 'meadow',
+      npcSpeaker: 'Grandpa Rowan',
+      lore: 'Grandpa Rowan teaches that true Tamers don’t just catch Kin—they raise and bond with them at the Homestead Ranch. Feed or train a Kin to Bond Lv. 2+, then challenge Warden Kael in southeastern Sunleaf Meadow.',
+      grandpaTip: '"Open our Homestead Ranch (🧬 Ranch button or visit me by the cabin) to feed Heartwood Berries and raise your Kin’s Bond Level! Once your squad is strong, defeat Warden Kael for the Verdant Crest!"',
+      objectiveText: 'Raise any Kin to Bond Lv. 2+ at Grandpa’s Ranch & earn the Verdant Crest from Warden Kael',
+      rewardShards: 350,
+      rewardItems: { greaterPrism: 2, heartwoodBerry: 4 },
+      rewardLabel: '350💎 + 2 Greater Prisms + 4 Heartwood Berries'
+    },
+    {
+      chapter: 3,
+      id: 'ch3_breeding',
+      title: 'Ch. 3: The Secret of Kin Breeding',
+      worldId: 'meadow',
+      npcSpeaker: 'Grandpa Rowan',
+      lore: 'With your first Crest earned, Grandpa Rowan unlocks the Homestead Breeding Sanctuary! Pairing two Kin hatches an Offspring Egg with elevated Genetic Potential (A/S/SS Rank), an inherited cross-affinity move, and 3x Radiant odds.',
+      grandpaTip: '"Now for my greatest secret: Kin Breeding! Pair any two of your Kin in the 🧬 Ranch Breeding Sanctuary to hatch a high-genetics Offspring that inherits moves from both parents!"',
+      objectiveText: 'Breed any 2 Kin at Grandpa’s Ranch to hatch 1 Offspring Egg',
+      rewardShards: 450,
+      rewardItems: { greaterPrism: 3, apexNectar: 2 },
+      rewardLabel: '450💎 + 3 Greater Prisms + 2 Apex Royal Nectar'
+    },
+    {
+      chapter: 4,
+      id: 'ch4_tidecove',
+      title: 'Ch. 4: Voyage to Whispering Tidecove (World 2)',
+      worldId: 'tidecove',
+      npcSpeaker: 'Grandpa Rowan',
+      lore: 'Step through the northern World Gate or use the Worlds map to travel to Whispering Tidecove. Tame aquatic and electric Kin, expand your KinDex to 5+ species, and defeat Warden Nerissa.',
+      grandpaTip: '"Each World houses rarer Kin and tougher Wardens. Travel to World 2: Whispering Tidecove, register at least 5 KinDex species, and claim Nerissa’s Abyssal Crest!"',
+      objectiveText: 'Register 5+ KinDex Species & defeat Warden Nerissa in Whispering Tidecove',
+      rewardShards: 600,
+      rewardItems: { greaterPrism: 3, superTonic: 3 },
+      rewardLabel: '600💎 + 3 Greater Prisms + 3 Greater Tonics'
+    },
+    {
+      chapter: 5,
+      id: 'ch5_stormspire',
+      title: 'Ch. 5: Ascent of Stormspire Canopy (World 3)',
+      worldId: 'stormspire',
+      npcSpeaker: 'Grandpa Rowan',
+      lore: 'Venture into the thunder-swept redwoods of World 3: Stormspire Canopy. Evolve a Kin into its higher form and defeat Grandpa Rowan’s old rival, Warden Orin, for the Tempest Crest.',
+      grandpaTip: '"When your Kin reach Lv 12–16, they ascend into stronger evolutions! Evolve at least one Kin and best my old friend Warden Orin in World 3: Stormspire Canopy!"',
+      objectiveText: 'Trigger 1+ Kin Evolution & defeat Warden Orin for the Tempest Crest',
+      rewardShards: 850,
+      rewardItems: { masterPrism: 1, superTonic: 4, apexNectar: 2 },
+      rewardLabel: '850💎 + 1 Mastery Prism + 4 Greater Tonics + 2 Apex Nectar'
+    },
+    {
+      chapter: 6,
+      id: 'ch6_cinderpeak',
+      title: 'Ch. 6: Crucible of Cinderpeak Cavern (World 4)',
+      worldId: 'cinderpeak',
+      npcSpeaker: 'Grandpa Rowan',
+      lore: 'Brave the volcanic magma rivers of World 4: Cinderpeak Cavern. Train a Kin to Level 20+ and overcome Forgemaster Warden Ignis to claim the Solar Crest.',
+      grandpaTip: '"Cinderpeak’s heat tests both stamina and genetics. Breed an S-Rank Kin if you need an edge, train a partner to Lv 20+, and defeat Warden Ignis!"',
+      objectiveText: 'Raise a Kin to Level 20+ & defeat Warden Ignis for the Solar Crest',
+      rewardShards: 1100,
+      rewardItems: { masterPrism: 2, reviveLeaf: 3 },
+      rewardLabel: '1,100💎 + 2 Mastery Prisms + 3 Sylvan Revives'
+    },
+    {
+      chapter: 7,
+      id: 'ch7_frostveil',
+      title: 'Ch. 7: Aurora of Frostveil Glacier (World 5)',
+      worldId: 'frostveil',
+      npcSpeaker: 'Grandpa Rowan',
+      lore: 'Cross the shimmering ice bridges of World 5: Frostveil Glacier. Breed or raise an S-Rank/SS-Rank Kin, register 12+ species in your KinDex, and defeat Warden Freya for the Frostveil Crest.',
+      grandpaTip: '"Only five Tamers in history have conquered Frostveil Glacier. Register 12+ KinDex species and defeat Warden Freya under the northern lights!"',
+      objectiveText: 'Register 12+ KinDex Species & defeat Warden Freya for the Frostveil Crest',
+      rewardShards: 1500,
+      rewardItems: { masterPrism: 3, apexNectar: 3 },
+      rewardLabel: '1,500💎 + 3 Mastery Prisms + 3 Apex Royal Nectar'
+    },
+    {
+      chapter: 8,
+      id: 'ch8_sovereign',
+      title: 'Ch. 8: Astral Sanctum & The 100-Floor Aether Spire',
+      worldId: 'sanctum',
+      npcSpeaker: 'Grandpa Rowan',
+      lore: 'Enter World 6: Astral Ruin Sanctum, defeat Grand Warden Vesper to unite all 6 World Crests, and climb the Infinite 100-Floor Aether Spire to fulfill Grandpa Rowan’s lifelong dream!',
+      grandpaTip: '"You’ve grown into the finest Tamer I have ever known. Defeat Grand Warden Vesper in the Astral Sanctum and ascend the 100-Floor Aether Spire!"',
+      objectiveText: 'Unite all 6 World Crests & reach Floor 5+ in the 100-Floor Aether Spire',
+      rewardShards: 3000,
+      rewardItems: { masterPrism: 5, apexNectar: 5 },
+      rewardLabel: '3,000💎 + 5 Mastery Prisms + Grand Sovereign Title'
     }
   ];
 
@@ -835,8 +1052,11 @@
     return KIN_SPECIES.find((k) => k.id === Number(id)) || KIN_SPECIES[0];
   }
 
-  function calculateStatsForLevel(baseStats, level, isRadiant) {
-    const mult = isRadiant ? 1.08 : 1.0;
+  function calculateStatsForLevel(baseStats, level, isRadiant, geneticBonus = 1.0, bondLevel = 1) {
+    const radMult = isRadiant ? 1.08 : 1.0;
+    const genMult = typeof geneticBonus === 'number' && geneticBonus > 0 ? geneticBonus : 1.0;
+    const bondMult = 1 + Math.max(0, (Number(bondLevel) || 1) - 1) * 0.025; // up to +22.5% at Bond Lv 10
+    const mult = radMult * genMult * bondMult;
     const maxHp = Math.floor(((baseStats.hp * 2 * level) / 38 + level + 14) * mult);
     const atk = Math.floor(((baseStats.atk * 1.8 * level) / 42 + 8) * mult);
     const def = Math.floor(((baseStats.def * 1.8 * level) / 42 + 8) * mult);
@@ -851,8 +1071,17 @@
   function createKinInstance(speciesId, level, opts = {}) {
     const species = getSpeciesById(speciesId);
     const isRadiant = opts.isRadiant !== undefined ? Boolean(opts.isRadiant) : (Math.random() < 0.04); // 1-in-25 Radiant!
-    const stats = calculateStatsForLevel(species.baseStats, level, isRadiant);
-    const moveSlots = (species.moves || ['clawSwipe']).slice(0, 4).map((mId) => {
+    const geneticTier = opts.geneticTier || 'B';
+    const tierInfo = GENETIC_TIERS[geneticTier] || GENETIC_TIERS.B;
+    const geneticBonus = opts.geneticBonus !== undefined ? Number(opts.geneticBonus) : tierInfo.bonus;
+    const bondLevel = Math.max(1, Math.min(10, Number(opts.bondLevel) || 1));
+    const generation = Math.max(1, Number(opts.generation) || 1);
+
+    const stats = calculateStatsForLevel(species.baseStats, level, isRadiant, geneticBonus, bondLevel);
+    const rawMoveIds = Array.isArray(opts.moveIds) && opts.moveIds.length > 0
+      ? opts.moveIds.slice(0, 4)
+      : (species.moves || ['clawSwipe']).slice(0, 4);
+    const moveSlots = rawMoveIds.map((mId) => {
       const m = MOVES[mId] || MOVES.clawSwipe;
       return { id: m.id, currentStamina: m.stamina, maxStamina: m.stamina };
     });
@@ -869,10 +1098,84 @@
       def: stats.def,
       spd: stats.spd,
       isRadiant: isRadiant,
+      geneticTier: tierInfo.tier,
+      geneticBonus: geneticBonus,
+      bondLevel: bondLevel,
+      generation: generation,
+      inheritedMove: opts.inheritedMove || null,
+      parentNames: opts.parentNames || null,
       status: null, // 'burn' | 'paralyze' | 'soak' | 'poison' | null
       moveSlots: moveSlots,
       caughtZone: opts.caughtZone || 'Sanctuary'
     };
+  }
+
+  // Find the base (stage-1) species of an evolutionary line for breeding offspring
+  function getBaseStageSpeciesId(speciesId) {
+    let current = getSpeciesById(speciesId);
+    for (let guard = 0; guard < 4; guard++) {
+      const prev = KIN_SPECIES.find((s) => s.evolvesTo && s.evolvesTo.id === current.id);
+      if (!prev) break;
+      current = prev;
+    }
+    return current.id;
+  }
+
+  /**
+   * Breeds two parent Kin at Grandpa Rowan’s Homestead Sanctuary.
+   * Produces a high-potential Offspring with upgraded Genetic Tier (A -> S -> SS),
+   * an inherited move from Parent B, scaled starting level, and 3x Radiant chance!
+   */
+  function breedKinOffspring(parentA, parentB, opts = {}) {
+    if (!parentA || !parentB) return null;
+    const baseSpeciesId = getBaseStageSpeciesId(parentA.speciesId);
+    const baseSpec = getSpeciesById(baseSpeciesId);
+
+    const tierOrder = ['B', 'A', 'S', 'SS'];
+    const idxA = Math.max(0, tierOrder.indexOf(parentA.geneticTier || 'B'));
+    const idxB = Math.max(0, tierOrder.indexOf(parentB.geneticTier || 'B'));
+    const bestIdx = Math.max(idxA, idxB);
+    const nextTier = tierOrder[Math.min(tierOrder.length - 1, bestIdx + 1)];
+    const tierInfo = GENETIC_TIERS[nextTier] || GENETIC_TIERS.A;
+
+    // Inherit a signature move from Parent B
+    const parentBMoves = Array.isArray(parentB.moveSlots) ? parentB.moveSlots.map((m) => m.id) : [];
+    const baseMoves = (baseSpec.moves || ['clawSwipe']).slice(0, 4);
+    let inheritedMove = null;
+    for (let i = parentBMoves.length - 1; i >= 0; i--) {
+      const mId = parentBMoves[i];
+      if (MOVES[mId] && !baseMoves.includes(mId)) {
+        inheritedMove = mId;
+        break;
+      }
+    }
+    if (!inheritedMove && parentBMoves.length > 0) {
+      inheritedMove = parentBMoves[parentBMoves.length - 1];
+    }
+
+    const finalMoves = baseMoves.slice(0, 4);
+    if (inheritedMove && !finalMoves.includes(inheritedMove)) {
+      if (finalMoves.length >= 4) finalMoves[3] = inheritedMove;
+      else finalMoves.push(inheritedMove);
+    }
+
+    const avgParentLv = Math.floor(((Number(parentA.level) || 5) + (Number(parentB.level) || 5)) / 2);
+    const childLevel = Math.max(5, Math.min(25, Math.floor(avgParentLv * 0.6)));
+    const radiantChance = (parentA.isRadiant || parentB.isRadiant) ? 0.25 : 0.14;
+    const isRadiant = opts.isRadiant !== undefined ? Boolean(opts.isRadiant) : (Math.random() < radiantChance);
+    const generation = Math.max(Number(parentA.generation) || 1, Number(parentB.generation) || 1) + 1;
+
+    return createKinInstance(baseSpeciesId, childLevel, {
+      isRadiant,
+      geneticTier: nextTier,
+      geneticBonus: tierInfo.bonus,
+      bondLevel: 3, // Hatched at Grandpa’s Ranch with a warm initial bond!
+      generation,
+      moveIds: finalMoves,
+      inheritedMove,
+      parentNames: [parentA.nickname || 'Parent A', parentB.nickname || 'Parent B'],
+      caughtZone: 'Heartwood Breeding Ranch'
+    });
   }
 
   return {
@@ -883,10 +1186,14 @@
     ITEMS,
     ZONES,
     WARDENS,
+    GENETIC_TIERS,
+    STORY_CHAPTERS,
     getTypeMultiplier,
     getSpeciesById,
+    getBaseStageSpeciesId,
     calculateStatsForLevel,
     xpForNextLevel,
-    createKinInstance
+    createKinInstance,
+    breedKinOffspring
   };
 });

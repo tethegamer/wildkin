@@ -30,9 +30,9 @@
           <span>💎</span>
           <strong id="hudShards">250</strong>
         </div>
-        <div class="metric-chip" title="Warden Crests Earned">
+        <div class="metric-chip" title="World Crests Earned">
           <span>👑</span>
-          <strong id="hudCrests">0/4</strong>
+          <strong id="hudCrests">0/6</strong>
         </div>
         <div class="metric-chip" title="KinDex Bound Species">
           <span>💠</span>
@@ -56,6 +56,16 @@
           <div class="zone-hint" id="zoneHint">✨ Tap anywhere in 3D to run • Hold &amp; drag to steer 360°</div>
         </div>
 
+        <!-- Floating Top-Right Grandpa Rowan Story Quest Tracker HUD -->
+        <div class="quest-tracker-hud" id="questTrackerHud" title="Tap to open Grandpa Rowan's Story & Quest Journal">
+          <div class="quest-tracker-head">
+            <span class="quest-chapter-badge" id="questChapterBadge">CH. 1 / 8</span>
+            <span class="quest-speaker">👴 Grandpa Rowan</span>
+          </div>
+          <div class="quest-title-text" id="questTitleText">Grandfather’s Apprentice</div>
+          <div class="quest-obj-text" id="questObjText">Bind 1 Wild Kin in Sunleaf Meadow &amp; win 2 battles</div>
+        </div>
+
         <!-- Floating Dynamic Touch-Drag Vector Ring (appears when dragging finger) -->
         <div class="touch-vector-hud hidden" id="touchVectorHud">
           <div class="touch-vector-base" id="touchVectorBase">
@@ -75,6 +85,10 @@
               <span>⚔️</span>
               <span>Scout Wild Kin</span>
             </button>
+            <button class="world-pill-btn" id="btnQuickRanch" type="button" title="Open Grandpa Rowan's Homestead Breeding & Care Ranch">
+              <span>🧬</span>
+              <span>Grandpa's Ranch</span>
+            </button>
             <button class="world-pill-btn" id="btnCameraMode" type="button" title="Switch 3D Camera Angle">
               <span>🎥</span>
               <span id="camModeLabel">DYNAMIC 3D</span>
@@ -88,10 +102,10 @@
         <!-- Title & 3D Starter Selection Overlay -->
         <section class="overlay-screen" id="starterOverlay">
           <div class="starter-card-shell">
-            <div class="title-badge">⚡ 3D WEBGL ACTION CREATURE RPG</div>
+            <div class="title-badge">⚡ 3D STORY CAMPAIGN • CATCH • RAISE • BREED • 6 WORLDS</div>
             <h1 class="game-logo">WILDKIN<span>AETHER BOUND 3D</span></h1>
             <p class="elder-dialogue" id="elderDialogue">
-              “Welcome to the Aether Realm, Tamer! I am <strong>Elder Rowan</strong>. Choose your first bonded 3D Partner Kin to unleash across the four Sanctuaries!”
+              “Welcome home to <strong>Heartwood Homestead</strong>, grandchild! I’m your <strong>Grandpa Rowan</strong>. For fifty years I tamed, raised, and bred Wildkin across all six Worlds. Choose your first Partner Kin—I’ll teach you how to catch, bond, breed S-Rank offspring, and conquer every World Warden!”
             </p>
 
             <div class="starter-grid" id="starterGrid"></div>
@@ -100,7 +114,7 @@
 
             <div class="starter-actions">
               <button class="primary-cta" id="btnConfirmStarter" type="button">
-                💠 Bind Partner &amp; Enter 3D World
+                💠 Bind Partner &amp; Begin Grandpa’s Training
               </button>
               <div class="secondary-cta-row">
                 <button class="ghost-btn hidden" id="btnContinueSave" type="button">
@@ -114,10 +128,16 @@
           </div>
         </section>
 
-        <!-- High-Impact 3D Battle Arena Overlay -->
+        <!-- High-Impact Turn-by-Turn 3D Battle Arena Overlay -->
         <section class="overlay-screen battle-screen hidden" id="battleOverlay">
           <div class="battle-stage" id="battleStage">
             <!-- 3D WebGL Battle Arena Canvas (#battle3dCanvas) mounts here! -->
+
+            <!-- Turn-by-Turn Phase Choreography Banner -->
+            <div class="battle-turn-banner phase-ready" id="battleTurnBanner">
+              <span class="turn-phase-pill" id="battleTurnPill">YOUR TURN</span>
+              <span class="turn-phase-text" id="battleTurnText">Select a move or action for your Kin!</span>
+            </div>
 
             <!-- Screen-Slash & Impact Flash Layer -->
             <div class="battle-impact-flash" id="battleImpactFlash"></div>
@@ -218,13 +238,21 @@
         <span class="dock-ico">🐾</span>
         <span>Squad</span>
       </button>
+      <button class="dock-btn" id="btnDockRanch" type="button">
+        <span class="dock-ico">🧬</span>
+        <span>Ranch</span>
+      </button>
+      <button class="dock-btn" id="btnDockStory" type="button">
+        <span class="dock-ico">📜</span>
+        <span>Story</span>
+      </button>
       <button class="dock-btn" id="btnDockKindex" type="button">
         <span class="dock-ico">📖</span>
         <span>KinDex</span>
       </button>
       <button class="dock-btn" id="btnDockArena" type="button">
         <span class="dock-ico">👑</span>
-        <span>Wardens/PvP</span>
+        <span>Wardens</span>
       </button>
       <button class="dock-btn" id="btnDockShop" type="button">
         <span class="dock-ico">🛒</span>
@@ -236,7 +264,7 @@
       </button>
       <button class="dock-btn" id="btnDockZones" type="button">
         <span class="dock-ico">🗺️</span>
-        <span>Realms</span>
+        <span>Worlds</span>
       </button>
     </nav>
 
@@ -248,7 +276,7 @@
     </div>
   </div>
 
-  <!-- Universal Modal Drawer (Squad, KinDex, Wardens & PvP, Shop, Zones, Cloud Save) -->
+  <!-- Universal Modal Drawer (Squad, Ranch/Breeding, Story, KinDex, Wardens & Spire, Shop, Worlds, Cloud Save) -->
   <div class="modal-backdrop hidden" id="modalBackdrop">
     <div class="modal-sheet" id="modalSheet">
       <div class="modal-header">

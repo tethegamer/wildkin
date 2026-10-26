@@ -40,6 +40,77 @@
     return Number.isNaN(parsed) ? fallback : parsed;
   }
 
+  const _texCache = {};
+  function getProceduralTexture(kind, baseHex = 0x22c55e, detailHex = 0x14532d) {
+    const THREE = getThree();
+    if (!THREE || typeof document === "undefined") return null;
+    const key = kind + "_" + baseHex + "_" + detailHex;
+    if (_texCache[key]) return _texCache[key];
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const toCss = (h) => "#" + Number(h).toString(16).padStart(6, "0");
+    ctx.fillStyle = toCss(baseHex);
+    ctx.fillRect(0, 0, 128, 128);
+
+    // Deterministic pseudo-random grain so textures look natural and organic
+    let seed = (Number(baseHex) ^ Number(detailHex) ^ 0x9e3779b9) >>> 0;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+
+    if (kind === "grass") {
+      for (let i = 0; i < 420; i++) {
+        const x = rand() * 128;
+        const y = rand() * 128;
+        ctx.fillStyle = i % 3 === 0 ? toCss(detailHex) : "rgba(255,255,255,0.08)";
+        ctx.fillRect(x, y, 2, 5);
+      }
+    } else if (kind === "stone") {
+      ctx.strokeStyle = "rgba(15,23,42,0.28)";
+      ctx.lineWidth = 2;
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          const bx = c * 32 + (r % 2) * 12;
+          const by = r * 32;
+          ctx.fillStyle = (r + c) % 2 === 0 ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
+          ctx.fillRect(bx + 2, by + 2, 28, 28);
+          ctx.strokeRect(bx + 1, by + 1, 30, 30);
+        }
+      }
+    } else if (kind === "scales") {
+      ctx.strokeStyle = "rgba(0,0,0,0.22)";
+      ctx.lineWidth = 1.4;
+      for (let y = 0; y < 128; y += 16) {
+        for (let x = 0; x < 128; x += 16) {
+          const ox = x + ((y / 16) % 2) * 8;
+          ctx.beginPath();
+          ctx.arc(ox, y, 8, 0, Math.PI);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255,255,255,0.06)";
+          ctx.fillRect(ox - 3, y + 2, 6, 3);
+        }
+      }
+    } else if (kind === "bark") {
+      for (let i = 0; i < 90; i++) {
+        ctx.fillStyle = i % 2 === 0 ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.06)";
+        ctx.fillRect(rand() * 128, 0, 2 + rand() * 3, 128);
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    _texCache[key] = tex;
+    return tex;
+  }
+
+
   // Classify each of the 27 species into a 3D body rig archetype
   function getArchetypeForSpecies(speciesId) {
     const id = Number(speciesId) || 1;
@@ -82,12 +153,16 @@
     const eyeHex = isRadiant ? 0x00ffff : hexToInt(pal.eye, 0x38bdf8);
     const affHex = AFFINITY_HEX[species.affinity] || primaryHex;
 
+    const scaleTex = getProceduralTexture("scales", primaryHex, secondaryHex);
     const bodyMat = new THREE.MeshStandardMaterial({
       color: primaryHex,
-      roughness: 0.32,
-      metalness: 0.18,
+      map: scaleTex,
+      bumpMap: scaleTex,
+      bumpScale: 0.035,
+      roughness: 0.34,
+      metalness: 0.16,
       emissive: primaryHex,
-      emissiveIntensity: 0.12
+      emissiveIntensity: 0.10
     });
     const secMat = new THREE.MeshStandardMaterial({
       color: secondaryHex,
@@ -118,10 +193,11 @@
     group.add(rig.body);
 
     if (archetype === 'quadruped' || archetype === 'aquatic') {
-      // Sculpted Beast Torso
-      const torsoGeo = new THREE.BoxGeometry(0.95, 0.68, 1.35);
+      // Realistic Sculpted Organic Beast Torso + Muscular Haunches
+      const torsoGeo = new THREE.SphereGeometry(0.58, 22, 16);
       const torso = new THREE.Mesh(torsoGeo, bodyMat);
-      torso.position.set(0, 0.68, 0);
+      torso.scale.set(0.92, 0.78, 1.42);
+      torso.position.set(0, 0.70, 0);
       torso.castShadow = true;
       rig.body.add(torso);
 
@@ -141,23 +217,32 @@
       }
 
       // Expressive Fierce Head + Snout + Glowing Eyes + Ears/Horns
-      rig.head.position.set(0, 1.08, 0.68);
-      const cranium = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.62, 0.68), bodyMat);
+      rig.head.position.set(0, 1.10, 0.68);
+      const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.39, 20, 16), bodyMat);
+      cranium.scale.set(1.02, 0.92, 1.08);
       rig.head.add(cranium);
 
-      const snout = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, 0.42), secMat);
-      snout.position.set(0, -0.1, 0.42);
+      const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.25, 0.44, 14), secMat);
+      snout.rotation.x = Math.PI / 2;
+      snout.position.set(0, -0.08, 0.38);
       rig.head.add(snout);
 
-      // Glowing Angled Anime Eyes
-      const eyeGeo = new THREE.BoxGeometry(0.16, 0.1, 0.08);
-      const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-      eyeL.position.set(0.22, 0.06, 0.34);
-      eyeL.rotation.z = -0.18;
-      const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-      eyeR.position.set(-0.22, 0.06, 0.34);
-      eyeR.rotation.z = 0.18;
-      rig.head.add(eyeL, eyeR);
+      // Multi-layered Realistic Eyes (Glowing Iris + Dark Pupil + Specular Highlight)
+      const scleraGeo = new THREE.SphereGeometry(0.095, 12, 12);
+      const pupilGeo = new THREE.SphereGeometry(0.048, 10, 10);
+      const specGeo = new THREE.SphereGeometry(0.024, 8, 8);
+      const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      [-1, 1].forEach((side) => {
+        const eyeGroup = new THREE.Group();
+        eyeGroup.position.set(side * 0.22, 0.06, 0.31);
+        const iris = new THREE.Mesh(scleraGeo, eyeMat);
+        const pupil = new THREE.Mesh(pupilGeo, darkMat);
+        pupil.position.set(0, 0, 0.065);
+        const glint = new THREE.Mesh(specGeo, whiteMat);
+        glint.position.set(side * 0.025, 0.03, 0.085);
+        eyeGroup.add(iris, pupil, glint);
+        rig.head.add(eyeGroup);
+      });
 
       // Ears / Antlers / Fins
       const earGeo = new THREE.ConeGeometry(0.16, 0.52, 4);
@@ -181,10 +266,11 @@
       legPositions.forEach(([lx, ly, lz]) => {
         const legGroup = new THREE.Group();
         legGroup.position.set(lx, ly, lz);
-        const legMesh = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.55, 0.28), bodyMat);
+        const legMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.11, 0.56, 12), bodyMat);
         legMesh.position.y = -0.12;
-        const pawMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.16, 0.36), secMat);
-        pawMesh.position.set(0, -0.35, 0.05);
+        const pawMesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), secMat);
+        pawMesh.scale.set(1.0, 0.55, 1.35);
+        pawMesh.position.set(0, -0.36, 0.06);
         legGroup.add(legMesh, pawMesh);
         rig.body.add(legGroup);
         rig.limbs.push(legGroup);
@@ -413,6 +499,7 @@
     const hairColor = hexToInt(options.hairColor || '#1e293b', 0x1e293b);
     const isPlayer = Boolean(options.isPlayer);
     const isWarden = Boolean(options.isWarden);
+    const isGrandpa = Boolean(options.isGrandpa);
 
     const group = new THREE.Group();
 
@@ -431,8 +518,9 @@
     const bodyGroup = new THREE.Group();
     group.add(bodyGroup);
 
-    // Jacket / Tunic Torso
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.78, 0.42), coatMat);
+    // Sculpted Tunic Torso
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.34, 0.80, 14), coatMat);
+    torso.scale.set(1.12, 1.0, 0.78);
     torso.position.y = 0.92;
     torso.castShadow = true;
     bodyGroup.add(torso);
@@ -454,7 +542,8 @@
     // Stylized Head + Visor/Crown + Spiky Hair + Eyes
     const headGroup = new THREE.Group();
     headGroup.position.y = 1.56;
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.52, 0.52), skinMat);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.29, 18, 16), skinMat);
+    head.scale.set(1.0, 1.04, 0.96);
     headGroup.add(head);
 
     const eyeMat = new THREE.MeshBasicMaterial({ color: isPlayer ? 0x38bdf8 : 0x0f172a });
@@ -473,6 +562,17 @@
       const visor = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.36), trimMat);
       visor.position.set(0, 0.16, 0.2);
       headGroup.add(visor);
+    } else if (isGrandpa) {
+      // Grandpa Rowan’s Silver Beard & Rancher Brim Hat
+      const beard = new THREE.Mesh(
+        new THREE.ConeGeometry(0.22, 0.38, 10),
+        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.5 })
+      );
+      beard.rotation.x = Math.PI;
+      beard.position.set(0, -0.22, 0.18);
+      const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.06, 16), trimMat);
+      hatBrim.position.set(0, 0.28, 0);
+      headGroup.add(beard, hatBrim);
     } else if (isWarden) {
       const crown = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.45, 5), trimMat);
       crown.position.set(0, 0.48, 0);
@@ -615,6 +715,38 @@
       particle: 0xffedd5,
       sunColor: 0xfdba74,
       ambientColor: 0xf97316
+    },
+    stormspire: {
+      sky: 0x0e1912,
+      fog: 0x16261b,
+      ground: 0x243b1e,
+      groundAlt: 0x2e4a26,
+      path: 0xca8a04,
+      water: 0x0284c7,
+      treeTrunk: 0x451a03,
+      treeCrown: 0x16a34a,
+      treeCrownAlt: 0xfacc15,
+      tallGrass: 0x15803d,
+      grassTip: 0xfef08a,
+      particle: 0xfde047,
+      sunColor: 0xfef9c3,
+      ambientColor: 0x86efac
+    },
+    frostveil: {
+      sky: 0x06192b,
+      fog: 0x0c2942,
+      ground: 0x1e3a5f,
+      groundAlt: 0x254872,
+      path: 0x93c5fd,
+      water: 0x38bdf8,
+      treeTrunk: 0x334155,
+      treeCrown: 0x67e8f9,
+      treeCrownAlt: 0xa5f3fc,
+      tallGrass: 0x0284c7,
+      grassTip: 0xe0f2fe,
+      particle: 0xa5f3fc,
+      sunColor: 0xe0f2fe,
+      ambientColor: 0x7dd3fc
     },
     sanctum: {
       sky: 0x090418,
@@ -808,9 +940,12 @@
       overworld.zoneGroup.add(baseBed);
 
       const groundGeo = new THREE.BoxGeometry(TILE_SIZE * 0.98, 0.36, TILE_SIZE * 0.98);
-      const groundMatA = new THREE.MeshStandardMaterial({ color: pal.ground, roughness: 0.8 });
-      const groundMatB = new THREE.MeshStandardMaterial({ color: pal.groundAlt, roughness: 0.8 });
-      const pathMat = new THREE.MeshStandardMaterial({ color: pal.path, roughness: 0.65 });
+      const grassTexA = getProceduralTexture("grass", pal.ground, pal.tallGrass);
+      const grassTexB = getProceduralTexture("grass", pal.groundAlt, pal.tallGrass);
+      const stoneTex = getProceduralTexture("stone", pal.path, pal.ground);
+      const groundMatA = new THREE.MeshStandardMaterial({ color: pal.ground, map: grassTexA, bumpMap: grassTexA, bumpScale: 0.03, roughness: 0.78 });
+      const groundMatB = new THREE.MeshStandardMaterial({ color: pal.groundAlt, map: grassTexB, bumpMap: grassTexB, bumpScale: 0.03, roughness: 0.78 });
+      const pathMat = new THREE.MeshStandardMaterial({ color: pal.path, map: stoneTex, bumpMap: stoneTex, bumpScale: 0.04, roughness: 0.62 });
       const waterMat = new THREE.MeshStandardMaterial({
         color: pal.water,
         roughness: 0.15,
@@ -844,7 +979,7 @@
           const wx = c * TILE_SIZE;
           const wz = r * TILE_SIZE;
 
-          if (ch === 'W') {
+          if (ch === 'W' || ch === '~') {
             const waterTile = new THREE.Mesh(
               new THREE.BoxGeometry(TILE_SIZE, 0.28, TILE_SIZE),
               waterMat
@@ -856,14 +991,14 @@
             continue;
           }
 
-          const isPath = ch === '.' || ch === 'S' || ch === 'M' || ch === 'P' || ch === 'B' || ch === 'K' || ch === 'N';
+          const isPath = ch === 'P' || ch === 'S' || ch === 'M' || ch === 'K' || ch === 'N' || ch === 'O' || ch === 'I' || ch === 'F' || ch === 'V';
           const tileMat = isPath ? pathMat : (c + r) % 2 === 0 ? groundMatA : groundMatB;
           const tileMesh = new THREE.Mesh(groundGeo, tileMat);
           tileMesh.position.set(wx, -0.16, wz);
           tileMesh.receiveShadow = true;
           overworld.zoneGroup.add(tileMesh);
 
-          if (ch === 'T') {
+          if (ch === 'T' || ch === '#') {
             // 3D Biome Obstacle: Forest Tree / Coral Spire / Volcanic Crag / Astral Obelisk
             const treeGroup = new THREE.Group();
             treeGroup.position.set(wx, 0, wz);
@@ -971,7 +1106,7 @@
               flowerGroup.add(blossom);
             }
             overworld.zoneGroup.add(flowerGroup);
-          } else if (ch === 'P' || ch === 'B') {
+          } else if ((ch === 'P' && (r === 0 || r === rows - 1)) || ch === 'B') {
             // Spinning 3D Stargate Portal Ring
             const portalGroup = new THREE.Group();
             portalGroup.position.set(wx, 0, wz);
@@ -999,6 +1134,31 @@
             overworld.portalMeshes.push(portalGroup);
           }
         }
+      }
+
+
+      // If in World 1 (Sunleaf Meadow), build Grandpa Rowan’s 3D Heartwood Homestead Cabin & Breeding Corral!
+      if (zone.id === "meadow") {
+        const cabinGroup = new THREE.Group();
+        cabinGroup.position.set(5.2 * TILE_SIZE, 0, 4.2 * TILE_SIZE);
+        const barkTex = getProceduralTexture("bark", 0x78350f, 0x451a03);
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x92400e, map: barkTex, roughness: 0.7 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.5 });
+        const glowWindowMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+
+        const cabinWalls = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.5, 2.0), wallMat);
+        cabinWalls.position.y = 0.75;
+        cabinWalls.castShadow = true;
+        const cabinRoof = new THREE.Mesh(new THREE.ConeGeometry(1.95, 1.25, 4), roofMat);
+        cabinRoof.position.y = 2.05;
+        cabinRoof.rotation.y = Math.PI / 4;
+        cabinRoof.castShadow = true;
+        const winL = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.08), glowWindowMat);
+        winL.position.set(-0.55, 0.85, 1.01);
+        const winR = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.08), glowWindowMat);
+        winR.position.set(0.55, 0.85, 1.01);
+        cabinGroup.add(cabinWalls, cabinRoof, winL, winR);
+        overworld.zoneGroup.add(cabinGroup);
       }
 
       // Floating 3D Biome Particles (Fireflies / Embers / Astral Spores)
@@ -1037,15 +1197,17 @@
     npcEntries.forEach((npc) => {
       const role = npc.type || npc.role;
       if (role === "shrine" || role === "portal") return;
-      const isWarden = role === "warden";
+      const isWarden = Boolean(npc.wardenId || role === "warden");
+      const isGrandpa = Boolean(npc.isGrandpa || npc.id === "rowan");
       const isShop = role === "merchant" || role === "shop";
       const defeated = defeatedTrainerIds.includes(npc.id);
 
       const npcMesh = buildHumanoid3D({
-        coatColor: isWarden ? "#9333ea" : isShop ? "#d97706" : defeated ? "#475569" : "#e11d48",
-        trimColor: isWarden ? "#facc15" : isShop ? "#38bdf8" : "#fda4af",
-        hairColor: isWarden ? "#f8fafc" : "#1e293b",
-        isWarden
+        coatColor: isGrandpa ? "#15803d" : isWarden ? "#9333ea" : isShop ? "#d97706" : defeated ? "#475569" : "#e11d48",
+        trimColor: isGrandpa ? "#facc15" : isWarden ? "#facc15" : isShop ? "#38bdf8" : "#fda4af",
+        hairColor: isGrandpa ? "#e2e8f0" : isWarden ? "#f8fafc" : "#1e293b",
+        isWarden,
+        isGrandpa
       });
       npcMesh.position.set(npc.x * TILE_SIZE, 0, npc.y * TILE_SIZE);
       npcMesh.userData.npcData = npc;
@@ -1245,6 +1407,7 @@
     enemySpeciesKey: null,
     pointLight: null,
     shakeIntensity: 0,
+    turnPhase: 'idle', // 'idle' | 'player_turn' | 'enemy_turn'
     activeAction: null, // { type: 'attack' | 'prism', startTime, duration, ... }
     particles: [],
     shockwaves: []
@@ -1351,11 +1514,33 @@
       battle3d.scene.fog.color.setHex(pal.fog);
     }
 
-    // Main Octagonal Arena Floor
+    const arenaGrassTex = getProceduralTexture("grass", pal.ground, pal.tallGrass);
+    const arenaStoneTex = getProceduralTexture("stone", pal.path, pal.ground);
+    // Main Realistic Natural Colosseum Floor
     const floor = new THREE.Mesh(
-      new THREE.CylinderGeometry(9.5, 10.5, 0.6, 16),
-      new THREE.MeshStandardMaterial({ color: pal.ground, roughness: 0.7, metalness: 0.2 })
+      new THREE.CylinderGeometry(10.5, 11.8, 0.7, 32),
+      new THREE.MeshStandardMaterial({
+        color: pal.ground,
+        map: arenaGrassTex,
+        bumpMap: arenaGrassTex,
+        bumpScale: 0.04,
+        roughness: 0.72,
+        metalness: 0.12
+      })
     );
+    const innerStone = new THREE.Mesh(
+      new THREE.CylinderGeometry(5.6, 5.8, 0.12, 32),
+      new THREE.MeshStandardMaterial({
+        color: pal.path,
+        map: arenaStoneTex,
+        bumpMap: arenaStoneTex,
+        bumpScale: 0.04,
+        roughness: 0.65
+      })
+    );
+    innerStone.position.y = 0.02;
+    innerStone.receiveShadow = true;
+    battle3d.arenaGroup.add(innerStone);
     floor.position.y = -0.3;
     floor.receiveShadow = true;
     battle3d.arenaGroup.add(floor);
@@ -1533,6 +1718,11 @@
    * - Camera swoop onto attacker -> High-speed 3D physical lunge + elemental barrage
    * - Camera cut to defender impact + heavy 3D screen shake + knockback recoil!
    */
+
+  function setBattleTurnPhase(phase = "idle") {
+    battle3d.turnPhase = phase || "idle";
+  }
+
   function playAttack3D(isPlayerAttacking, move, result, onImpactCallback) {
     const THREE = getThree();
     if (!THREE || !battle3d.initialized) {
@@ -1568,7 +1758,7 @@
       endPos,
       projGroup,
       startTime: performance.now(),
-      duration: 680, // Snappy, high-impact 680ms combat choreography!
+      duration: 920, // Dramatic 920ms turn-by-turn combat choreography!
       impactTriggered: false,
       onImpactCallback
     };
@@ -1625,13 +1815,29 @@
     let playerLungePhase = 0;
     let enemyLungePhase = 0;
 
-    // Default Dramatic Orbiting Battle Camera
+    // Turn-Aware Cinematic Battle Camera (frames active turn party!)
     let camX = -4.2 + Math.sin(timeSec * 0.55) * 0.65;
     let camY = 3.35 + Math.cos(timeSec * 0.4) * 0.2;
     let camZ = 6.2 + Math.cos(timeSec * 0.55) * 0.45;
     let lookX = 0.25;
     let lookY = 1.05;
     let lookZ = 0.0;
+
+    if (battle3d.turnPhase === "player_turn") {
+      camX = -3.8;
+      camY = 2.75;
+      camZ = 5.4;
+      lookX = 0.8;
+      lookY = 1.1;
+      lookZ = -0.6;
+    } else if (battle3d.turnPhase === "enemy_turn") {
+      camX = 3.6;
+      camY = 2.85;
+      camZ = 5.1;
+      lookX = -0.8;
+      lookY = 1.05;
+      lookZ = 0.6;
+    }
 
     // Process Active 3D Combat Action (Attack or Prism Capture)
     if (battle3d.activeAction) {
@@ -1841,6 +2047,7 @@
     initBattleArena,
     resizeBattleArena,
     syncBattleCombatants,
+    setBattleTurnPhase,
     playAttack3D,
     playPrismCapture3D,
     renderBattleFrame,

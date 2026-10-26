@@ -77,15 +77,26 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities & Battle Mat
     }
   });
 
-  it('defines items, 4 zones with encounter weights summing to 100, and 4 wardens', () => {
+  it('defines items, 6 worlds with encounter weights summing to 100, 6 wardens, story chapters & breeding', () => {
     assert.ok(WildkinData.ITEMS.basicPrism);
     assert.ok(WildkinData.ITEMS.masteryPrism);
-    assert.equal(WildkinData.ZONES.length, 4);
+    assert.ok(WildkinData.ITEMS.heartwoodBerry);
+    assert.ok(WildkinData.ITEMS.apexNectar);
+    assert.equal(WildkinData.ZONES.length, 6);
     for (const zone of WildkinData.ZONES) {
       const weightSum = zone.wildPool.reduce((acc, entry) => acc + entry.weight, 0);
       assert.equal(weightSum, 100, `Zone ${zone.id} wildPool weights should sum to 100`);
     }
-    assert.equal(WildkinData.WARDENS.length, 4);
+    assert.equal(WildkinData.WARDENS.length, 6);
+    assert.equal(WildkinData.STORY_CHAPTERS.length, 8);
+
+    const parentA = WildkinData.createKinInstance(3, 18, { geneticTier: 'A' });
+    const parentB = WildkinData.createKinInstance(6, 20, { geneticTier: 'A' });
+    const baby = WildkinData.breedKinOffspring(parentA, parentB, { rng: () => 0.5 });
+    assert.equal(baby.speciesId, 1); // Base stage of Parent A (#3 Ignisaur -> #1 Cinderkit)
+    assert.equal(baby.geneticTier, 'S');
+    assert.equal(baby.generation, 2);
+    assert.ok(baby.inheritedMove, 'Expected bred offspring to inherit an Egg Move from Parent B');
   });
 
   it('calculates stats and creates Kin instances properly', () => {
@@ -112,10 +123,10 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities & Battle Mat
 });
 
 describe('2. public/js/maps.js — Zone Grids, Portals & NPC Coordinates', () => {
-  it('verifies all 4 zone maps are strictly 16x12 grids', () => {
+  it('verifies all 6 world maps are strictly 16x12 grids and Grandpa Rowan is in meadow', () => {
     assert.equal(WildkinMaps.MAP_WIDTH, 16);
     assert.equal(WildkinMaps.MAP_HEIGHT, 12);
-    const zoneIds = ['meadow', 'tidecove', 'cinderpeak', 'sanctum'];
+    const zoneIds = ['meadow', 'tidecove', 'stormspire', 'cinderpeak', 'frostveil', 'sanctum'];
     for (const id of zoneIds) {
       const map = WildkinMaps.ZONE_MAPS[id];
       assert.ok(map, `Missing map for ${id}`);
@@ -137,6 +148,8 @@ describe('2. public/js/maps.js — Zone Grids, Portals & NPC Coordinates', () =>
 
     const wardenKael = WildkinMaps.getNpcAt('meadow', 9, 9);
     assert.ok(wardenKael && wardenKael.wardenId === 'kael');
+    const grandpaRowan = WildkinMaps.getNpcAt('meadow', 6, 5);
+    assert.ok(grandpaRowan && grandpaRowan.isGrandpa === true, 'Expected Grandpa Rowan at meadow 6,5');
 
     if (typeof WildkinMaps.isWalkableTile === 'function') {
       assert.equal(WildkinMaps.isWalkableTile('.'), true);
@@ -312,13 +325,13 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     assert.ok(text.length > 100000, 'Expected three.min.js bundle content');
   });
 
-  it('GET /api/health returns ok: true, kinCount: 27, zones: 4', async () => {
+  it('GET /api/health returns ok: true, kinCount: 27, zones: 6', async () => {
     const res = await fetch(`${baseUrl}/api/health`);
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.equal(data.ok, true);
     assert.equal(data.kinCount, 27);
-    assert.equal(data.zones, 4);
+    assert.equal(data.zones, 6);
   });
 
   it('GET /api/kindex returns complete KinDex payload', async () => {
@@ -328,8 +341,8 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     assert.equal(data.ok, true);
     assert.equal(data.kin.length, 27);
     assert.equal(Object.keys(data.affinities).length, 6);
-    assert.equal(data.zones.length, 4);
-    assert.equal(data.wardens.length, 4);
+    assert.equal(data.zones.length, 6);
+    assert.equal(data.wardens.length, 6);
   });
 
   it('POST & GET /api/cloud-save and /api/save alias persist and retrieve save states', async () => {

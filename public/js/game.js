@@ -162,7 +162,9 @@
         masteryPrism: 0,
         dewTonic: 3,
         hiTonic: 1,
-        reviveLeaf: 1
+        reviveLeaf: 1,
+        heartwoodBerry: 2,
+        apexNectar: 0
       },
       squad: [],
       vault: [],
@@ -173,8 +175,16 @@
       stats: {
         battlesWon: 0,
         kinBound: 0,
-        stepsTaken: 0
+        stepsTaken: 0,
+        kinBred: 0,
+        evolutions: 0
       },
+      storyChapter: 1,
+      claimedChapters: {},
+      spireFloor: 1,
+      ranchTab: 'care',
+      breedParentA: null,
+      breedParentB: null,
       cloudCode: null
     };
 
@@ -474,7 +484,9 @@
     if (shardsEl) shardsEl.textContent = String(state.shards);
 
     const crestsEl = $('hudCrests');
-    if (crestsEl) crestsEl.textContent = `${state.crests.length}/4`;
+    const totalWardens = (DATA && DATA.WARDENS && DATA.WARDENS.length) || 6;
+    if (crestsEl) crestsEl.textContent = `${state.crests.length}/${totalWardens}`;
+    updateStoryTrackerHud();
 
     const boundCount = Object.keys(state.kindexBound).length;
     const boundEl = $('hudBound');
@@ -494,6 +506,73 @@
 
     updateInteractPrompt();
   }
+
+  function checkStoryChapterComplete(ch) {
+    if (!ch || !state) return false;
+    const boundCount = Object.keys(state.kindexBound || {}).length;
+    const maxBond = (state.squad || []).concat(state.vault || []).reduce((m, k) => Math.max(m, Number(k.bondLevel || 1)), 1);
+    const maxGen = (state.squad || []).concat(state.vault || []).reduce((m, k) => Math.max(m, Number(k.generation || 1)), 1);
+    if (ch.id === 1) return boundCount >= 2;
+    if (ch.id === 2) return (state.crests || []).includes('kael') || maxBond >= 2;
+    if (ch.id === 3) return Number((state.stats && state.stats.kinBred) || 0) >= 1 || maxGen >= 2;
+    if (ch.id === 4) return (state.crests || []).includes('nerissa');
+    if (ch.id === 5) return (state.crests || []).includes('orin');
+    if (ch.id === 6) return (state.crests || []).includes('ignis');
+    if (ch.id === 7) return (state.crests || []).includes('freya');
+    if (ch.id === 8) return (state.crests || []).includes('vesper') || Number(state.spireFloor || 1) >= 5;
+    return false;
+  }
+
+  function updateStoryTrackerHud() {
+    if (typeof document === 'undefined' || !DATA || !DATA.STORY_CHAPTERS) return;
+    if (!state.storyChapter) state.storyChapter = 1;
+    if (!state.claimedChapters) state.claimedChapters = {};
+    if (!state.stats) state.stats = { battlesWon: 0, kinBound: 0, stepsTaken: 0, kinBred: 0, evolutions: 0 };
+
+    // Auto-advance chapters & grant Grandpa Rowan's milestone rewards
+    let chObj = DATA.STORY_CHAPTERS.find((c) => c.id === state.storyChapter) || DATA.STORY_CHAPTERS[DATA.STORY_CHAPTERS.length - 1];
+    while (chObj && checkStoryChapterComplete(chObj) && !state.claimedChapters[chObj.id]) {
+      state.claimedChapters[chObj.id] = true;
+      const rewShards = Number(chObj.rewardShards || 150);
+      state.shards = (state.shards || 0) + rewShards;
+      if (chObj.rewardItem && state.inventory) {
+        state.inventory[chObj.rewardItem] = (state.inventory[chObj.rewardItem] || 0) + Number(chObj.rewardQty || 1);
+      }
+      if (state.storyChapter < DATA.STORY_CHAPTERS.length) {
+        state.storyChapter += 1;
+      }
+      showToast(`📜 Chapter ${chObj.id} Complete! Grandpa Rowan gifted +${rewShards}💎!`, 3400);
+      chObj = DATA.STORY_CHAPTERS.find((c) => c.id === state.storyChapter) || chObj;
+    }
+
+    const badgeEl = $('questChapterBadge');
+    const titleEl = $('questTitleText');
+    const objEl = $('questObjText');
+    if (badgeEl && chObj) badgeEl.textContent = `CH.${chObj.id}/${DATA.STORY_CHAPTERS.length}`;
+    if (titleEl && chObj) titleEl.textContent = chObj.title;
+    if (objEl && chObj) objEl.textContent = chObj.objective;
+  }
+
+  function setBattleTurnBanner(phaseClass, pillLabel, statusText) {
+    const banner = $('battleTurnBanner');
+    const pill = $('battleTurnPill');
+    const text = $('battleTurnText');
+    const consoleEl = document.querySelector('.battle-console');
+    if (banner) {
+      banner.className = 'battle-turn-banner ' + (phaseClass || 'phase-ready');
+    }
+    if (pill) pill.textContent = pillLabel || 'YOUR TURN';
+    if (text) text.textContent = statusText || 'Select a move, item, or Kin';
+    if (consoleEl) {
+      consoleEl.classList.toggle('turn-locked', Boolean(battleState && battleState.busy));
+    }
+    if (root.WILDKIN_3D && typeof root.WILDKIN_3D.setBattleTurnPhase === 'function') {
+      if (phaseClass === 'phase-player') root.WILDKIN_3D.setBattleTurnPhase('player_turn');
+      else if (phaseClass === 'phase-enemy') root.WILDKIN_3D.setBattleTurnPhase('enemy_turn');
+      else root.WILDKIN_3D.setBattleTurnPhase('idle');
+    }
+  }
+
 
   function getAdjacentInteraction() {
     const nearFloat = findNearbyNpcFloat(playerMotion.x, playerMotion.y, 1.45);
@@ -552,6 +631,9 @@
     } else if (npc.type === 'warden') {
       icon = '👑';
       label = `Challenge ${npc.name} (A)`;
+    } else if (npc.type === 'ranch' || npc.isGrandpa) {
+      icon = '🧬';
+      label = `${npc.name}: Homestead Ranch & Story (A)`;
     } else if (npc.type === 'portal') {
       icon = '🌀';
       label = npc.label || 'Travel to Next Zone';
@@ -790,6 +872,8 @@
     if (!npc) return;
     if (npc.type === 'shrine') {
       healSquadAtShrine();
+    } else if (npc.type === 'ranch' || npc.isGrandpa) {
+      openModal('ranch');
     } else if (npc.type === 'merchant') {
       openModal('shop');
     } else if (npc.type === 'portal') {
@@ -959,6 +1043,47 @@
     openBattleOverlay('warden');
   }
 
+  function startSpireBattle() {
+    if (!DATA || !DATA.KIN_SPECIES) return;
+    let healthyIdx = getFirstHealthySquadIndex();
+    if (healthyIdx === -1) {
+      healSquadAtShrine(true);
+      healthyIdx = 0;
+    }
+    const floor = Math.max(1, Number(state.spireFloor || 1));
+    const isBoss = floor % 5 === 0;
+    const baseLv = Math.min(75, 10 + Math.floor(floor * 0.65));
+    const count = isBoss ? 3 : 2;
+    const pool = DATA.KIN_SPECIES.filter((s) => (floor >= 25 ? s.stage >= 2 : floor >= 10 ? s.stage >= 1 : true));
+    const enemySquad = [];
+    for (let i = 0; i < count; i++) {
+      const pick = pool[(floor * 7 + i * 13) % pool.length] || DATA.KIN_SPECIES[0];
+      enemySquad.push(
+        DATA.createKinInstance(pick.id, baseLv + i, {
+          isRadiant: isBoss && i === count - 1,
+          geneticTier: isBoss ? 'SS' : floor >= 20 ? 'S' : 'A'
+        })
+      );
+    }
+    enemySquad.forEach((k) => markSeen(k.speciesId));
+
+    closeModal();
+    battleState = {
+      mode: 'spire',
+      spireFloor: floor,
+      title: `AETHER SPIRE • FLOOR ${floor}/100${isBoss ? ' (APEX BOSS)' : ''}`,
+      trainerName: `Spire Sentinel F${floor}`,
+      rewardShards: 120 + floor * 18,
+      enemySquad,
+      enemyIndex: 0,
+      playerIndex: healthyIdx,
+      activeTab: 'moves',
+      busy: false,
+      logText: `🗼 Entered Infinite Aether Spire Floor ${floor}! Sentinel unleashed ${enemySquad[0].nickname} (Lv.${enemySquad[0].level})!`
+    };
+    openBattleOverlay('warden');
+  }
+
   function openBattleOverlay(bgmType = 'battle') {
     const overlay = $('battleOverlay', 'battle-layer');
     if (overlay) overlay.classList.remove('hidden');
@@ -1098,6 +1223,9 @@
       pHolder.innerHTML = root.WILDKIN_SPRITES.renderKinSvg(pSpecies, 64, player.isRadiant);
     }
 
+    if (!battleState.busy) {
+      setBattleTurnBanner('phase-ready', 'YOUR TURN', `Choose ${player.nickname}’s action`);
+    }
     setBattleLog(battleState.logText);
     renderBattleDeck();
   }
@@ -1251,16 +1379,20 @@
       return;
     }
 
-    // Check paralysis skip
+    // PHASE 1: PLAYER'S TURN (Distinct announcement + camera cut + wind-up)
+    battleState.busy = true;
+    setBattleTurnBanner('phase-player', 'TURN 1 • YOUR MOVE', `${player.nickname} prepares ${move.name}!`);
+
     if (player.status === 'paralyze' && Math.random() < 0.22) {
-      battleState.busy = true;
       setBattleLog(`⚡ ${player.nickname} is paralyzed by static and couldn’t move!`);
-      setTimeout(() => executeEnemyTurn(), 750);
+      renderBattleUI();
+      setTimeout(() => executeEnemyTurn(), 1050);
       return;
     }
 
     slot.currentStamina = Math.max(0, slot.currentStamina - 1);
-    battleState.busy = true;
+    setBattleLog(`⚔️ [YOUR TURN] ${player.nickname} unleashes ${move.name}!`);
+    renderBattleUI();
 
     if (move.category === 'status' && move.selfBuff) {
       player.buffs = player.buffs || { atk: 1, def: 1, spd: 1 };
@@ -1270,7 +1402,7 @@
       if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(780, 0.09);
       setBattleLog(`✨ ${player.nickname} used ${move.name}! Resonance boosted its stats!`);
       renderBattleUI();
-      setTimeout(() => executeEnemyTurn(), 750);
+      setTimeout(() => executeEnemyTurn(), 1100);
       return;
     }
 
@@ -1279,7 +1411,7 @@
 
     animateSpriteHit(true, () => {
       enemy.currentHp = Math.max(0, enemy.currentHp - res.damage);
-      let msg = `${player.nickname} used ${move.name}! Dealt ${res.damage} dmg!`;
+      let msg = `💥 ${player.nickname}’s ${move.name} hit for ${res.damage} dmg!`;
       if (res.isCrit) msg += ' CRITICAL HIT!';
       if (res.effectiveness === 'super') msg += ' Super effective!';
       else if (res.effectiveness === 'resist') msg += ' Resisted...';
@@ -1300,10 +1432,12 @@
       setBattleLog(msg);
       renderBattleUI();
 
+      // Pause cleanly so the player sees their hit land & HP drain before Turn 2 begins!
       if (enemy.currentHp <= 0) {
-        setTimeout(() => handleEnemyDefeated(), 550);
+        setBattleTurnBanner('phase-player', 'TARGET DEFEATED', `${enemy.nickname} collapsed!`);
+        setTimeout(() => handleEnemyDefeated(), 900);
       } else {
-        setTimeout(() => executeEnemyTurn(), 580);
+        setTimeout(() => executeEnemyTurn(), 980);
       }
     }, move, res);
   }
@@ -1314,8 +1448,16 @@
     const enemy = battleState.enemySquad[battleState.enemyIndex];
     if (!enemy || enemy.currentHp <= 0) {
       battleState.busy = false;
+      setBattleTurnBanner('phase-ready', 'YOUR TURN', `Choose ${player ? player.nickname : 'Partner'}’s action`);
       return;
     }
+
+    // PHASE 2: ENEMY'S TURN (Distinct announcement + camera cut to enemy + wind-up pause)
+    const eMoves = (enemy.moveSlots || []).map((ms) => DATA.MOVES[ms.id] || DATA.MOVES.clawSwipe);
+    const chosenMove = eMoves[Math.floor(Math.random() * eMoves.length)] || DATA.MOVES.clawSwipe;
+
+    setBattleTurnBanner('phase-enemy', 'TURN 2 • FOE ATTACKS', `Foe ${enemy.nickname} counters with ${chosenMove.name}!`);
+    setBattleLog(`⚠️ [FOE TURN] Foe ${enemy.nickname} readies ${chosenMove.name}!`);
 
     // End-of-round burn/poison tick on enemy
     if (enemy.status === 'burn' || enemy.status === 'poison') {
@@ -1324,81 +1466,99 @@
       if (enemy.currentHp <= 0) {
         renderBattleUI();
         setBattleLog(`${enemy.nickname} fainted from ${enemy.status.toUpperCase()} damage!`);
-        setTimeout(() => handleEnemyDefeated(), 750);
+        setTimeout(() => handleEnemyDefeated(), 850);
         return;
       }
     }
 
     if (enemy.status === 'paralyze' && Math.random() < 0.25) {
       setBattleLog(`⚡ Foe ${enemy.nickname} is paralyzed and missed its turn!`);
-      battleState.busy = false;
-      renderBattleUI();
+      setTimeout(() => {
+        if (!battleState) return;
+        battleState.busy = false;
+        renderBattleUI();
+      }, 850);
       return;
     }
-
-    const eMoves = (enemy.moveSlots || []).map((ms) => DATA.MOVES[ms.id] || DATA.MOVES.clawSwipe);
-    const chosenMove = eMoves[Math.floor(Math.random() * eMoves.length)] || DATA.MOVES.clawSwipe;
 
     if (chosenMove.category === 'status' && chosenMove.selfBuff) {
       enemy.buffs = enemy.buffs || { atk: 1, def: 1, spd: 1 };
       if (chosenMove.selfBuff.atk) enemy.buffs.atk = Math.min(2.0, (enemy.buffs.atk || 1) * chosenMove.selfBuff.atk);
       if (chosenMove.selfBuff.def) enemy.buffs.def = Math.min(2.0, (enemy.buffs.def || 1) * chosenMove.selfBuff.def);
-      setBattleLog(`Foe ${enemy.nickname} used ${chosenMove.name} and fortified itself!`);
-      battleState.busy = false;
-      renderBattleUI();
+      setBattleLog(`🛡️ Foe ${enemy.nickname} used ${chosenMove.name} and fortified itself!`);
+      setTimeout(() => {
+        if (!battleState) return;
+        battleState.busy = false;
+        renderBattleUI();
+      }, 900);
       return;
     }
 
-    const res = calculateDamage(enemy, player, chosenMove);
-    if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playAttack(res.multiplier);
+    // Brief 340ms dramatic wind-up before the enemy lunges across the 3D arena
+    setTimeout(() => {
+      if (!battleState) return;
+      const res = calculateDamage(enemy, player, chosenMove);
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playAttack(res.multiplier);
 
-    animateSpriteHit(false, () => {
-      player.currentHp = Math.max(0, player.currentHp - res.damage);
-      let msg = `Foe ${enemy.nickname} used ${chosenMove.name}! (${res.damage} dmg)`;
-      if (res.effectiveness === 'super') msg += ' It’s super effective!';
-      else if (res.effectiveness === 'resist') msg += ' Not very effective.';
+      animateSpriteHit(false, () => {
+        player.currentHp = Math.max(0, player.currentHp - res.damage);
 
-      if (player.currentHp > 0 && chosenMove.statusEffect && !player.status) {
-        if (Math.random() < chosenMove.statusEffect.chance) {
-          player.status = chosenMove.statusEffect.type;
-          msg += ` ${player.nickname} caught ${player.status.toUpperCase()}!`;
+        // Bond Level survival miracle (Bond Lv.5+ has a chance to endure a fatal hit at 1 HP!)
+        if (player.currentHp <= 0 && Number(player.bondLevel || 1) >= 5 && Math.random() < 0.28) {
+          player.currentHp = 1;
         }
-      }
 
-      // Player burn/poison tick
-      if (player.currentHp > 0 && (player.status === 'burn' || player.status === 'poison')) {
-        const pDot = Math.max(1, Math.floor(player.maxHp * 0.07));
-        player.currentHp = Math.max(0, player.currentHp - pDot);
-        msg += ` (${player.status.toUpperCase()} -${pDot} HP)`;
-      }
+        let msg = `🔥 Foe ${enemy.nickname} used ${chosenMove.name}! (${res.damage} dmg)`;
+        if (res.effectiveness === 'super') msg += ' It’s super effective!';
+        else if (res.effectiveness === 'resist') msg += ' Not very effective.';
 
-      setBattleLog(msg);
-      renderBattleUI();
+        if (player.currentHp > 0 && chosenMove.statusEffect && !player.status) {
+          if (Math.random() < chosenMove.statusEffect.chance) {
+            player.status = chosenMove.statusEffect.type;
+            msg += ` ${player.nickname} caught ${player.status.toUpperCase()}!`;
+          }
+        }
 
-      if (player.currentHp <= 0) {
-        const nextIdx = getFirstHealthySquadIndex();
-        if (nextIdx !== -1) {
-          battleState.playerIndex = nextIdx;
-          const nextKin = state.squad[nextIdx];
-          setTimeout(() => {
-            setBattleLog(`${player.nickname} is exhausted! Go, ${nextKin.nickname}!`);
-            battleState.busy = false;
-            renderBattleUI();
-          }, 800);
+        // Player burn/poison tick
+        if (player.currentHp > 0 && (player.status === 'burn' || player.status === 'poison')) {
+          const pDot = Math.max(1, Math.floor(player.maxHp * 0.07));
+          player.currentHp = Math.max(0, player.currentHp - pDot);
+          msg += ` (${player.status.toUpperCase()} -${pDot} HP)`;
+        }
+
+        setBattleLog(msg);
+        renderBattleUI();
+
+        if (player.currentHp <= 0) {
+          const nextIdx = getFirstHealthySquadIndex();
+          if (nextIdx !== -1) {
+            battleState.playerIndex = nextIdx;
+            const nextKin = state.squad[nextIdx];
+            setTimeout(() => {
+              if (!battleState) return;
+              setBattleLog(`${player.nickname} is exhausted! Go, ${nextKin.nickname}!`);
+              battleState.busy = false;
+              renderBattleUI();
+            }, 900);
+          } else {
+            setTimeout(() => {
+              setBattleLog('All Squad Kin are exhausted! Retreating to the Wellspring Shrine...');
+              setTimeout(() => {
+                healSquadAtShrine(true);
+                closeBattleOverlay();
+                showToast('⛲ Rescued to Wellspring Shrine — Squad fully restored!');
+              }, 1100);
+            }, 750);
+          }
         } else {
           setTimeout(() => {
-            setBattleLog('All Squad Kin are exhausted! Retreating to the Wellspring Shrine...');
-            setTimeout(() => {
-              healSquadAtShrine(true);
-              closeBattleOverlay();
-              showToast('⛲ Rescued to Wellspring Shrine — Squad fully restored!');
-            }, 1100);
-          }, 700);
+            if (!battleState) return;
+            battleState.busy = false;
+            renderBattleUI();
+          }, 520);
         }
-      } else {
-        battleState.busy = false;
-      }
-    }, chosenMove, res);
+      }, chosenMove, res);
+    }, 340);
   }
 
   function usePackItemInBattle(itemId) {
@@ -1423,6 +1583,7 @@
     const player = state.squad[battleState.playerIndex];
     state.inventory[itemId] = count - 1;
     battleState.busy = true;
+    setBattleTurnBanner('phase-player', 'TURN 1 • PACK ITEM', `Using ${item.name}...`);
 
     if (item.category === 'revive') {
       const target = state.squad.find((k) => k.currentHp <= 0) || player;
@@ -1452,6 +1613,7 @@
     const caught = Math.random() < chance;
     const shakes = caught ? 3 : Math.max(1, Math.min(2, Math.ceil(chance * 3)));
 
+    setBattleTurnBanner('phase-player', 'TURN 1 • AETHER PRISM', `Binding wild ${enemy.nickname} (${Math.round(chance * 100)}%)`);
     setBattleLog(`💠 Threw ${prismItem.name} at wild ${enemy.nickname}! (${Math.round(chance * 100)}% resonance)`);
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playPrismThrow();
     if (root.WILDKIN_3D) {
@@ -1544,6 +1706,7 @@
     battleState.playerIndex = newIdx;
     battleState.activeTab = 'moves';
     battleState.busy = true;
+    setBattleTurnBanner('phase-player', 'TURN 1 • SQUAD SWITCH', `Sent out ${target.nickname} (Lv.${target.level})!`);
     setBattleLog(`🐾 Come back! Go, ${target.nickname} (Lv.${target.level})!`);
     renderBattleUI();
     setTimeout(() => executeEnemyTurn(), 650);
@@ -1571,7 +1734,7 @@
       player.level += 1;
       player.xpToNext = DATA.xpForNextLevel(player.level);
       const sp = DATA.getSpeciesById(player.speciesId);
-      const newStats = DATA.calculateStatsForLevel(sp.baseStats, player.level, player.isRadiant);
+      const newStats = DATA.calculateStatsForLevel(sp.baseStats, player.level, player.isRadiant, player.geneticBonus || 0, player.bondLevel || 1);
       const hpDiff = Math.max(2, newStats.maxHp - player.maxHp);
       player.maxHp = newStats.maxHp;
       player.currentHp = Math.min(player.maxHp, player.currentHp + hpDiff);
@@ -1633,6 +1796,10 @@
         state.crests.push(w.id);
       }
       winMsg = `👑 ${w.name}: “${w.quoteDefeat}” Earned ${w.crestIcon} ${w.crestName} & +${reward}💎!`;
+    } else if (battleState.mode === 'spire') {
+      const clearedFloor = battleState.spireFloor || state.spireFloor || 1;
+      state.spireFloor = Math.min(100, clearedFloor + 1);
+      winMsg = `🗼 Cleared Aether Spire Floor ${clearedFloor}! Unlocked Floor ${state.spireFloor} & +${reward}💎!`;
     }
 
     setBattleLog(winMsg);
@@ -1686,7 +1853,8 @@
       const wasDefaultName = kin.nickname === fromSp.name;
       kin.speciesId = toSp.id;
       if (wasDefaultName) kin.nickname = toSp.name;
-      const stats = DATA.calculateStatsForLevel(toSp.baseStats, kin.level, kin.isRadiant);
+      const stats = DATA.calculateStatsForLevel(toSp.baseStats, kin.level, kin.isRadiant, kin.geneticBonus || 0, kin.bondLevel || 1);
+      if (state.stats) state.stats.evolutions = (state.stats.evolutions || 0) + 1;
       kin.maxHp = stats.maxHp;
       kin.currentHp = stats.maxHp;
       kin.atk = stats.atk;
@@ -1771,9 +1939,9 @@
             <div class="kin-card-top">
               ${svg}
               <div>
-                <div style="font-weight:800;font-size:0.8rem">${kin.nickname} ${kin.isRadiant ? '✨' : ''}</div>
-                <div style="font-size:0.68rem;color:#facc15">Lv.${kin.level} • ${aff.icon} ${aff.name}</div>
-                <div style="font-size:0.64rem;color:#cbd5e1">HP ${kin.currentHp}/${kin.maxHp} • ATK ${kin.atk}</div>
+                <div style="font-weight:800;font-size:0.8rem">${kin.nickname} ${kin.isRadiant ? '✨' : ''} <span class="genetic-badge" style="color:${(DATA.GENETIC_TIERS && DATA.GENETIC_TIERS[kin.geneticTier || 'B'] && DATA.GENETIC_TIERS[kin.geneticTier || 'B'].color) || '#94a3b8'}">${kin.geneticTier || 'B'}-Rank</span></div>
+                <div style="font-size:0.68rem;color:#facc15">Lv.${kin.level} • ${aff.icon} ${aff.name} • ❤️ Bond ${kin.bondLevel || 1}/10</div>
+                <div style="font-size:0.64rem;color:#cbd5e1">HP ${kin.currentHp}/${kin.maxHp} • ATK ${kin.atk}${kin.generation > 1 ? ` • Gen ${kin.generation}` : ''}</div>
               </div>
             </div>
             <div class="mini-btn-row">
@@ -1923,9 +2091,18 @@
         });
       });
     } else if (tab === 'arena') {
-      titleEl.textContent = `👑 Realm Wardens (${state.crests.length}/4 Crests) & PvP Arena`;
+      const totalW = (DATA.WARDENS && DATA.WARDENS.length) || 6;
+      titleEl.textContent = `👑 6 World Wardens (${state.crests.length}/${totalW} Crests), Spire & PvP Arena`;
       bodyEl.innerHTML = `
-        <div style="font-size:0.75rem;color:#facc15;font-weight:800">4 Sanctuary Wardens</div>
+        <div class="ranch-banner" style="border-color:#c084fc">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong style="color:#f0abfc;font-size:0.82rem">🗼 Infinite Aether Spire (100-Floor Endgame Tower)</strong>
+            <span style="color:#facc15;font-size:0.72rem;font-weight:900">Current: Floor ${state.spireFloor || 1}/100</span>
+          </div>
+          <div style="font-size:0.68rem;color:#cbd5e1">Climb all 100 floors of escalating S/SS-Rank Guardians & Radiant Bosses for massive Shard payouts!</div>
+          <button class="mini-btn" id="btnEnterSpire" style="background:linear-gradient(135deg,#9333ea,#2563eb);padding:7px 12px">🗼 Challenge Spire Floor ${state.spireFloor || 1}</button>
+        </div>
+        <div style="font-size:0.75rem;color:#facc15;font-weight:800">6 World Wardens (Story Bosses)</div>
         <div class="card-grid">
           ${DATA.WARDENS.map((w) => {
             const earned = state.crests.includes(w.id);
@@ -1953,6 +2130,10 @@
         </div>
       `;
 
+      const spireBtn = $('btnEnterSpire');
+      if (spireBtn) {
+        spireBtn.addEventListener('click', () => startSpireBattle());
+      }
       bodyEl.querySelectorAll('[data-warden-id]').forEach((btn) => {
         btn.addEventListener('click', () => {
           startWardenBattle(btn.getAttribute('data-warden-id'));
@@ -2070,6 +2251,251 @@
           } catch (e) {
             if (status) status.textContent = 'Could not load Cloud Code.';
           }
+        });
+      }
+    } else if (tab === 'ranch') {
+      const allKin = state.squad.concat(state.vault);
+      if (!state.breedParentA && allKin[0]) state.breedParentA = allKin[0].uid;
+      if (!state.breedParentB && allKin[1]) state.breedParentB = allKin[1].uid;
+
+      const parentA = allKin.find((k) => k.uid === state.breedParentA) || allKin[0] || null;
+      const parentB = allKin.find((k) => k.uid === state.breedParentB && (!parentA || k.uid !== parentA.uid)) || allKin.find((k) => !parentA || k.uid !== parentA.uid) || null;
+
+      let previewHtml = '<div style="font-size:0.7rem;color:#fde047">Bind at least 2 Kin in the wild to unlock Cross-Affinity Breeding!</div>';
+      if (parentA && parentB && DATA.getBaseStageSpeciesId) {
+        const babySpId = DATA.getBaseStageSpeciesId(parentA.speciesId);
+        const babySp = DATA.getSpeciesById(babySpId);
+        const babyAff = DATA.AFFINITIES[babySp.affinity];
+        const babySvg = root.WILDKIN_SPRITES.renderKinSvg(babySp, 48, false);
+        const bMoves = (parentB.moveSlots || []).map((m) => m.id);
+        const eggMoveId = bMoves[bMoves.length - 1] || 'aetherPulse';
+        const eggMove = DATA.MOVES[eggMoveId] || DATA.MOVES.aetherPulse;
+        const babyLv = Math.max(5, Math.min(25, Math.floor(((parentA.level || 5) + (parentB.level || 5)) * 0.35)));
+        previewHtml = `
+          <div style="display:flex;align-items:center;gap:10px;background:rgba(15,23,42,0.9);padding:8px 10px;border-radius:10px;border:1px solid #4ade80">
+            ${babySvg}
+            <div style="flex:1">
+              <div style="font-size:0.78rem;font-weight:900;color:#4ade80">🥚 Predicted Offspring: ${babySp.name} (Lv.${babyLv})</div>
+              <div style="font-size:0.66rem;color:#facc15">${babyAff.icon} ${babyAff.name} • Upgraded Genetics (A / S / SS Apex +10% to +35% Stats)</div>
+              <div style="font-size:0.65rem;color:#38bdf8">🧬 Inherited Egg Move from ${parentB.nickname}: <strong>${eggMove.name}</strong> • ✨ 3x Radiant Odds!</div>
+            </div>
+            <button class="mini-btn" id="btnBreedHatch" style="flex:0 0 auto;background:#16a34a;padding:8px 12px">🥚 Breed & Hatch (100💎)</button>
+          </div>
+        `;
+      }
+
+      const berries = state.inventory.heartwoodBerry || 0;
+      const nectars = state.inventory.apexNectar || 0;
+
+      titleEl.textContent = `🧬 Grandpa Rowan’s Homestead Ranch (Shards: ${state.shards}💎)`;
+      bodyEl.innerHTML = `
+        <div class="ranch-banner">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong style="color:#86efac;font-size:0.8rem">👴 Grandpa Rowan: “Raise your Kin with care, and breed strong bloodlines!”</strong>
+            <button class="mini-btn secondary" id="btnRanchToStory" style="flex:0 0 auto">📜 Story Guide</button>
+          </div>
+          <div style="font-size:0.67rem;color:#cbd5e1">
+            Feed 🍓 Heartwood Berries (<strong>x${berries}</strong>) or 🍯 Apex Nectar (<strong>x${nectars}</strong>) to raise Bond Level (up to +20% all stats & XP), or breed two Kin to hatch S/SS-Rank Offspring with inherited moves!
+          </div>
+        </div>
+
+        <div style="font-size:0.75rem;color:#4ade80;font-weight:800">🥚 Homestead Breeding Sanctuary (Select Parent A & Parent B)</div>
+        <div class="ranch-parent-slots">
+          <div class="ranch-slot-box">
+            <div style="font-size:0.66rem;color:#94a3b8;margin-bottom:4px">PARENT A (Determines Offspring Species)</div>
+            <select id="selectParentA" class="code-input" style="font-size:0.72rem;letter-spacing:0;text-transform:none">
+              ${allKin.map((k) => `<option value="${k.uid}" ${parentA && k.uid === parentA.uid ? 'selected' : ''}>${k.nickname} (Lv.${k.level} • ${k.geneticTier || 'B'}-Rank)</option>`).join('')}
+            </select>
+          </div>
+          <div class="ranch-slot-box">
+            <div style="font-size:0.66rem;color:#94a3b8;margin-bottom:4px">PARENT B (Passes Inherited Move & Genetics)</div>
+            <select id="selectParentB" class="code-input" style="font-size:0.72rem;letter-spacing:0;text-transform:none">
+              ${allKin.map((k) => `<option value="${k.uid}" ${parentB && k.uid === parentB.uid ? 'selected' : ''}>${k.nickname} (Lv.${k.level} • ${k.geneticTier || 'B'}-Rank)</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        ${previewHtml}
+
+        <div style="font-size:0.75rem;color:#38bdf8;font-weight:800;margin-top:4px">🐾 Raise, Feed & Train Active Squad</div>
+        <div class="card-grid">
+          ${state.squad.map((kin, idx) => {
+            const sp = DATA.getSpeciesById(kin.speciesId);
+            const svg = root.WILDKIN_SPRITES.renderKinSvg(sp, 42, kin.isRadiant);
+            const bond = Number(kin.bondLevel || 1);
+            const tier = kin.geneticTier || 'B';
+            return `
+              <div class="kin-card ${kin.isRadiant ? 'radiant' : ''}">
+                <div class="kin-card-top">
+                  ${svg}
+                  <div>
+                    <div style="font-weight:800;font-size:0.76rem">${kin.nickname} <span class="genetic-badge">${tier}</span></div>
+                    <div style="font-size:0.65rem;color:#facc15">Lv.${kin.level} • ❤️ Bond ${bond}/10</div>
+                    <div style="font-size:0.62rem;color:#cbd5e1">ATK ${kin.atk} • DEF ${kin.def} • SPD ${kin.spd}</div>
+                  </div>
+                </div>
+                <div class="mini-btn-row">
+                  <button class="mini-btn" data-feed-berry="${idx}">🍓 Berry (x${berries})</button>
+                  <button class="mini-btn secondary" data-train-kin="${idx}">🏋️ Train (40💎)</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      const toStoryBtn = $('btnRanchToStory');
+      if (toStoryBtn) toStoryBtn.addEventListener('click', () => openModal('story'));
+
+      const selA = $('selectParentA');
+      const selB = $('selectParentB');
+      if (selA) {
+        selA.addEventListener('change', () => {
+          state.breedParentA = selA.value;
+          openModal('ranch');
+        });
+      }
+      if (selB) {
+        selB.addEventListener('change', () => {
+          state.breedParentB = selB.value;
+          openModal('ranch');
+        });
+      }
+
+      const breedBtn = $('btnBreedHatch');
+      if (breedBtn && parentA && parentB) {
+        breedBtn.addEventListener('click', () => {
+          if (parentA.uid === parentB.uid) {
+            showToast('Choose two different Kin as Parent A and Parent B!');
+            return;
+          }
+          if (state.shards < 100) {
+            showToast('Need 100💎 Aether Shards for Breeding Sanctuary incubation!');
+            return;
+          }
+          state.shards -= 100;
+          const offspring = DATA.breedKinOffspring(parentA, parentB);
+          state.stats.kinBred = (state.stats.kinBred || 0) + 1;
+          markBound(offspring.speciesId);
+
+          let dest = 'Squad';
+          if (state.squad.length < 6) state.squad.push(offspring);
+          else {
+            state.vault.push(offspring);
+            dest = 'Sanctuary Vault';
+          }
+          if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+          saveGame();
+          updateHud();
+          openModal('ranch');
+          showToast(`🥚 Hatched ${offspring.isRadiant ? '✨ RADIANT ' : ''}${offspring.nickname} (${offspring.geneticTier}-Rank, Gen ${offspring.generation}) → ${dest}!`, 3600);
+        });
+      }
+
+      const applyCareToKin = (kin, bondDelta, xpGain) => {
+        kin.bondLevel = Math.min(10, Number(kin.bondLevel || 1) + bondDelta);
+        kin.xp = (kin.xp || 0) + xpGain;
+        while (kin.xp >= (kin.xpToNext || DATA.xpForNextLevel(kin.level))) {
+          kin.xp -= (kin.xpToNext || DATA.xpForNextLevel(kin.level));
+          kin.level += 1;
+          kin.xpToNext = DATA.xpForNextLevel(kin.level);
+        }
+        const sp = DATA.getSpeciesById(kin.speciesId);
+        const st = DATA.calculateStatsForLevel(sp.baseStats, kin.level, kin.isRadiant, kin.geneticBonus || 0, kin.bondLevel);
+        kin.maxHp = st.maxHp;
+        kin.currentHp = st.maxHp;
+        kin.atk = st.atk;
+        kin.def = st.def;
+        kin.spd = st.spd;
+        if (sp.evolvesTo && kin.level >= sp.evolvesTo.level) {
+          const already = evoQueue.some((e) => e.kin.uid === kin.uid);
+          if (!already) evoQueue.push({ kin, fromSpeciesId: sp.id, toSpeciesId: sp.evolvesTo.id });
+        }
+      };
+
+      bodyEl.querySelectorAll('[data-feed-berry]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.getAttribute('data-feed-berry'));
+          const kin = state.squad[idx];
+          if (!kin) return;
+          if ((state.inventory.heartwoodBerry || 0) <= 0) {
+            showToast('Out of 🍓 Heartwood Berries! Buy more in the Shop or use Ranch Training.');
+            return;
+          }
+          state.inventory.heartwoodBerry -= 1;
+          applyCareToKin(kin, 1, 55);
+          if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playShrineHeal();
+          saveGame();
+          updateHud();
+          openModal('ranch');
+          showToast(`🍓 Fed ${kin.nickname}! Bond Lv.${kin.bondLevel}/10 & +55 XP!`);
+          if (evoQueue.length > 0) {
+            closeModal();
+            triggerNextEvolution();
+          }
+        });
+      });
+
+      bodyEl.querySelectorAll('[data-train-kin]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.getAttribute('data-train-kin'));
+          const kin = state.squad[idx];
+          if (!kin) return;
+          if (state.shards < 40) {
+            showToast('Need 40💎 Shards for Grandpa Rowan’s Ranch Training!');
+            return;
+          }
+          state.shards -= 40;
+          applyCareToKin(kin, 1, 95);
+          if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+          saveGame();
+          updateHud();
+          openModal('ranch');
+          showToast(`🏋️ Grandpa trained ${kin.nickname}! Lv.${kin.level} (Bond ${kin.bondLevel}/10)!`);
+          if (evoQueue.length > 0) {
+            closeModal();
+            triggerNextEvolution();
+          }
+        });
+      });
+    } else if (tab === 'story') {
+      updateStoryTrackerHud();
+      const chapters = (DATA && DATA.STORY_CHAPTERS) || [];
+      const curCh = chapters.find((c) => c.id === state.storyChapter) || chapters[0];
+      titleEl.textContent = `📜 Grandpa Rowan’s Tamer Chronicle (Chapter ${state.storyChapter || 1}/${chapters.length})`;
+      bodyEl.innerHTML = `
+        <div class="ranch-banner">
+          <strong style="color:#fde047;font-size:0.82rem">👴 Elder Vance Rowan — Heartwood Homestead Mentor</strong>
+          <div style="font-size:0.7rem;color:#e2e8f0;font-style:italic">“${curCh ? curCh.grandpaQuote : 'Every great Sovereign started with a single partner Kin.'}”</div>
+          <div class="mini-btn-row" style="margin-top:4px">
+            <button class="mini-btn" id="btnStoryOpenRanch">🧬 Open Grandpa’s Ranch</button>
+            <button class="mini-btn secondary" id="btnStoryHome">🏡 Visit Homestead (World 1)</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${chapters.map((ch) => {
+            const done = Boolean(state.claimedChapters && state.claimedChapters[ch.id]);
+            const isCur = ch.id === state.storyChapter;
+            return `
+              <div class="warden-card" style="border-color:${done ? '#4ade80' : isCur ? '#facc15' : 'rgba(148,163,184,0.25)'}">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <strong style="font-size:0.8rem;color:${done ? '#4ade80' : isCur ? '#fde047' : '#f8fafc'}">Chapter ${ch.id}: ${ch.title}</strong>
+                  <span style="font-size:0.65rem;font-weight:800;color:${done ? '#4ade80' : isCur ? '#38bdf8' : '#94a3b8'}">${done ? '✓ COMPLETED' : isCur ? 'ACTIVE QUEST' : 'UPCOMING'}</span>
+                </div>
+                <div style="font-size:0.68rem;color:#cbd5e1"><strong>Objective:</strong> ${ch.objective}</div>
+                <div style="font-size:0.64rem;color:#94a3b8">Reward: +${ch.rewardShards}💎 Aether Shards • World: ${getZoneObj(ch.zone).name}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      const openRanchBtn = $('btnStoryOpenRanch');
+      if (openRanchBtn) openRanchBtn.addEventListener('click', () => openModal('ranch'));
+      const homeBtn = $('btnStoryHome');
+      if (homeBtn) {
+        homeBtn.addEventListener('click', () => {
+          closeModal();
+          travelToZone('meadow');
         });
       }
     }
@@ -2195,6 +2621,8 @@
     // Quick Dock buttons
     const dockMap = {
       btnDockSquad: () => openModal('squad'),
+      btnDockRanch: () => openModal('ranch'),
+      btnDockStory: () => openModal('story'),
       btnDockKindex: () => openModal('kindex'),
       btnDockArena: () => openModal('arena'),
       btnDockShop: () => openModal('shop'),
@@ -2223,6 +2651,21 @@
         e.stopPropagation();
         if (!state.started || battleState || activeEvo) return;
         startWildEncounter();
+      });
+    }
+    const btnQuickRanch = $("btnQuickRanch");
+    if (btnQuickRanch) {
+      btnQuickRanch.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!state.started || battleState || activeEvo) return;
+        openModal('ranch');
+      });
+    }
+    const questTrackerHud = $("questTrackerHud");
+    if (questTrackerHud) {
+      questTrackerHud.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openModal('story');
       });
     }
     const btnCameraMode = $("btnCameraMode");
