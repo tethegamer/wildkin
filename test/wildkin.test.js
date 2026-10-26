@@ -10,10 +10,13 @@ const path = require('node:path');
 // Attach browser-style global for scripts that export via root.WILDKIN_*
 global.self = global;
 global.window = global;
+global.THREE = require('three');
 
 const WildkinData = require('../public/js/data.js');
 require('../public/js/maps.js');
 require('../public/js/sprites.js');
+const Wildkin3D = require('../public/js/renderer3d.js');
+const WildkinGame = require('../public/js/game.js');
 
 const WildkinMaps = global.WILDKIN_MAPS;
 const WildkinSprites = global.WILDKIN_SPRITES;
@@ -166,7 +169,77 @@ describe('3. public/js/sprites.js — 16x16 Pixel Art Grids & SVG Renderer', () 
   });
 });
 
-describe('4. IP Hygiene Scan across all files in public/', () => {
+describe('4. public/js/renderer3d.js & Full-Screen 3D Tap-to-Move / Action Combat Engine', () => {
+  it('exports all 15 3D overworld, raycast, and combat arena APIs on WILDKIN_3D', () => {
+    const expectedFns = [
+      'initOverworld',
+      'resizeOverworld',
+      'cycleCameraMode',
+      'syncZone',
+      'syncCompanionKin',
+      'screenToWorldTile',
+      'setTargetBeacon',
+      'renderOverworldFrame',
+      'initBattleArena',
+      'resizeBattleArena',
+      'syncBattleCombatants',
+      'playAttack3D',
+      'playPrismCapture3D',
+      'renderBattleFrame',
+      'buildKin3DMesh'
+    ];
+    for (const fn of expectedFns) {
+      assert.equal(typeof Wildkin3D[fn], 'function', `Expected WILDKIN_3D.${fn} to be a function`);
+    }
+  });
+
+  it('builds 3D articulated Three.js meshes for all 27 Kin species (including Radiant aura)', () => {
+    for (const species of WildkinData.KIN_SPECIES) {
+      const meshGroup = Wildkin3D.buildKin3DMesh(species, false);
+      assert.ok(meshGroup, `Failed to build 3D mesh for ${species.name}`);
+      assert.ok(meshGroup.children.length >= 2, `Expected 3D mesh children for ${species.name}`);
+      assert.equal(meshGroup.userData.speciesId, species.id);
+      assert.ok(meshGroup.userData.rig && meshGroup.userData.rig.body);
+    }
+
+    const radiantAetherion = Wildkin3D.buildKin3DMesh(WildkinData.getSpeciesById(27), true);
+    assert.equal(radiantAetherion.userData.isRadiant, true);
+    assert.ok(radiantAetherion.userData.rig.auraRings.length >= 2, 'Radiant Kin should include 3D radiant aura torus rings');
+  });
+
+  it('cycles 3D camera modes cleanly (Chase ->Action Low -> Tactical)', () => {
+    const m1 = Wildkin3D.cycleCameraMode();
+    const m2 = Wildkin3D.cycleCameraMode();
+    const m3 = Wildkin3D.cycleCameraMode();
+    assert.deepEqual([m1, m2, m3], ['ACTION CLOSE', 'TACTICAL 3D', 'DYNAMIC 3D']);
+  });
+
+  it('verifies index.html & game.js wire full-screen 3D viewport, tap-to-move HUD, and combat popups without legacy console frame', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+    const gameSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'game.js'), 'utf8');
+
+    // Full-screen 3D viewport & scripts
+    assert.ok(html.includes('/vendor/three.min.js'), 'index.html should load /vendor/three.min.js');
+    assert.ok(html.includes('/js/renderer3d.js'), 'index.html should load /js/renderer3d.js');
+    assert.ok(html.includes('id="screenViewport"'), 'index.html should have #screenViewport');
+    assert.ok(html.includes('id="touchVectorHud"'), 'index.html should have #touchVectorHud for analog drag steering');
+    assert.ok(html.includes('id="btnCameraMode"'), 'index.html should have #btnCameraMode');
+    assert.ok(html.includes('id="btnQuickWild"'), 'index.html should have #btnQuickWild');
+    assert.ok(html.includes('id="battleImpactFlash"'), 'index.html should have #battleImpactFlash');
+    assert.ok(html.includes('id="battleDamageLayer"'), 'index.html should have #battleDamageLayer');
+    assert.equal(html.includes('id="controlsDeck"'), false, 'Legacy #controlsDeck should be removed from index.html');
+
+    // Continuous 60fps movement & 3D combat hooks in game.js
+    assert.ok(gameSrc.includes('updateContinuous3DMovement'), 'game.js should implement updateContinuous3DMovement');
+    assert.ok(gameSrc.includes('screenToWorldTile'), 'game.js should raycast taps via screenToWorldTile');
+    assert.ok(gameSrc.includes('setTargetBeacon'), 'game.js should show 3D target beacon on tap-to-move');
+    assert.ok(gameSrc.includes('playAttack3D'), 'game.js should trigger 3D dash/lunge/beam attacks via playAttack3D');
+    assert.ok(gameSrc.includes('spawnBattleDamagePopup'), 'game.js should spawn floating 3D battle damage popups');
+    assert.equal(typeof WildkinGame.selectStarter, 'function');
+  });
+});
+
+describe('5. IP Hygiene Scan across all files in public/', () => {
   function listFilesRecursive(dir) {
     const out = [];
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -197,7 +270,7 @@ describe('4. IP Hygiene Scan across all files in public/', () => {
     ];
     const publicDir = path.join(__dirname, '..', 'public');
     const files = listFilesRecursive(publicDir);
-    assert.ok(files.length >= 5, 'Should scan public files');
+    assert.ok(files.length >= 6, 'Should scan all public files including renderer3d.js');
 
     for (const file of files) {
       const content = fs.readFileSync(file, 'utf8').toLowerCase();
@@ -212,7 +285,7 @@ describe('4. IP Hygiene Scan across all files in public/', () => {
   });
 });
 
-describe('5. server.js — Express HTTP API Integration Tests', () => {
+describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests', () => {
   let server;
   let baseUrl;
 
@@ -230,6 +303,13 @@ describe('5. server.js — Express HTTP API Integration Tests', () => {
     if (server) {
       await new Promise((resolve) => server.close(resolve));
     }
+  });
+
+  it('GET /vendor/three.min.js serves the Three.js WebGL build (200 OK)', async () => {
+    const res = await fetch(`${baseUrl}/vendor/three.min.js`);
+    assert.equal(res.status, 200);
+    const text = await res.text();
+    assert.ok(text.length > 100000, 'Expected three.min.js bundle content');
   });
 
   it('GET /api/health returns ok: true, kinCount: 27, zones: 4', async () => {
