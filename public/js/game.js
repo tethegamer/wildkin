@@ -288,7 +288,7 @@
     const ty = Math.round(fy);
     if (tx < 0 || tx >= root.WILDKIN_MAPS.MAP_WIDTH || ty < 0 || ty >= root.WILDKIN_MAPS.MAP_HEIGHT) return false;
     const ch = root.WILDKIN_MAPS.getTileAt(state.zone, tx, ty);
-    return ch !== "T";
+    return ch !== "T" && ch !== "#" && ch !== "~";
   }
 
   function findNearbyNpcFloat(fx, fy, maxRadius = 1.35) {
@@ -751,7 +751,8 @@
   // 3. OVERWORLD PIXEL TILE & CHARACTER SPRITE HELPERS
   // =========================================================================
 
-  function drawTile(ctx, code, px, py, size, palette, tick) {
+  function drawTile(ctx, code, px, py, size, palette = {}, tick = 0) {
+    palette = palette || {};
     ctx.fillStyle = palette.ground || '#2d5a36';
     ctx.fillRect(px, py, size, size);
 
@@ -4268,6 +4269,9 @@
       btnLobbyMissions: () => openModal('story'),
       btnLobbyTrade: () => openModal('trade'),
       btnLobbyLocker: () => openModal('locker'),
+      btnLobbyLockerTop: () => openModal('locker'),
+      btnQuickTrade: () => openModal('trade'),
+      btnBattleEmote: () => triggerEmote('emote_fire', state),
       btnLobbyRanch: () => openModal('ranch'),
       btnLobbyMarket: () => openModal('shop')
     };
@@ -4672,9 +4676,13 @@
     }
 
     function loop(nowMs) {
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(loop);
+      }
       const tNow = nowMs || performance.now();
       const dtSec = Math.min(0.05, Math.max(0.001, (tNow - lastFrameTime) * 0.001));
       lastFrameTime = tNow;
+      try {
 
       updateContinuous3DMovement(dtSec);
       if (state.started && !battleState) {
@@ -4722,9 +4730,8 @@
           root.WILDKIN_3D.renderBattleFrame(tNow);
         }
       }
-
-      if (typeof requestAnimationFrame === "function") {
-        requestAnimationFrame(loop);
+      } catch (loopErr) {
+        console.warn("Frame loop recovered:", loopErr);
       }
     }
     loop(performance.now());

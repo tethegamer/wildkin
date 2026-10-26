@@ -2001,7 +2001,7 @@ body.in-starter .hud-topbar {
    UNOBSTRUCTED 3D BATTLE SCREEN OVERRIDES (Fixes Screenshot Overlap & Bulk!)
    ========================================================================== */
 #battleOverlay.battle-screen {
-  background: transparent !important;
+  background: #060913 !important;
   padding: 6px !important;
   gap: 6px !important;
   display: flex;
@@ -2208,4 +2208,16 @@ body.in-starter .hud-topbar {
 .zone-hint {
   font-size: 0.62rem !important;
   padding: 3px 7px !important;
+}
+
+/* Hide Overworld Floating HUDs completely during Battle or Lobby so nothing bleeds through */
+body.in-battle #overworldHud,
+body.in-battle #questTrackerHud,
+body.in-battle #worldActionBar,
+body.in-battle #recoveryAlertBanner,
+body.in-lobby #overworldHud,
+body.in-lobby #questTrackerHud,
+body.in-lobby #worldActionBar,
+body.in-lobby #recoveryAlertBanner {
+  display: none !important;
 }

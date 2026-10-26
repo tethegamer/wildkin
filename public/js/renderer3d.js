@@ -1840,6 +1840,14 @@
     projGroup.position.set(startPos.x, startPos.y + 1.0, startPos.z);
     battle3d.vfxGroup.add(projGroup);
 
+    let callbackFired = false;
+    const safeImpact = () => {
+      if (callbackFired) return;
+      callbackFired = true;
+      if (typeof onImpactCallback === 'function') onImpactCallback();
+    };
+    setTimeout(safeImpact, 520);
+
     battle3d.activeAction = {
       type: 'attack',
       isPlayerAttacking,
@@ -1851,7 +1859,7 @@
       startTime: performance.now(),
       duration: 920, // Dramatic 920ms turn-by-turn combat choreography!
       impactTriggered: false,
-      onImpactCallback
+      onImpactCallback: safeImpact
     };
   }
 
@@ -1899,6 +1907,14 @@
     prismGroup.position.set(PLAYER_BASE_POS.x, PLAYER_BASE_POS.y + 1.4, PLAYER_BASE_POS.z);
     battle3d.vfxGroup.add(prismGroup);
 
+    let prismDone = false;
+    const safeComplete = () => {
+      if (prismDone) return;
+      prismDone = true;
+      if (typeof onComplete === 'function') onComplete();
+    };
+    setTimeout(safeComplete, 1450);
+
     battle3d.activeAction = {
       type: 'prism',
       prismGroup,
@@ -1909,7 +1925,7 @@
       duration: 1350,
       absorbed: false,
       completed: false,
-      onComplete
+      onComplete: safeComplete
     };
   }
 
