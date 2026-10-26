@@ -2460,6 +2460,7 @@
     } else if (tab === 'story') {
       updateStoryTrackerHud();
       const chapters = (DATA && DATA.STORY_CHAPTERS) || [];
+      const sideQuests = (DATA && DATA.SIDE_QUESTS) || [];
       const curCh = chapters.find((c) => c.id === state.storyChapter) || chapters[0];
       titleEl.textContent = `📜 Grandpa Rowan’s Tamer Chronicle (Chapter ${state.storyChapter || 1}/${chapters.length})`;
       bodyEl.innerHTML = `
@@ -2478,14 +2479,27 @@
             return `
               <div class="warden-card" style="border-color:${done ? '#4ade80' : isCur ? '#facc15' : 'rgba(148,163,184,0.25)'}">
                 <div style="display:flex;justify-content:space-between;align-items:center">
-                  <strong style="font-size:0.8rem;color:${done ? '#4ade80' : isCur ? '#fde047' : '#f8fafc'}">Chapter ${ch.id}: ${ch.title}</strong>
+                  <strong style="font-size:0.8rem;color:${done ? '#4ade80' : isCur ? '#fde047' : '#f8fafc'}">${ch.title}</strong>
                   <span style="font-size:0.65rem;font-weight:800;color:${done ? '#4ade80' : isCur ? '#38bdf8' : '#94a3b8'}">${done ? '✓ COMPLETED' : isCur ? 'ACTIVE QUEST' : 'UPCOMING'}</span>
                 </div>
-                <div style="font-size:0.68rem;color:#cbd5e1"><strong>Objective:</strong> ${ch.objective}</div>
-                <div style="font-size:0.64rem;color:#94a3b8">Reward: +${ch.rewardShards}💎 Aether Shards • World: ${getZoneObj(ch.zone).name}</div>
+                <div style="font-size:0.68rem;color:#cbd5e1"><strong>Objective:</strong> ${ch.objective || ch.objectiveText}</div>
+                <div style="font-size:0.64rem;color:#94a3b8">Reward: +${ch.rewardShards}💎 Aether Shards • World: ${getZoneObj(ch.zone || ch.worldId).name}</div>
               </div>
             `;
           }).join('')}
+        </div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+          <strong style="font-size:0.78rem;color:#38bdf8">🧭 Multi-World Side Quests (${sideQuests.length})</strong>
+          ${sideQuests.map((sq) => `
+            <div class="warden-card" style="border-color:rgba(56,189,248,0.28)">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <strong style="font-size:0.76rem;color:#e0f2fe">${sq.title}</strong>
+                <span style="font-size:0.62rem;color:#38bdf8">${sq.giver} • ${getZoneObj(sq.zone).name}</span>
+              </div>
+              <div style="font-size:0.66rem;color:#cbd5e1">${sq.objective}</div>
+              <div style="font-size:0.62rem;color:#94a3b8">Bounty: +${sq.rewardShards}💎 Aether Shards</div>
+            </div>
+          `).join('')}
         </div>
       `;
 

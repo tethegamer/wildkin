@@ -943,108 +943,198 @@
   // 8-Chapter Storyline Campaign ("The Legacy of Heartwood Homestead" — 24+ Hours of Progression)
   const STORY_CHAPTERS = [
     {
+      id: 1,
       chapter: 1,
-      id: 'ch1_apprentice',
+      key: 'ch1_apprentice',
       title: 'Ch. 1: Grandfather’s Apprentice',
       worldId: 'meadow',
+      zone: 'meadow',
       npcSpeaker: 'Grandpa Rowan',
       lore: 'Having moved to Heartwood Homestead to live with your legendary grandfather Rowan, your first lesson is to step into the tall emerald grass of Sunleaf Meadow, battle wild Kin, and bind a second companion into an Aether Prism.',
       grandpaTip: '"Welcome home, kiddo! Take the partner Kin I raised for you, walk into the swaying dark-green grass in Sunleaf Meadow, weaken a wild Kin in turn-based battle, and throw an Aether Prism to bind it!"',
+      grandpaQuote: '"Welcome home, kiddo! Take the partner Kin I raised for you, walk into the swaying dark-green grass in Sunleaf Meadow, weaken a wild Kin in turn-based battle, and throw an Aether Prism to bind it!"',
       objectiveText: 'Bind 1 Wild Kin in Sunleaf Meadow (2+ total Kin owned) & win 2 battles',
+      objective: 'Bind 1 Wild Kin in Sunleaf Meadow (2+ total Kin owned) & win 2 battles',
       rewardShards: 200,
-      rewardItems: { aetherPrism: 3, heartwoodBerry: 3 },
+      rewardItems: { basicPrism: 3, heartwoodBerry: 3 },
       rewardLabel: '200💎 + 3 Aether Prisms + 3 Heartwood Berries'
     },
     {
+      id: 2,
       chapter: 2,
-      id: 'ch2_raising',
+      key: 'ch2_raising',
       title: 'Ch. 2: Raising, Bonding & The First Crest',
       worldId: 'meadow',
+      zone: 'meadow',
       npcSpeaker: 'Grandpa Rowan',
       lore: 'Grandpa Rowan teaches that true Tamers don’t just catch Kin—they raise and bond with them at the Homestead Ranch. Feed or train a Kin to Bond Lv. 2+, then challenge Warden Kael in southeastern Sunleaf Meadow.',
       grandpaTip: '"Open our Homestead Ranch (🧬 Ranch button or visit me by the cabin) to feed Heartwood Berries and raise your Kin’s Bond Level! Once your squad is strong, defeat Warden Kael for the Verdant Crest!"',
+      grandpaQuote: '"Open our Homestead Ranch (🧬 Ranch button or visit me by the cabin) to feed Heartwood Berries and raise your Kin’s Bond Level! Once your squad is strong, defeat Warden Kael for the Verdant Crest!"',
       objectiveText: 'Raise any Kin to Bond Lv. 2+ at Grandpa’s Ranch & earn the Verdant Crest from Warden Kael',
+      objective: 'Raise any Kin to Bond Lv. 2+ at Grandpa’s Ranch & earn the Verdant Crest from Warden Kael',
       rewardShards: 350,
       rewardItems: { greaterPrism: 2, heartwoodBerry: 4 },
       rewardLabel: '350💎 + 2 Greater Prisms + 4 Heartwood Berries'
     },
     {
+      id: 3,
       chapter: 3,
-      id: 'ch3_breeding',
+      key: 'ch3_breeding',
       title: 'Ch. 3: The Secret of Kin Breeding',
       worldId: 'meadow',
+      zone: 'meadow',
       npcSpeaker: 'Grandpa Rowan',
       lore: 'With your first Crest earned, Grandpa Rowan unlocks the Homestead Breeding Sanctuary! Pairing two Kin hatches an Offspring Egg with elevated Genetic Potential (A/S/SS Rank), an inherited cross-affinity move, and 3x Radiant odds.',
       grandpaTip: '"Now for my greatest secret: Kin Breeding! Pair any two of your Kin in the 🧬 Ranch Breeding Sanctuary to hatch a high-genetics Offspring that inherits moves from both parents!"',
+      grandpaQuote: '"Now for my greatest secret: Kin Breeding! Pair any two of your Kin in the 🧬 Ranch Breeding Sanctuary to hatch a high-genetics Offspring that inherits moves from both parents!"',
       objectiveText: 'Breed any 2 Kin at Grandpa’s Ranch to hatch 1 Offspring Egg',
+      objective: 'Breed any 2 Kin at Grandpa’s Ranch to hatch 1 Offspring Egg',
       rewardShards: 450,
       rewardItems: { greaterPrism: 3, apexNectar: 2 },
       rewardLabel: '450💎 + 3 Greater Prisms + 2 Apex Royal Nectar'
     },
     {
+      id: 4,
       chapter: 4,
-      id: 'ch4_tidecove',
+      key: 'ch4_tidecove',
       title: 'Ch. 4: Voyage to Whispering Tidecove (World 2)',
       worldId: 'tidecove',
+      zone: 'tidecove',
       npcSpeaker: 'Grandpa Rowan',
       lore: 'Step through the northern World Gate or use the Worlds map to travel to Whispering Tidecove. Tame aquatic and electric Kin, expand your KinDex to 5+ species, and defeat Warden Nerissa.',
       grandpaTip: '"Each World houses rarer Kin and tougher Wardens. Travel to World 2: Whispering Tidecove, register at least 5 KinDex species, and claim Nerissa’s Abyssal Crest!"',
+      grandpaQuote: '"Each World houses rarer Kin and tougher Wardens. Travel to World 2: Whispering Tidecove, register at least 5 KinDex species, and claim Nerissa’s Abyssal Crest!"',
       objectiveText: 'Register 5+ KinDex Species & defeat Warden Nerissa in Whispering Tidecove',
+      objective: 'Register 5+ KinDex Species & defeat Warden Nerissa in Whispering Tidecove',
       rewardShards: 600,
-      rewardItems: { greaterPrism: 3, superTonic: 3 },
-      rewardLabel: '600💎 + 3 Greater Prisms + 3 Greater Tonics'
+      rewardItems: { greaterPrism: 3, hiTonic: 3 },
+      rewardLabel: '600💎 + 3 Greater Prisms + 3 Hi-Tonics'
     },
     {
+      id: 5,
       chapter: 5,
-      id: 'ch5_stormspire',
+      key: 'ch5_stormspire',
       title: 'Ch. 5: Ascent of Stormspire Canopy (World 3)',
       worldId: 'stormspire',
+      zone: 'stormspire',
       npcSpeaker: 'Grandpa Rowan',
       lore: 'Venture into the thunder-swept redwoods of World 3: Stormspire Canopy. Evolve a Kin into its higher form and defeat Grandpa Rowan’s old rival, Warden Orin, for the Tempest Crest.',
       grandpaTip: '"When your Kin reach Lv 12–16, they ascend into stronger evolutions! Evolve at least one Kin and best my old friend Warden Orin in World 3: Stormspire Canopy!"',
+      grandpaQuote: '"When your Kin reach Lv 12–16, they ascend into stronger evolutions! Evolve at least one Kin and best my old friend Warden Orin in World 3: Stormspire Canopy!"',
       objectiveText: 'Trigger 1+ Kin Evolution & defeat Warden Orin for the Tempest Crest',
+      objective: 'Trigger 1+ Kin Evolution & defeat Warden Orin for the Tempest Crest',
       rewardShards: 850,
-      rewardItems: { masterPrism: 1, superTonic: 4, apexNectar: 2 },
-      rewardLabel: '850💎 + 1 Mastery Prism + 4 Greater Tonics + 2 Apex Nectar'
+      rewardItems: { masteryPrism: 1, hiTonic: 4, apexNectar: 2 },
+      rewardLabel: '850💎 + 1 Apex Prism + 4 Hi-Tonics + 2 Apex Nectar'
     },
     {
+      id: 6,
       chapter: 6,
-      id: 'ch6_cinderpeak',
+      key: 'ch6_cinderpeak',
       title: 'Ch. 6: Crucible of Cinderpeak Cavern (World 4)',
       worldId: 'cinderpeak',
+      zone: 'cinderpeak',
       npcSpeaker: 'Grandpa Rowan',
       lore: 'Brave the volcanic magma rivers of World 4: Cinderpeak Cavern. Train a Kin to Level 20+ and overcome Forgemaster Warden Ignis to claim the Solar Crest.',
       grandpaTip: '"Cinderpeak’s heat tests both stamina and genetics. Breed an S-Rank Kin if you need an edge, train a partner to Lv 20+, and defeat Warden Ignis!"',
+      grandpaQuote: '"Cinderpeak’s heat tests both stamina and genetics. Breed an S-Rank Kin if you need an edge, train a partner to Lv 20+, and defeat Warden Ignis!"',
       objectiveText: 'Raise a Kin to Level 20+ & defeat Warden Ignis for the Solar Crest',
+      objective: 'Raise a Kin to Level 20+ & defeat Warden Ignis for the Solar Crest',
       rewardShards: 1100,
-      rewardItems: { masterPrism: 2, reviveLeaf: 3 },
-      rewardLabel: '1,100💎 + 2 Mastery Prisms + 3 Sylvan Revives'
+      rewardItems: { masteryPrism: 2, reviveLeaf: 3 },
+      rewardLabel: '1,100💎 + 2 Apex Prisms + 3 Sylvan Revives'
     },
     {
+      id: 7,
       chapter: 7,
-      id: 'ch7_frostveil',
+      key: 'ch7_frostveil',
       title: 'Ch. 7: Aurora of Frostveil Glacier (World 5)',
       worldId: 'frostveil',
+      zone: 'frostveil',
       npcSpeaker: 'Grandpa Rowan',
       lore: 'Cross the shimmering ice bridges of World 5: Frostveil Glacier. Breed or raise an S-Rank/SS-Rank Kin, register 12+ species in your KinDex, and defeat Warden Freya for the Frostveil Crest.',
       grandpaTip: '"Only five Tamers in history have conquered Frostveil Glacier. Register 12+ KinDex species and defeat Warden Freya under the northern lights!"',
+      grandpaQuote: '"Only five Tamers in history have conquered Frostveil Glacier. Register 12+ KinDex species and defeat Warden Freya under the northern lights!"',
       objectiveText: 'Register 12+ KinDex Species & defeat Warden Freya for the Frostveil Crest',
+      objective: 'Register 12+ KinDex Species & defeat Warden Freya for the Frostveil Crest',
       rewardShards: 1500,
-      rewardItems: { masterPrism: 3, apexNectar: 3 },
-      rewardLabel: '1,500💎 + 3 Mastery Prisms + 3 Apex Royal Nectar'
+      rewardItems: { masteryPrism: 3, apexNectar: 3 },
+      rewardLabel: '1,500💎 + 3 Apex Prisms + 3 Apex Royal Nectar'
     },
     {
+      id: 8,
       chapter: 8,
-      id: 'ch8_sovereign',
+      key: 'ch8_sovereign',
       title: 'Ch. 8: Astral Sanctum & The 100-Floor Aether Spire',
       worldId: 'sanctum',
+      zone: 'sanctum',
       npcSpeaker: 'Grandpa Rowan',
       lore: 'Enter World 6: Astral Ruin Sanctum, defeat Grand Warden Vesper to unite all 6 World Crests, and climb the Infinite 100-Floor Aether Spire to fulfill Grandpa Rowan’s lifelong dream!',
       grandpaTip: '"You’ve grown into the finest Tamer I have ever known. Defeat Grand Warden Vesper in the Astral Sanctum and ascend the 100-Floor Aether Spire!"',
+      grandpaQuote: '"You’ve grown into the finest Tamer I have ever known. Defeat Grand Warden Vesper in the Astral Sanctum and ascend the 100-Floor Aether Spire!"',
       objectiveText: 'Unite all 6 World Crests & reach Floor 5+ in the 100-Floor Aether Spire',
+      objective: 'Unite all 6 World Crests & reach Floor 5+ in the 100-Floor Aether Spire',
       rewardShards: 3000,
-      rewardItems: { masterPrism: 5, apexNectar: 5 },
-      rewardLabel: '3,000💎 + 5 Mastery Prisms + Grand Sovereign Title'
+      rewardItems: { masteryPrism: 5, apexNectar: 5 },
+      rewardLabel: '3,000💎 + 5 Apex Prisms + Grand Sovereign Title'
+    }
+  ];
+
+  // Grandpa Rowan’s Homestead & Multi-World Side Quests
+  const SIDE_QUESTS = [
+    {
+      id: 'sq_orchard_bond',
+      title: 'Heartwood Orchard Caretaker',
+      giver: 'Grandpa Rowan',
+      zone: 'meadow',
+      objective: 'Raise any companion Kin to Bond Level 4+ at the Heartwood Homestead Ranch',
+      rewardShards: 250,
+      rewardItems: { heartwoodBerry: 4 }
+    },
+    {
+      id: 'sq_s_rank_breeder',
+      title: 'Lineage of the Ancients',
+      giver: 'Grandpa Rowan',
+      zone: 'meadow',
+      objective: 'Breed an S-Rank or SS-Rank Offspring with an inherited Egg Move at the Breeding Ranch',
+      rewardShards: 500,
+      rewardItems: { apexNectar: 2, greaterPrism: 2 }
+    },
+    {
+      id: 'sq_radiant_seeker',
+      title: 'Gleam of the Astral Star',
+      giver: 'Sage Mira',
+      zone: 'tidecove',
+      objective: 'Bind or hatch 1 Radiant (★) Kin across any World or at the Homestead Ranch',
+      rewardShards: 650,
+      rewardItems: { masteryPrism: 1, apexNectar: 2 }
+    },
+    {
+      id: 'sq_canopy_collector',
+      title: 'Stormspire Naturalist',
+      giver: 'Sky-Ranger Lyra',
+      zone: 'stormspire',
+      objective: 'Register 10+ distinct species in the KinDex',
+      rewardShards: 600,
+      rewardItems: { greaterPrism: 4, hiTonic: 3 }
+    },
+    {
+      id: 'sq_glacier_historian',
+      title: 'Chronicles of Frostveil',
+      giver: 'Chronicler Bjorn',
+      zone: 'frostveil',
+      objective: 'Register 18+ distinct species in the KinDex & evolve 2 Kin',
+      rewardShards: 950,
+      rewardItems: { masteryPrism: 2, reviveLeaf: 3 }
+    },
+    {
+      id: 'sq_spire_vanguard',
+      title: 'Ascendant of the Aether Spire',
+      giver: 'Grand Warden Vesper',
+      zone: 'sanctum',
+      objective: 'Reach Floor 15+ in the 100-Floor Endless Aether Spire Battle Tower',
+      rewardShards: 1800,
+      rewardItems: { masteryPrism: 4, apexNectar: 4 }
     }
   ];
 
@@ -1099,7 +1189,10 @@
       spd: stats.spd,
       isRadiant: isRadiant,
       geneticTier: tierInfo.tier,
+      geneRank: tierInfo.tier,
       geneticBonus: geneticBonus,
+      geneScore: Math.round(geneticBonus * 100),
+      traitId: opts.traitId || (tierInfo.tier === 'SS' ? 'apex_lineage' : tierInfo.tier === 'S' ? 'alpha_vigor' : tierInfo.tier === 'A' ? 'keen_instinct' : 'steady_heart'),
       bondLevel: bondLevel,
       generation: generation,
       inheritedMove: opts.inheritedMove || null,
@@ -1188,12 +1281,14 @@
     WARDENS,
     GENETIC_TIERS,
     STORY_CHAPTERS,
+    SIDE_QUESTS,
     getTypeMultiplier,
     getSpeciesById,
     getBaseStageSpeciesId,
     calculateStatsForLevel,
     xpForNextLevel,
     createKinInstance,
-    breedKinOffspring
+    breedKinOffspring,
+    breedKinPair: breedKinOffspring
   };
 });

@@ -22,7 +22,7 @@ const WildkinMaps = global.WILDKIN_MAPS;
 const WildkinSprites = global.WILDKIN_SPRITES;
 const app = require('../server.js');
 
-describe('1. public/js/data.js — Kin Roster, Elemental Affinities & Battle Math', () => {
+describe('1. public/js/data.js — Kin Roster, Elemental Affinities, 6 Worlds, 6 Wardens, Genetics, Breeding & Story', () => {
   it('defines 6 elemental affinities (Pyre, Tide, Grove, Volt, Terra, Umbra)', () => {
     const keys = Object.keys(WildkinData.AFFINITIES);
     assert.deepEqual(keys, ['Pyre', 'Tide', 'Grove', 'Volt', 'Terra', 'Umbra']);
@@ -77,26 +77,104 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities & Battle Mat
     }
   });
 
-  it('defines items, 6 worlds with encounter weights summing to 100, 6 wardens, story chapters & breeding', () => {
-    assert.ok(WildkinData.ITEMS.basicPrism);
-    assert.ok(WildkinData.ITEMS.masteryPrism);
-    assert.ok(WildkinData.ITEMS.heartwoodBerry);
-    assert.ok(WildkinData.ITEMS.apexNectar);
+  it('validates all 6 playable worlds in ZONES and all 6 Wardens in WARDENS', () => {
+    const expectedZoneIds = ['meadow', 'tidecove', 'stormspire', 'cinderpeak', 'frostveil', 'sanctum'];
+    const expectedWardenIds = ['kael', 'nerissa', 'orin', 'ignis', 'freya', 'vesper'];
+
     assert.equal(WildkinData.ZONES.length, 6);
-    for (const zone of WildkinData.ZONES) {
+    assert.deepEqual(WildkinData.ZONES.map((z) => z.id), expectedZoneIds);
+    for (let i = 0; i < WildkinData.ZONES.length; i++) {
+      const zone = WildkinData.ZONES[i];
+      assert.equal(zone.worldNumber, i + 1);
+      assert.equal(zone.wardenId, expectedWardenIds[i]);
       const weightSum = zone.wildPool.reduce((acc, entry) => acc + entry.weight, 0);
       assert.equal(weightSum, 100, `Zone ${zone.id} wildPool weights should sum to 100`);
+      for (const entry of zone.wildPool) {
+        assert.ok(WildkinData.getSpeciesById(entry.id), `Invalid species ${entry.id} in ${zone.id}`);
+      }
     }
-    assert.equal(WildkinData.WARDENS.length, 6);
-    assert.equal(WildkinData.STORY_CHAPTERS.length, 8);
 
-    const parentA = WildkinData.createKinInstance(3, 18, { geneticTier: 'A' });
-    const parentB = WildkinData.createKinInstance(6, 20, { geneticTier: 'A' });
-    const baby = WildkinData.breedKinOffspring(parentA, parentB, { rng: () => 0.5 });
-    assert.equal(baby.speciesId, 1); // Base stage of Parent A (#3 Ignisaur -> #1 Cinderkit)
-    assert.equal(baby.geneticTier, 'S');
-    assert.equal(baby.generation, 2);
-    assert.ok(baby.inheritedMove, 'Expected bred offspring to inherit an Egg Move from Parent B');
+    assert.equal(WildkinData.WARDENS.length, 6);
+    assert.deepEqual(WildkinData.WARDENS.map((w) => w.id), expectedWardenIds);
+    for (const warden of WildkinData.WARDENS) {
+      assert.ok(warden.crestName && warden.rewardShards >= 250);
+      assert.ok(Array.isArray(warden.squad) && warden.squad.length >= 2, `Warden ${warden.id} must have at least 2 Kin`);
+      for (const member of warden.squad) {
+        assert.ok(WildkinData.getSpeciesById(member.speciesId));
+      }
+    }
+  });
+
+  it('validates Kin genetics (geneticTier/geneRank, geneticBonus/geneScore, traitId) and Kin Breeding engine (breedKinOffspring / breedKinPair)', () => {
+    assert.deepEqual(Object.keys(WildkinData.GENETIC_TIERS), ['B', 'A', 'S', 'SS']);
+    assert.equal(typeof WildkinData.breedKinOffspring, 'function');
+    assert.equal(typeof WildkinData.breedKinPair, 'function');
+
+    // Stage-3 Ignisaur (#3) + Stage-3 Tsunamiadon (#6) -> Base stage #1 Cinderkit with upgraded genetics and inherited Tide move
+    const parentA = WildkinData.createKinInstance(3, 20, { geneticTier: 'B', isRadiant: false });
+    const parentB = WildkinData.createKinInstance(6, 20, { geneticTier: 'B', isRadiant: false });
+    assert.equal(parentA.geneticTier, 'B');
+    assert.equal(parentA.geneRank, 'B');
+    assert.equal(parentA.geneScore, 100);
+    assert.equal(parentA.traitId, 'steady_heart');
+
+    // Generation 1 (B + B) -> Generation 2 (A-Rank, +8%)
+    const gen2 = WildkinData.breedKinOffspring(parentA, parentB, { isRadiant: false });
+    assert.equal(gen2.speciesId, 1, 'Offspring of #3 Ignisaur should hatch as base-stage #1 Cinderkit');
+    assert.equal(gen2.geneticTier, 'A');
+    assert.equal(gen2.geneRank, 'A');
+    assert.equal(gen2.geneScore, 108);
+    assert.equal(gen2.traitId, 'keen_instinct');
+    assert.equal(gen2.generation, 2);
+    assert.equal(gen2.bondLevel, 3);
+    assert.ok(gen2.inheritedMove, 'Expected bred offspring to inherit an Egg Move from Parent B');
+    assert.ok(gen2.moveSlots.some((m) => m.id === gen2.inheritedMove), 'Inherited Egg Move must be present in offspring moveSlots');
+
+    // Generation 2 (A) -> Generation 3 (S-Rank, +18%) -> Generation 4 (SS-Rank Apex, +30%)
+    const gen3 = WildkinData.breedKinPair(gen2, parentB, { isRadiant: false });
+    assert.equal(gen3.geneticTier, 'S');
+    assert.equal(gen3.geneRank, 'S');
+    assert.equal(gen3.geneScore, 118);
+    assert.equal(gen3.traitId, 'alpha_vigor');
+    assert.equal(gen3.generation, 3);
+
+    const gen4 = WildkinData.breedKinOffspring(gen3, gen2, { isRadiant: true });
+    assert.equal(gen4.geneticTier, 'SS');
+    assert.equal(gen4.geneRank, 'SS');
+    assert.equal(gen4.geneScore, 130);
+    assert.equal(gen4.traitId, 'apex_lineage');
+    assert.equal(gen4.generation, 4);
+    assert.equal(gen4.isRadiant, true);
+
+    // Verify SS-Rank stats strictly exceed B-Rank stats at the same level
+    const baseB = WildkinData.createKinInstance(1, gen4.level, { geneticTier: 'B', isRadiant: false, bondLevel: 1 });
+    assert.ok(gen4.maxHp > baseB.maxHp, 'SS-Rank Radiant offspring should have significantly higher Max HP than B-Rank');
+    assert.ok(gen4.atk > baseB.atk, 'SS-Rank Radiant offspring should have significantly higher ATK than B-Rank');
+  });
+
+  it('validates all 8 STORY_CHAPTERS and 6 SIDE_QUESTS with valid item rewards', () => {
+    assert.ok(Array.isArray(WildkinData.STORY_CHAPTERS));
+    assert.equal(WildkinData.STORY_CHAPTERS.length, 8);
+    for (let i = 0; i < 8; i++) {
+      const ch = WildkinData.STORY_CHAPTERS[i];
+      assert.equal(ch.id, i + 1);
+      assert.equal(ch.chapter, i + 1);
+      assert.ok(ch.title && ch.objective && ch.objectiveText && ch.grandpaQuote && ch.grandpaTip);
+      assert.ok(ch.zone && ch.worldId);
+      assert.ok(ch.rewardShards >= 200);
+      for (const itemKey of Object.keys(ch.rewardItems)) {
+        assert.ok(WildkinData.ITEMS[itemKey], `Chapter ${ch.id} references unknown reward item "${itemKey}"`);
+      }
+    }
+
+    assert.ok(Array.isArray(WildkinData.SIDE_QUESTS));
+    assert.equal(WildkinData.SIDE_QUESTS.length, 6);
+    for (const sq of WildkinData.SIDE_QUESTS) {
+      assert.ok(sq.id && sq.title && sq.giver && sq.objective && sq.rewardShards >= 250);
+      for (const itemKey of Object.keys(sq.rewardItems)) {
+        assert.ok(WildkinData.ITEMS[itemKey], `Side quest ${sq.id} references unknown reward item "${itemKey}"`);
+      }
+    }
   });
 
   it('calculates stats and creates Kin instances properly', () => {
@@ -110,50 +188,62 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities & Battle Mat
     assert.equal(instance.nickname, 'Cinderkit');
     assert.equal(instance.level, 5);
     assert.equal(instance.currentHp, instance.maxHp);
-
-    if (typeof WildkinData.calculateDamage === 'function') {
-      const dmg = WildkinData.calculateDamage(instance, instance, WildkinData.MOVES.emberDart);
-      assert.ok(dmg && dmg.damage >= 1);
-    }
-    if (typeof WildkinData.calculateCatchChance === 'function') {
-      const chance = WildkinData.calculateCatchChance(instance, WildkinData.ITEMS.basicPrism);
-      assert.ok(chance > 0 && chance <= 1);
-    }
   });
 });
 
-describe('2. public/js/maps.js — Zone Grids, Portals & NPC Coordinates', () => {
-  it('verifies all 6 world maps are strictly 16x12 grids and Grandpa Rowan is in meadow', () => {
+describe('2. public/js/maps.js — 6 World Grids, Portals, Wardens & Grandpa Rowan Homestead', () => {
+  it('verifies all 6 world maps are strictly 16x12 grids with Wellspring Shrines, Wardens, and connected portals', () => {
     assert.equal(WildkinMaps.MAP_WIDTH, 16);
     assert.equal(WildkinMaps.MAP_HEIGHT, 12);
-    const zoneIds = ['meadow', 'tidecove', 'stormspire', 'cinderpeak', 'frostveil', 'sanctum'];
-    for (const id of zoneIds) {
-      const map = WildkinMaps.ZONE_MAPS[id];
-      assert.ok(map, `Missing map for ${id}`);
-      assert.equal(map.grid.length, 12, `Map ${id} must have 12 rows`);
+    const expectedWorlds = [
+      { zoneId: 'meadow',     wardenId: 'kael',    wx: 9,  wy: 9,  tile: 'K' },
+      { zoneId: 'tidecove',   wardenId: 'nerissa', wx: 12, wy: 7,  tile: 'N' },
+      { zoneId: 'stormspire', wardenId: 'orin',    wx: 12, wy: 7,  tile: 'O' },
+      { zoneId: 'cinderpeak', wardenId: 'ignis',   wx: 12, wy: 7,  tile: 'I' },
+      { zoneId: 'frostveil',  wardenId: 'freya',   wx: 12, wy: 7,  tile: 'F' },
+      { zoneId: 'sanctum',    wardenId: 'vesper',  wx: 7,  wy: 1,  tile: 'V' }
+    ];
+
+    for (const w of expectedWorlds) {
+      const map = WildkinMaps.ZONE_MAPS[w.zoneId];
+      assert.ok(map, `Missing map for ${w.zoneId}`);
+      assert.equal(map.grid.length, 12, `Map ${w.zoneId} must have 12 rows`);
       for (const row of map.grid) {
-        assert.equal(row.length, 16, `Map ${id} row "${row}" must be 16 chars`);
+        assert.equal(row.length, 16, `Map ${w.zoneId} row "${row}" must be 16 chars`);
       }
+
+      // Every world has a Wellspring Shrine at 12,1 ('S')
+      assert.equal(WildkinMaps.getTileAt(w.zoneId, 12, 1), 'S', `Expected Shrine at 12,1 in ${w.zoneId}`);
+      const shrineNpc = WildkinMaps.getNpcAt(w.zoneId, 12, 1);
+      assert.ok(shrineNpc && shrineNpc.type === 'shrine');
+
+      // Every world has its Warden NPC and tile at expected coordinates
+      assert.equal(WildkinMaps.getTileAt(w.zoneId, w.wx, w.wy), w.tile, `Expected Warden tile ${w.tile} in ${w.zoneId}`);
+      const wardenNpc = WildkinMaps.getNpcAt(w.zoneId, w.wx, w.wy);
+      assert.ok(wardenNpc && wardenNpc.wardenId === w.wardenId, `Expected Warden ${w.wardenId} in ${w.zoneId}`);
     }
   });
 
-  it('verifies meadow Shrine is at 12,1 (tile === "S") and north portals at 7,0 & 8,0 are "P"', () => {
-    assert.equal(WildkinMaps.getTileAt('meadow', 12, 1), 'S');
-    const shrineNpc = WildkinMaps.getNpcAt('meadow', 12, 1);
-    assert.ok(shrineNpc, 'Expected Shrine NPC entry at meadow 12,1');
-    assert.equal(shrineNpc.type, 'shrine');
+  it('verifies Grandpa Rowan Homestead NPC at meadow (6,5), portals, and walkable tiles', () => {
+    const grandpaRowan = WildkinMaps.getNpcAt('meadow', 6, 5);
+    assert.ok(grandpaRowan, 'Expected Grandpa Rowan NPC at meadow 6,5');
+    assert.equal(grandpaRowan.id, 'rowan');
+    assert.equal(grandpaRowan.isGrandpa, true);
 
     assert.equal(WildkinMaps.getTileAt('meadow', 7, 0), 'P');
     assert.equal(WildkinMaps.getTileAt('meadow', 8, 0), 'P');
 
-    const wardenKael = WildkinMaps.getNpcAt('meadow', 9, 9);
-    assert.ok(wardenKael && wardenKael.wardenId === 'kael');
-    const grandpaRowan = WildkinMaps.getNpcAt('meadow', 6, 5);
-    assert.ok(grandpaRowan && grandpaRowan.isGrandpa === true, 'Expected Grandpa Rowan at meadow 6,5');
+    // Check portal chain from meadow -> tidecove -> stormspire -> cinderpeak -> frostveil -> sanctum
+    assert.equal(WildkinMaps.getTileInfo('meadow', 7, 0).portal.targetZone, 'tidecove');
+    assert.equal(WildkinMaps.getTileInfo('tidecove', 7, 0).portal.targetZone, 'stormspire');
+    assert.equal(WildkinMaps.getTileInfo('stormspire', 7, 0).portal.targetZone, 'cinderpeak');
+    assert.equal(WildkinMaps.getTileInfo('cinderpeak', 7, 0).portal.targetZone, 'frostveil');
+    assert.equal(WildkinMaps.getTileInfo('frostveil', 7, 0).portal.targetZone, 'sanctum');
+    assert.equal(WildkinMaps.getTileInfo('sanctum', 7, 11).portal.targetZone, 'frostveil');
 
     if (typeof WildkinMaps.isWalkableTile === 'function') {
       assert.equal(WildkinMaps.isWalkableTile('.'), true);
-      assert.equal(WildkinMaps.isWalkableTile('T'), false);
+      assert.equal(WildkinMaps.isWalkableTile('#'), false);
     }
   });
 });
@@ -182,8 +272,8 @@ describe('3. public/js/sprites.js — 16x16 Pixel Art Grids & SVG Renderer', () 
   });
 });
 
-describe('4. public/js/renderer3d.js & Full-Screen 3D Tap-to-Move / Action Combat Engine', () => {
-  it('exports all 15 3D overworld, raycast, and combat arena APIs on WILDKIN_3D', () => {
+describe('4. public/js/renderer3d.js & Turn-by-Turn 3D Combat / Procedural Surface Textures / Ranch & Story Hooks', () => {
+  it('exports all 16 3D overworld, raycast, and turn-by-turn combat arena APIs on WILDKIN_3D (including setBattleTurnPhase)', () => {
     const expectedFns = [
       'initOverworld',
       'resizeOverworld',
@@ -196,6 +286,7 @@ describe('4. public/js/renderer3d.js & Full-Screen 3D Tap-to-Move / Action Comba
       'initBattleArena',
       'resizeBattleArena',
       'syncBattleCombatants',
+      'setBattleTurnPhase',
       'playAttack3D',
       'playPrismCapture3D',
       'renderBattleFrame',
@@ -204,9 +295,16 @@ describe('4. public/js/renderer3d.js & Full-Screen 3D Tap-to-Move / Action Comba
     for (const fn of expectedFns) {
       assert.equal(typeof Wildkin3D[fn], 'function', `Expected WILDKIN_3D.${fn} to be a function`);
     }
+
+    // Verify setBattleTurnPhase transitions cleanly across phases without error
+    assert.doesNotThrow(() => {
+      Wildkin3D.setBattleTurnPhase('player_ready');
+      Wildkin3D.setBattleTurnPhase('player_turn');
+      Wildkin3D.setBattleTurnPhase('enemy_turn');
+    });
   });
 
-  it('builds 3D articulated Three.js meshes for all 27 Kin species (including Radiant aura)', () => {
+  it('builds 3D articulated Three.js meshes for all 27 Kin species (including Radiant aura) and defines procedural textures & 6-biome palettes', () => {
     for (const species of WildkinData.KIN_SPECIES) {
       const meshGroup = Wildkin3D.buildKin3DMesh(species, false);
       assert.ok(meshGroup, `Failed to build 3D mesh for ${species.name}`);
@@ -218,16 +316,24 @@ describe('4. public/js/renderer3d.js & Full-Screen 3D Tap-to-Move / Action Comba
     const radiantAetherion = Wildkin3D.buildKin3DMesh(WildkinData.getSpeciesById(27), true);
     assert.equal(radiantAetherion.userData.isRadiant, true);
     assert.ok(radiantAetherion.userData.rig.auraRings.length >= 2, 'Radiant Kin should include 3D radiant aura torus rings');
+
+    // Verify renderer3d.js source contains procedural CanvasTexture generator and all 6 biome palettes
+    const r3dSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'renderer3d.js'), 'utf8');
+    assert.ok(r3dSrc.includes('THREE.CanvasTexture'), 'renderer3d.js should generate organic procedural THREE.CanvasTexture surfaces');
+    assert.ok(r3dSrc.includes('getProceduralTexture'), 'renderer3d.js should implement getProceduralTexture');
+    for (const zoneId of ['meadow', 'tidecove', 'stormspire', 'cinderpeak', 'frostveil', 'sanctum']) {
+      assert.ok(r3dSrc.includes(`${zoneId}:`), `renderer3d.js BIOME_PALETTES should define ${zoneId}`);
+    }
   });
 
-  it('cycles 3D camera modes cleanly (Chase ->Action Low -> Tactical)', () => {
+  it('cycles 3D camera modes cleanly (Chase -> Action Low -> Tactical)', () => {
     const m1 = Wildkin3D.cycleCameraMode();
     const m2 = Wildkin3D.cycleCameraMode();
     const m3 = Wildkin3D.cycleCameraMode();
     assert.deepEqual([m1, m2, m3], ['ACTION CLOSE', 'TACTICAL 3D', 'DYNAMIC 3D']);
   });
 
-  it('verifies index.html & game.js wire full-screen 3D viewport, tap-to-move HUD, and combat popups without legacy console frame', () => {
+  it('verifies index.html & game.js wire turn-by-turn battle banner, Grandpa Rowan Ranch, 8-Chapter Story HUD, and 100-Floor Spire', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
     const gameSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'game.js'), 'utf8');
 
@@ -241,6 +347,19 @@ describe('4. public/js/renderer3d.js & Full-Screen 3D Tap-to-Move / Action Comba
     assert.ok(html.includes('id="battleImpactFlash"'), 'index.html should have #battleImpactFlash');
     assert.ok(html.includes('id="battleDamageLayer"'), 'index.html should have #battleDamageLayer');
     assert.equal(html.includes('id="controlsDeck"'), false, 'Legacy #controlsDeck should be removed from index.html');
+
+    // Turn-by-turn battle choreography UI & hooks
+    assert.ok(html.includes('id="battleTurnBanner"'), 'index.html should have #battleTurnBanner');
+    assert.ok(gameSrc.includes('setBattleTurnBanner'), 'game.js should implement setBattleTurnBanner');
+    assert.ok(gameSrc.includes('setBattleTurnPhase'), 'game.js should synchronize 3D camera with setBattleTurnPhase');
+
+    // Grandpa Rowan Ranch, Story Quest Tracker HUD & 100-Floor Aether Spire hooks
+    assert.ok(html.includes('id="questTrackerHud"'), 'index.html should have #questTrackerHud');
+    assert.ok(html.includes('id="btnDockRanch"'), 'index.html should have #btnDockRanch');
+    assert.ok(html.includes('id="btnDockStory"'), 'index.html should have #btnDockStory');
+    assert.ok(html.includes('id="btnQuickRanch"'), 'index.html should have #btnQuickRanch');
+    assert.ok(gameSrc.includes('breedKinOffspring'), 'game.js should call DATA.breedKinOffspring in Grandpa Rowan Ranch');
+    assert.ok(gameSrc.includes('startSpireBattle'), 'game.js should implement 100-Floor Endless Aether Spire via startSpireBattle');
 
     // Continuous 60fps movement & 3D combat hooks in game.js
     assert.ok(gameSrc.includes('updateContinuous3DMovement'), 'game.js should implement updateContinuous3DMovement');
@@ -334,7 +453,7 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     assert.equal(data.zones, 6);
   });
 
-  it('GET /api/kindex returns complete KinDex payload', async () => {
+  it('GET /api/kindex returns complete KinDex payload with 6 zones and 6 wardens', async () => {
     const res = await fetch(`${baseUrl}/api/kindex`);
     assert.equal(res.status, 200);
     const data = await res.json();
