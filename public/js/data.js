@@ -818,47 +818,124 @@
       desc: 'Guarantees S-Rank or SS-Rank Apex Genetics on your next Breeding Sanctuary hatch and waives the shard fee!'
     },
 
-    // 4. Aether Prisms (Capture Devices)
+    // 4. Snare Traps (Mechanical & Elemental Wild Kin Capture Cages)
     basicPrism: {
       id: 'basicPrism',
-      name: 'Basic Prism',
+      name: 'Copper Snare Trap',
       category: 'prism',
+      trapType: 'copper',
       marketTab: 'boosters',
       catchMod: 1.0,
       cost: 50,
       gemCost: 6,
       color: '#38bdf8',
-      icon: '💠',
-      desc: 'Standard geometric Aether Prism for binding weakened wild Kin (1.0x rate).'
+      icon: '🪤',
+      desc: 'Launches a collapsible bronze claw-cage snare trap onto a weakened Wild Kin (1.0x catch rate).'
     },
     greaterPrism: {
       id: 'greaterPrism',
-      name: 'Greater Prism',
+      name: 'Magnetized Vault Trap',
       category: 'prism',
+      trapType: 'magnet',
       marketTab: 'boosters',
-      catchMod: 1.75,
+      catchMod: 1.8,
       cost: 120,
       gemCost: 15,
       color: '#c084fc',
-      icon: '🔮',
-      desc: 'Resonant octo-prism with a 1.75x higher harmonic bind rate.'
+      icon: '🪤',
+      desc: 'High-tension electromagnetic snare cage with a 1.8x capture lock strength.'
     },
     masteryPrism: {
       id: 'masteryPrism',
-      name: 'Apex Prism',
+      name: 'Sovereign Stasis Trap',
       category: 'prism',
+      trapType: 'sovereign',
       marketTab: 'boosters',
-      catchMod: 3.2,
+      catchMod: 3.5,
       cost: 300,
       gemCost: 38,
       color: '#facc15',
-      icon: '🌟',
-      desc: 'Gold-forged sovereign prism with a massive 3.2x bind rate on rare & mythic Kin.'
+      icon: '🪤',
+      desc: 'Ancient Grandpa-forged stasis cage that locks down rare & mythic Wild Kin (3.5x catch rate).'
+    },
+
+    // 5. Expandable Kin Carrier Bag Upgrades (Start with 4 Active / 8 Reserve -> Upgrade to 8 Active / 52 Reserve!)
+    bagUpgrade1: {
+      id: 'bagUpgrade1',
+      name: 'Reinforced Tamer Satchel',
+      category: 'bag',
+      marketTab: 'boosters',
+      bagTier: 1,
+      maxSquadSize: 5,
+      maxVaultSize: 16,
+      cost: 350,
+      gemCost: 45,
+      color: '#38bdf8',
+      icon: '🎒',
+      desc: 'Upgrades your Kin Carrier Bag: carry up to 5 Active Squad Kin (up from 4) and 16 Reserve Kin!'
+    },
+    bagUpgrade2: {
+      id: 'bagUpgrade2',
+      name: 'Expedition Kin Pack',
+      category: 'bag',
+      marketTab: 'boosters',
+      bagTier: 2,
+      maxSquadSize: 6,
+      maxVaultSize: 28,
+      cost: 800,
+      gemCost: 95,
+      color: '#c084fc',
+      icon: '🎒',
+      desc: 'Upgrades your Kin Carrier Bag: carry up to 6 Active Squad Kin and 28 Reserve Kin!'
+    },
+    bagUpgrade3: {
+      id: 'bagUpgrade3',
+      name: 'Grandmaster Spatial Harness',
+      category: 'bag',
+      marketTab: 'boosters',
+      bagTier: 3,
+      maxSquadSize: 8,
+      maxVaultSize: 52,
+      cost: 1800,
+      gemCost: 210,
+      color: '#facc15',
+      icon: '🎒',
+      desc: 'Sovereign dimensional harness: carry up to 8 Active Squad Kin and 52 Reserve Kin!'
     }
   };
 
+  ITEMS.spicedSkewers = {
+    id: "spicedSkewers",
+    name: "Cinderpeak Spiced Skewers",
+    icon: "🍢",
+    category: "food",
+    marketTab: "recovery",
+    cost: 75,
+    gemCost: 8,
+    healAmount: 85,
+    bondGain: 1,
+    xpGain: 35,
+    restoreStamina: true,
+    color: "#fb923c",
+    desc: "Flame-grilled skewers that restore 85 HP, full Stamina, +1 Bond & +35 XP."
+  };
+  ITEMS.geneticCatalyst = {
+    id: "geneticCatalyst",
+    name: "S-Rank Lineage Catalyst",
+    icon: "🧬",
+    category: "booster",
+    marketTab: "boosters",
+    cost: 420,
+    gemCost: 40,
+    hatchBoost: true,
+    color: "#c084fc",
+    desc: "Awakens dormant bloodlines so your next Ranch Breeding hatch is FREE & guaranteed S/SS-Rank!"
+  };
   ITEMS.aetherPrism = ITEMS.basicPrism;
   ITEMS.masterPrism = ITEMS.masteryPrism;
+  ITEMS.copperTrap = ITEMS.basicPrism;
+  ITEMS.magnetTrap = ITEMS.greaterPrism;
+  ITEMS.sovereignTrap = ITEMS.masteryPrism;
 
   // Real-Money / USD Gem & Recovery Bundles for the Aether Marketplace
   const MARKETPLACE_BUNDLES = [
@@ -1295,61 +1372,736 @@
     }
   ];
 
-  // Grandpa Rowan’s Homestead & Multi-World Side Quests
+  // Grandpa Rowan’s Homestead & Multi-World Side Quests (18 Rich Quests Across All 6 Worlds)
   const SIDE_QUESTS = [
+    // SUNLEAF MEADOW (3 Quests)
     {
       id: 'sq_orchard_bond',
       title: 'Heartwood Orchard Caretaker',
       giver: 'Grandpa Rowan',
       zone: 'meadow',
+      lore: '"A true Tamer wins with trust, not force. Spend time feeding and caring for your partner at our Homestead Ranch!"',
       objective: 'Raise any companion Kin to Bond Level 4+ at the Heartwood Homestead Ranch',
+      metric: 'maxBondLevel',
+      target: 4,
       rewardShards: 250,
-      rewardItems: { heartwoodBerry: 4 }
+      rewardGems: 15,
+      rewardItems: { heartwoodBerry: 4, basicPrism: 3 }
     },
     {
       id: 'sq_s_rank_breeder',
       title: 'Lineage of the Ancients',
       giver: 'Grandpa Rowan',
       zone: 'meadow',
+      lore: '"Pair two strong Kin in the Nursery Sanctuary to awaken dormant S-Rank or SS-Rank genetics!"',
       objective: 'Breed an S-Rank or SS-Rank Offspring with an inherited Egg Move at the Breeding Ranch',
+      metric: 'sRankBred',
+      target: 1,
       rewardShards: 500,
+      rewardGems: 25,
       rewardItems: { apexNectar: 2, greaterPrism: 2 }
     },
+    {
+      id: 'sq_meadow_pest_patrol',
+      title: 'Orchard Acorn Defense',
+      giver: 'Scout Pip',
+      zone: 'meadow',
+      lore: '"Wild Thornbits and Mosslets keep raiding Grandpa’s berry crates! Snare or defeat Wild Kin in the tall grass!"',
+      objective: 'Catch at least 3 Wild Kin using Snare Traps',
+      metric: 'wildCaught',
+      target: 3,
+      rewardShards: 300,
+      rewardGems: 15,
+      rewardItems: { basicPrism: 5, sunberryRation: 4 }
+    },
+
+    // TIDEGLASS COVE (3 Quests)
     {
       id: 'sq_radiant_seeker',
       title: 'Gleam of the Astral Star',
       giver: 'Sage Mira',
       zone: 'tidecove',
+      lore: '"Once in a blue tide, a Wild Kin is born shimmering with Radiant starlight. Find or hatch one!"',
       objective: 'Bind or hatch 1 Radiant (★) Kin across any World or at the Homestead Ranch',
+      metric: 'radiantCount',
+      target: 1,
       rewardShards: 650,
+      rewardGems: 35,
       rewardItems: { masteryPrism: 1, apexNectar: 2 }
     },
+    {
+      id: 'sq_tide_lighthouse',
+      title: 'Lighthouse Reef Rescue',
+      giver: 'Diver Kora',
+      zone: 'tidecove',
+      lore: '"The coral beacons of Tideglass Cove need a Tide-affinity guardian. Bind a Tide Kin and win battles along the reef!"',
+      objective: 'Win 6 Battles across your journey',
+      metric: 'battlesWon',
+      target: 6,
+      rewardShards: 420,
+      rewardGems: 20,
+      rewardItems: { greaterPrism: 3, spicedSkewers: 3 }
+    },
+    {
+      id: 'sq_tide_angler',
+      title: 'Abyssal Lagoon Survey',
+      giver: 'Captain Brine',
+      zone: 'tidecove',
+      lore: '"My nets keep getting tangled by feisty reef Kin! Help me catalog 5 different species in your KinDex."',
+      objective: 'Register 5+ distinct species in your KinDex',
+      metric: 'kindexCount',
+      target: 5,
+      rewardShards: 380,
+      rewardGems: 20,
+      rewardItems: { heartwoodStew: 2, basicPrism: 4 }
+    },
+
+    // STORMSPIRE CANOPY (3 Quests)
     {
       id: 'sq_canopy_collector',
       title: 'Stormspire Naturalist',
       giver: 'Sky-Ranger Lyra',
       zone: 'stormspire',
+      lore: '"High in the thunder-charged redwood canopy, diverse Kin thrive. Expand your KinDex to 10 species!"',
       objective: 'Register 10+ distinct species in the KinDex',
+      metric: 'kindexCount',
+      target: 10,
       rewardShards: 600,
+      rewardGems: 30,
       rewardItems: { greaterPrism: 4, hiTonic: 3 }
     },
+    {
+      id: 'sq_storm_relay',
+      title: 'Thunder-Rod Calibration',
+      giver: 'Engineer Talia',
+      zone: 'stormspire',
+      lore: '"Our sky-bridges run on static cores! Catch 6 Wild Kin with Snare Traps to help us calibrate the relay!"',
+      objective: 'Catch 6+ Wild Kin using Snare Traps',
+      metric: 'wildCaught',
+      target: 6,
+      rewardShards: 550,
+      rewardGems: 25,
+      rewardItems: { greaterPrism: 3, aetherCandy: 2 }
+    },
+    {
+      id: 'sq_storm_skybridge',
+      title: 'Vanguard of the Canopy',
+      giver: 'Warden Vane',
+      zone: 'stormspire',
+      lore: '"Prove your squad can weather the lightning squalls! Earn at least 2 World Warden Crests."',
+      objective: 'Defeat 2+ World Wardens and claim their Crests',
+      metric: 'badgesCount',
+      target: 2,
+      rewardShards: 700,
+      rewardGems: 35,
+      rewardItems: { bagUpgrade1: 1, heartwoodStew: 3 }
+    },
+
+    // FROSTVEIL EXPANSE (3 Quests)
     {
       id: 'sq_glacier_historian',
       title: 'Chronicles of Frostveil',
       giver: 'Chronicler Bjorn',
       zone: 'frostveil',
+      lore: '"Ancient ice tablets speak of Kin that transcend their base form. Catalog 18 species and evolve 2 Kin!"',
       objective: 'Register 18+ distinct species in the KinDex & evolve 2 Kin',
+      metric: 'kindexCount',
+      target: 18,
       rewardShards: 950,
+      rewardGems: 45,
       rewardItems: { masteryPrism: 2, reviveLeaf: 3 }
     },
+    {
+      id: 'sq_frost_expedition',
+      title: 'Cryo-Cavern Supplies',
+      giver: 'Mountaineer Freya',
+      zone: 'frostveil',
+      lore: '"The sub-zero winds drain vitality fast. Cook and feed 5 Campfire Rations or Stews to keep your squad warm!"',
+      objective: 'Feed 5+ Food Rations or Stews to your Kin',
+      metric: 'foodFed',
+      target: 5,
+      rewardShards: 620,
+      rewardGems: 30,
+      rewardItems: { feastPlatter: 2, greaterPrism: 3 }
+    },
+    {
+      id: 'sq_frost_evolution',
+      title: 'Awakening the Glacier Bloodline',
+      giver: 'Elder Kaelen',
+      zone: 'frostveil',
+      lore: '"Only seasoned Tamers witness true metamorphosis. Evolve at least 2 Kin through combat or Aether Crystals!"',
+      objective: 'Evolve 2+ Kin into their higher stages',
+      metric: 'evolutionsTriggered',
+      target: 2,
+      rewardShards: 800,
+      rewardGems: 40,
+      rewardItems: { aetherCandy: 3, greaterPrism: 3 }
+    },
+
+    // EMBERVAULT CALDERA (3 Quests)
+    {
+      id: 'sq_ember_forge',
+      title: 'Magma Anvil Tempering',
+      giver: 'Forgemaster Ignis',
+      zone: 'embervault',
+      lore: '"My Obsidian Anvil needs the heat of 15 victorious battles to temper Sovereign Stasis Traps!"',
+      objective: 'Win 15+ Battles across the Six Worlds',
+      metric: 'battlesWon',
+      target: 15,
+      rewardShards: 900,
+      rewardGems: 45,
+      rewardItems: { masteryPrism: 2, apexTome: 1 }
+    },
+    {
+      id: 'sq_ember_genetics',
+      title: 'Crucible of Lineage',
+      giver: 'Alchemist Pyra',
+      zone: 'embervault',
+      lore: '"Hatch 3 eggs at Grandpa’s Ranch so we can study how volcanic affinities pass down Egg Moves!"',
+      objective: 'Hatch 3+ Offspring Eggs at Grandpa’s Ranch',
+      metric: 'eggsHatched',
+      target: 3,
+      rewardShards: 850,
+      rewardGems: 40,
+      rewardItems: { geneticCatalyst: 1, hatchAccelerator: 2 }
+    },
+    {
+      id: 'sq_ember_collector',
+      title: 'Master Trapper of the Caldera',
+      giver: 'Bounty Hunter Rex',
+      zone: 'embervault',
+      lore: '"Snare 10 Wild Kin in mechanical traps to prove your aim in the basalt trenches!"',
+      objective: 'Catch 10+ Wild Kin using Snare Traps',
+      metric: 'wildCaught',
+      target: 10,
+      rewardShards: 1100,
+      rewardGems: 50,
+      rewardItems: { masteryPrism: 3, feastPlatter: 2 }
+    },
+
+    // AETHER SANCTUM (3 Quests)
     {
       id: 'sq_spire_vanguard',
       title: 'Ascendant of the Aether Spire',
       giver: 'Grand Warden Vesper',
       zone: 'sanctum',
+      lore: '"Climb to Floor 15 of the Endless Aether Spire Battle Tower to stand among the Astral Vanguard!"',
       objective: 'Reach Floor 15+ in the 100-Floor Endless Aether Spire Battle Tower',
+      metric: 'spireFloor',
+      target: 15,
       rewardShards: 1800,
+      rewardGems: 80,
       rewardItems: { masteryPrism: 4, apexNectar: 4 }
+    },
+    {
+      id: 'sq_sanctum_warden_conquest',
+      title: 'Six-World Sovereign',
+      giver: 'High Arbiter Solon',
+      zone: 'sanctum',
+      lore: '"Unite the Six Worlds by earning all 6 Warden Crests from Meadow to Sanctum!"',
+      objective: 'Earn all 6 World Warden Crests',
+      metric: 'badgesCount',
+      target: 6,
+      rewardShards: 2200,
+      rewardGems: 100,
+      rewardItems: { apexTome: 2, masteryPrism: 4 }
+    },
+    {
+      id: 'sq_sanctum_encyclopedia',
+      title: 'Grand Archivist of Aetheria',
+      giver: 'Oracle Celestia',
+      zone: 'sanctum',
+      lore: '"Complete the ultimate record of life across the floating realms by binding 20+ distinct species!"',
+      objective: 'Register 20+ distinct Kin species in your KinDex',
+      metric: 'kindexCount',
+      target: 20,
+      rewardShards: 2500,
+      rewardGems: 120,
+      rewardItems: { bagUpgrade3: 1, masteryPrism: 5, apexTome: 2 }
+    }
+  ];
+
+  // 12 Trackable Daily Tasks & Tamer Bounties
+  const TAMER_TASKS = [
+    {
+      id: 'task_first_snare',
+      title: 'Snare Novice',
+      category: 'Trapping',
+      icon: '🪤',
+      desc: 'Throw a Snare Trap in battle and catch 1 Wild Kin.',
+      metric: 'wildCaught',
+      target: 1,
+      rewardShards: 120,
+      rewardGems: 10,
+      rewardItems: { basicPrism: 3 },
+      bpXp: 50
+    },
+    {
+      id: 'task_trap_hunter',
+      title: 'Wild Trap Specialist',
+      category: 'Trapping',
+      icon: '🪤',
+      desc: 'Catch 5 Wild Kin across any World using Snare Traps.',
+      metric: 'wildCaught',
+      target: 5,
+      rewardShards: 300,
+      rewardGems: 20,
+      rewardItems: { greaterPrism: 2 },
+      bpXp: 80
+    },
+    {
+      id: 'task_trap_thrower',
+      title: 'Mechanical Trapper',
+      category: 'Trapping',
+      icon: '⚙️',
+      desc: 'Deploy 8 Snare Traps during Wild Kin encounters.',
+      metric: 'trapsThrown',
+      target: 8,
+      rewardShards: 260,
+      rewardGems: 15,
+      rewardItems: { greaterPrism: 2 },
+      bpXp: 65
+    },
+    {
+      id: 'task_combat_victor',
+      title: 'Meadow Skirmisher',
+      category: 'Combat',
+      icon: '⚔️',
+      desc: 'Win 3 Battles against Wild Kin or Rival Tamers.',
+      metric: 'battlesWon',
+      target: 3,
+      rewardShards: 180,
+      rewardGems: 12,
+      rewardItems: { sunberryRation: 3 },
+      bpXp: 50
+    },
+    {
+      id: 'task_combat_veteran',
+      title: 'Seasoned Duelist',
+      category: 'Combat',
+      icon: '🛡️',
+      desc: 'Win 10 Battles across the Six Worlds.',
+      metric: 'battlesWon',
+      target: 10,
+      rewardShards: 450,
+      rewardGems: 25,
+      rewardItems: { heartwoodStew: 2, aetherCandy: 1 },
+      bpXp: 90
+    },
+    {
+      id: 'task_campfire_chef',
+      title: 'Campfire Gourmet',
+      category: 'Vitality',
+      icon: '🍖',
+      desc: 'Feed 3 Food Rations or Stews to recover your Kin’s HP.',
+      metric: 'foodFed',
+      target: 3,
+      rewardShards: 200,
+      rewardGems: 15,
+      rewardItems: { spicedSkewers: 2 },
+      bpXp: 55
+    },
+    {
+      id: 'task_ranch_breeder',
+      title: 'Homestead Breeder',
+      category: 'Ranch',
+      icon: '🥚',
+      desc: 'Hatch 1 Offspring Egg at Grandpa Rowan’s Breeding Sanctuary.',
+      metric: 'eggsHatched',
+      target: 1,
+      rewardShards: 320,
+      rewardGems: 20,
+      rewardItems: { heartwoodBerry: 3, hatchAccelerator: 1 },
+      bpXp: 75
+    },
+    {
+      id: 'task_kin_trader',
+      title: 'Cross-World Trader',
+      category: 'Trade',
+      icon: '🔄',
+      desc: 'Complete 1 Kin Trade at the Kin Trade Center.',
+      metric: 'kinTraded',
+      target: 1,
+      rewardShards: 350,
+      rewardGems: 25,
+      rewardItems: { aetherCandy: 2 },
+      bpXp: 80
+    },
+    {
+      id: 'task_full_squad',
+      title: 'Full 4-Kin Squad',
+      category: 'Collection',
+      icon: '🐾',
+      desc: 'Grow your team from 1 starter Kin to a full 4-Kin Active Squad!',
+      metric: 'totalKinOwned',
+      target: 4,
+      rewardShards: 400,
+      rewardGems: 30,
+      rewardItems: { greaterPrism: 3, heartwoodStew: 2 },
+      bpXp: 100
+    },
+    {
+      id: 'task_bag_upgrader',
+      title: 'Pack Mule Expansion',
+      category: 'Equipment',
+      icon: '🎒',
+      desc: 'Upgrade your Kin Carrier Bag capacity at least once.',
+      metric: 'bagTier',
+      target: 1,
+      rewardShards: 450,
+      rewardGems: 30,
+      rewardItems: { masteryPrism: 1 },
+      bpXp: 90
+    },
+    {
+      id: 'task_warden_challenger',
+      title: 'Crest Conqueror',
+      category: 'Bosses',
+      icon: '👑',
+      desc: 'Defeat your first World Warden and earn a Warden Crest.',
+      metric: 'badgesCount',
+      target: 1,
+      rewardShards: 500,
+      rewardGems: 35,
+      rewardItems: { aetherCandy: 2, greaterPrism: 2 },
+      bpXp: 100
+    },
+    {
+      id: 'task_spire_climber',
+      title: 'Spire Challenger',
+      category: 'Endgame',
+      icon: '🗼',
+      desc: 'Reach Floor 5+ in the Endless Aether Spire.',
+      metric: 'spireFloor',
+      target: 5,
+      rewardShards: 600,
+      rewardGems: 40,
+      rewardItems: { masteryPrism: 2, feastPlatter: 1 },
+      bpXp: 120
+    }
+  ];
+
+  // Unlockable 3D Tamer Outfits (Changes 3D Character Coat, Trim & Visor Colors Live!)
+  const TAMER_OUTFITS = [
+    {
+      id: 'homestead_tunic',
+      name: 'Homestead Ranger Tunic',
+      icon: '🧥',
+      rarity: 'Starter',
+      coatColor: 0x0284c7,
+      trimColor: 0xfacc15,
+      hairColor: 0x1e293b,
+      cssColor: '#0284c7',
+      unlockSource: 'Default Starter Outfit',
+      defaultUnlocked: true,
+      desc: 'Grandpa Rowan’s classic cobalt explorer tunic with sun-gold Aether trim.'
+    },
+    {
+      id: 'crimson_vanguard',
+      name: 'Crimson Vanguard Cloak',
+      icon: '🧣',
+      rarity: 'Rare',
+      coatColor: 0xe11d48,
+      trimColor: 0xfde047,
+      hairColor: 0x0f172a,
+      cssColor: '#e11d48',
+      unlockSource: 'Day 5 Daily Login / Battle Pass Tier 3',
+      defaultUnlocked: false,
+      desc: 'Blazing ember-red vanguard cloak worn by Embervault champions.'
+    },
+    {
+      id: 'tideglass_diver',
+      name: 'Tideglass Reef Suit',
+      icon: '🤿',
+      rarity: 'Rare',
+      coatColor: 0x0d9488,
+      trimColor: 0x38bdf8,
+      hairColor: 0x1e1b4b,
+      cssColor: '#0d9488',
+      unlockSource: 'Battle Pass Tier 6',
+      defaultUnlocked: false,
+      desc: 'Hydro-streamlined aquamarine suit with bioluminescent reef trim.'
+    },
+    {
+      id: 'stormspire_neon',
+      name: 'Stormspire Volt Jacket',
+      icon: '⚡',
+      rarity: 'Epic',
+      coatColor: 0x7c3aed,
+      trimColor: 0x4ade80,
+      hairColor: 0x312e81,
+      cssColor: '#7c3aed',
+      unlockSource: 'Battle Pass Tier 10',
+      defaultUnlocked: false,
+      desc: 'High-voltage violet canopy jacket threaded with neon storm-conductors.'
+    },
+    {
+      id: 'obsidian_void',
+      name: 'Obsidian Shadow Armor',
+      icon: '🛡️',
+      rarity: 'Epic',
+      coatColor: 0x1e293b,
+      trimColor: 0xc084fc,
+      hairColor: 0x4c1d95,
+      cssColor: '#c084fc',
+      unlockSource: 'Battle Pass Tier 15',
+      defaultUnlocked: false,
+      desc: 'Stealth forged obsidian plate pulsing with purple Aether runes.'
+    },
+    {
+      id: 'astral_sovereign',
+      name: 'Astral Sovereign Regalia',
+      icon: '👑',
+      rarity: 'Mythic',
+      coatColor: 0xf59e0b,
+      trimColor: 0x38bdf8,
+      hairColor: 0xfef08a,
+      cssColor: '#facc15',
+      unlockSource: 'Day 7 Weekly Grand Prize / Battle Pass Tier 20',
+      defaultUnlocked: false,
+      desc: 'Radiant gold-and-celestial armor of the Grand Champion of Aetheria.'
+    }
+  ];
+
+  // Unlockable 3D Floating Emotes (Usable in 3D Overworld & 3D Battles!)
+  const TAMER_EMOTES = [
+    {
+      id: 'emote_wave',
+      name: 'Howdy Tamer!',
+      icon: '👋',
+      bubbleText: '👋 Hey there!',
+      defaultUnlocked: true,
+      unlockSource: 'Default Emote'
+    },
+    {
+      id: 'emote_fire',
+      name: 'Fire Up!',
+      icon: '🔥',
+      bubbleText: '🔥 FIRED UP!',
+      defaultUnlocked: true,
+      unlockSource: 'Day 3 Login / Battle Pass Tier 2'
+    },
+    {
+      id: 'emote_hype',
+      name: 'Aether Surge!',
+      icon: '⚡',
+      bubbleText: '⚡ LET’S GO!',
+      defaultUnlocked: false,
+      unlockSource: 'Battle Pass Tier 5'
+    },
+    {
+      id: 'emote_cool',
+      name: 'Too Easy',
+      icon: '😎',
+      bubbleText: '😎 TOO EASY!',
+      defaultUnlocked: false,
+      unlockSource: 'Battle Pass Tier 9'
+    },
+    {
+      id: 'emote_gem',
+      name: 'Diamond Bind',
+      icon: '💎',
+      bubbleText: '💎 RADIANT FLEX!',
+      defaultUnlocked: false,
+      unlockSource: 'Battle Pass Tier 14'
+    },
+    {
+      id: 'emote_crown',
+      name: 'Sovereign King',
+      icon: '👑',
+      bubbleText: '👑 SOVEREIGN GG!',
+      defaultUnlocked: false,
+      unlockSource: 'Day 7 Weekly Grand Prize / Battle Pass Tier 18'
+    }
+  ];
+
+  // 7-Day Daily Login Streak + Day 7 Weekly Grand Prize
+  const DAILY_LOGIN_REWARDS = [
+    {
+      day: 1,
+      title: 'Day 1: Trapper’s Kickoff',
+      icon: '🪤',
+      shards: 200,
+      gems: 20,
+      items: { basicPrism: 3, sunberryRation: 3 },
+      desc: '200 🪙 Shards + 20 💎 Gems + 3x Copper Snare Traps + 3x Sunberry Rations'
+    },
+    {
+      day: 2,
+      title: 'Day 2: Homestead Stew Pot',
+      icon: '🍲',
+      shards: 250,
+      gems: 50,
+      items: { heartwoodStew: 3, basicPrism: 2 },
+      desc: '3x Grandpa’s Heartwood Stew + 50 💎 Gems + 250 🪙 Shards'
+    },
+    {
+      day: 3,
+      title: 'Day 3: Flame & Magnetize',
+      icon: '🔥',
+      shards: 300,
+      gems: 35,
+      items: { greaterPrism: 2 },
+      unlockEmote: 'emote_fire',
+      desc: 'Unlocks 🔥 "Fire Up!" Emote + 2x Magnetized Vault Traps + 300 🪙 Shards'
+    },
+    {
+      day: 4,
+      title: 'Day 4: Crystal Surge',
+      icon: '🍬',
+      shards: 350,
+      gems: 45,
+      items: { aetherCandy: 2, spicedSkewers: 3 },
+      desc: '2x Rare Aether Crystals (+2 Levels) + 350 🪙 Shards + 45 💎 Gems'
+    },
+    {
+      day: 5,
+      title: 'Day 5: Crimson Vanguard',
+      icon: '🧣',
+      shards: 400,
+      gems: 60,
+      items: { greaterPrism: 3 },
+      unlockOutfit: 'crimson_vanguard',
+      desc: 'Unlocks 🧣 "Crimson Vanguard Cloak" 3D Outfit + 3x Magnetized Traps + 60 💎 Gems'
+    },
+    {
+      day: 6,
+      title: 'Day 6: Sovereign Scholar',
+      icon: '📘',
+      shards: 500,
+      gems: 150,
+      items: { apexTome: 1, feastPlatter: 2 },
+      desc: '150 💎 Gems + 1x Sovereign XP Tome (+3 Levels!) + 2x Feast Platters'
+    },
+    {
+      day: 7,
+      title: 'WEEKLY GRAND PRIZE',
+      icon: '👑',
+      isGrandPrize: true,
+      shards: 1000,
+      gems: 250,
+      items: { masteryPrism: 2, bagUpgrade1: 1 },
+      unlockOutfit: 'astral_sovereign',
+      unlockEmote: 'emote_crown',
+      desc: '👑 "Astral Sovereign Regalia" 3D Outfit + 👑 "Sovereign" Emote + 2x Sovereign Stasis Traps + 🎒 Satchel Upgrade + 250 💎 Gems!'
+    }
+  ];
+
+  // Season 1: Aether Awakening Battle Pass (20 Tiers, 100 BP XP per Tier)
+  const BATTLE_PASS_TIERS = [
+    { tier: 1, xpRequired: 0, freeDesc: '150 🪙 Shards + 3x Copper Snare Traps', goldDesc: '50 💎 Gems + 2x Rare Aether Crystals', freeReward: { shards: 150, items: { basicPrism: 3 } }, goldReward: { gems: 50, items: { aetherCandy: 2 } } },
+    { tier: 2, xpRequired: 100, freeDesc: '🔥 Emote: "Fire Up!" + 2x Sunberry Rations', goldDesc: '2x Grandpa’s Heartwood Stew', freeReward: { shards: 100, items: { sunberryRation: 2 }, unlockEmote: 'emote_fire' }, goldReward: { gems: 30, items: { heartwoodStew: 2 } } },
+    { tier: 3, xpRequired: 200, freeDesc: '2x Magnetized Vault Traps + 200 🪙', goldDesc: '🧣 3D Outfit: Crimson Vanguard Cloak', freeReward: { shards: 200, items: { greaterPrism: 2 } }, goldReward: { gems: 40, unlockOutfit: 'crimson_vanguard' } },
+    { tier: 4, xpRequired: 300, freeDesc: '1x Rare Aether Crystal (+1 Lv) + 250 🪙', goldDesc: '1x 2x XP Surge Elixir + 60 💎', freeReward: { shards: 250, items: { aetherCandy: 1 } }, goldReward: { gems: 60, items: { xpBooster2x: 1 } } },
+    { tier: 5, xpRequired: 400, freeDesc: '⚡ Emote: "Aether Surge!" + 30 💎 Gems', goldDesc: '🎒 Reinforced Tamer Satchel (+Bag Slots)', freeReward: { gems: 30, unlockEmote: 'emote_hype' }, goldReward: { gems: 50, items: { bagUpgrade1: 1 } } },
+    { tier: 6, xpRequired: 500, freeDesc: '🤿 3D Outfit: Tideglass Reef Suit', goldDesc: '3x Magnetized Vault Traps + 300 🪙', freeReward: { shards: 200, unlockOutfit: 'tideglass_diver' }, goldReward: { shards: 300, items: { greaterPrism: 3 } } },
+    { tier: 7, xpRequired: 600, freeDesc: '2x Grandpa’s Heartwood Stew + 300 🪙', goldDesc: '1x Incubator Speed Core + 75 💎', freeReward: { shards: 300, items: { heartwoodStew: 2 } }, goldReward: { gems: 75, items: { hatchAccelerator: 1 } } },
+    { tier: 8, xpRequired: 700, freeDesc: '3x Magnetized Vault Traps', goldDesc: '1x Sovereign XP Tome (+3 Levels)', freeReward: { shards: 250, items: { greaterPrism: 3 } }, goldReward: { gems: 50, items: { apexTome: 1 } } },
+    { tier: 9, xpRequired: 800, freeDesc: '😎 Emote: "Too Easy!" + 350 🪙', goldDesc: '2x Homestead Feast Platters', freeReward: { shards: 350, unlockEmote: 'emote_cool' }, goldReward: { gems: 60, items: { feastPlatter: 2 } } },
+    { tier: 10, xpRequired: 900, freeDesc: '⚡ 3D Outfit: Stormspire Volt Jacket', goldDesc: '1x Sovereign Stasis Trap + 100 💎', freeReward: { shards: 400, unlockOutfit: 'stormspire_neon' }, goldReward: { gems: 100, items: { masteryPrism: 1 } } },
+    { tier: 11, xpRequired: 1000, freeDesc: '2x Rare Aether Crystals + 400 🪙', goldDesc: '1x S-Rank Lineage Catalyst', freeReward: { shards: 400, items: { aetherCandy: 2 } }, goldReward: { gems: 70, items: { geneticCatalyst: 1 } } },
+    { tier: 12, xpRequired: 1100, freeDesc: '1x Homestead Feast Platter + 50 💎', goldDesc: '🎒 Expedition Kin Pack (6 Active Squad!)', freeReward: { gems: 50, items: { feastPlatter: 1 } }, goldReward: { gems: 90, items: { bagUpgrade2: 1 } } },
+    { tier: 13, xpRequired: 1200, freeDesc: '3x Magnetized Vault Traps + 450 🪙', goldDesc: '2x Sovereign XP Tomes (+6 Levels)', freeReward: { shards: 450, items: { greaterPrism: 3 } }, goldReward: { gems: 80, items: { apexTome: 2 } } },
+    { tier: 14, xpRequired: 1300, freeDesc: '💎 Emote: "Diamond Bind!" + 500 🪙', goldDesc: '2x Sovereign Stasis Traps', freeReward: { shards: 500, unlockEmote: 'emote_gem' }, goldReward: { gems: 90, items: { masteryPrism: 2 } } },
+    { tier: 15, xpRequired: 1400, freeDesc: '🛡️ 3D Outfit: Obsidian Shadow Armor', goldDesc: '150 💎 Gems + 2x S-Rank Lineage Catalysts', freeReward: { shards: 500, unlockOutfit: 'obsidian_void' }, goldReward: { gems: 150, items: { geneticCatalyst: 2 } } },
+    { tier: 16, xpRequired: 1500, freeDesc: '1x Sovereign Stasis Trap + 550 🪙', goldDesc: '3x Homestead Feast Platters', freeReward: { shards: 550, items: { masteryPrism: 1 } }, goldReward: { gems: 100, items: { feastPlatter: 3 } } },
+    { tier: 17, xpRequired: 1600, freeDesc: '1x Sovereign XP Tome (+3 Levels)', goldDesc: '3x Rare Aether Crystals + 120 💎', freeReward: { shards: 600, items: { apexTome: 1 } }, goldReward: { gems: 120, items: { aetherCandy: 3 } } },
+    { tier: 18, xpRequired: 1700, freeDesc: '👑 Emote: "Sovereign GG!" + 80 💎', goldDesc: '2x Sovereign Stasis Traps + 800 🪙', freeReward: { gems: 80, unlockEmote: 'emote_crown' }, goldReward: { shards: 800, items: { masteryPrism: 2 } } },
+    { tier: 19, xpRequired: 1800, freeDesc: '2x Sovereign Stasis Traps + 750 🪙', goldDesc: '🎒 Grandmaster Spatial Harness (8 Squad!)', freeReward: { shards: 750, items: { masteryPrism: 2 } }, goldReward: { gems: 150, items: { bagUpgrade3: 1 } } },
+    { tier: 20, xpRequired: 1900, freeDesc: '👑 3D Outfit: Astral Sovereign Regalia + 1,000 🪙', goldDesc: '300 💎 Gems + 3x Sovereign Stasis Traps + 2x XP Tomes', freeReward: { shards: 1000, items: { masteryPrism: 1 }, unlockOutfit: 'astral_sovereign' }, goldReward: { gems: 300, items: { masteryPrism: 3, apexTome: 2 } } }
+  ];
+
+  // Cross-World NPC Kin Trade Center Offers (Start with 1 Kin -> Catch, Breed, or Trade to grow your squad!)
+  const NPC_TRADES = [
+    {
+      id: 'trade_meadow_volt',
+      npcName: 'Scout Pip',
+      zone: 'meadow',
+      zoneName: 'Sunleaf Meadow',
+      wantsAffinity: 'Grove',
+      wantsDesc: 'Any Grove-Affinity Kin (or any duplicate Kin)',
+      offerSpeciesId: 10, // Sparkit (Volt)
+      offerNickname: 'Zappy',
+      offerLevel: 7,
+      offerGeneticTier: 'A',
+      offerIsRadiant: false,
+      bonusItem: 'basicPrism',
+      quote: '"I caught an extra A-Rank Sparkit near the canopy border! Trade me any Meadow Kin so we both grow our teams!"'
+    },
+    {
+      id: 'trade_cove_ember',
+      npcName: 'Sailor Kora',
+      zone: 'tidecove',
+      zoneName: 'Tideglass Cove',
+      wantsAffinity: 'Tide',
+      wantsDesc: 'Any Tide-Affinity Kin (or any Lv.6+ Kin)',
+      offerSpeciesId: 1, // Emberkit (Ember)
+      offerNickname: 'Blazeclaw',
+      offerLevel: 10,
+      offerGeneticTier: 'A',
+      offerIsRadiant: false,
+      bonusItem: 'heartwoodStew',
+      quote: '"Sea air is chilly! Trade me a Tide Kin and I’ll give you my A-Rank Emberkit plus a pot of Heartwood Stew!"'
+    },
+    {
+      id: 'trade_canopy_tide',
+      npcName: 'Sky-Trader Venn',
+      zone: 'stormspire',
+      zoneName: 'Stormspire Canopy',
+      wantsAffinity: 'Volt',
+      wantsDesc: 'Any Volt-Affinity Kin (or any Lv.10+ Kin)',
+      offerSpeciesId: 4, // Aquapup (Tide)
+      offerNickname: 'Riptide',
+      offerLevel: 14,
+      offerGeneticTier: 'S',
+      offerIsRadiant: false,
+      bonusItem: 'greaterPrism',
+      quote: '"Need a water specialist for Embervault? Swap me a Volt Kin for my S-Rank Aquapup!"'
+    },
+    {
+      id: 'trade_frost_grove',
+      npcName: 'Researcher Astrid',
+      zone: 'frostveil',
+      zoneName: 'Frostveil Expanse',
+      wantsAffinity: 'Frost',
+      wantsDesc: 'Any Frost-Affinity Kin (or any Lv.14+ Kin)',
+      offerSpeciesId: 7, // Mosslet (Grove)
+      offerNickname: 'Bramble',
+      offerLevel: 18,
+      offerGeneticTier: 'S',
+      offerIsRadiant: false,
+      bonusItem: 'aetherCandy',
+      quote: '"My greenhouse needs a Frost specimen! I’ll trade you a rare S-Rank Mosslet holding an Aether Crystal!"'
+    },
+    {
+      id: 'trade_ember_frost',
+      npcName: 'Forgemaster Ignis',
+      zone: 'embervault',
+      zoneName: 'Embervault Caldera',
+      wantsAffinity: 'Ember',
+      wantsDesc: 'Any Ember-Affinity Kin (or any Lv.18+ Kin)',
+      offerSpeciesId: 13, // Frostlynx
+      offerNickname: 'Glacierfang',
+      offerLevel: 22,
+      offerGeneticTier: 'S',
+      offerIsRadiant: true,
+      bonusItem: 'masteryPrism',
+      quote: '"This Radiant (★) Frostlynx keeps cooling my magma forge! Trade me an Ember Kin and he’s yours!"'
+    },
+    {
+      id: 'trade_sanctum_aether',
+      npcName: 'Envoy Lyra',
+      zone: 'sanctum',
+      zoneName: 'Aether Sanctum',
+      wantsAffinity: 'Aether',
+      wantsDesc: 'Any Kin Lv.20+ (Astral Lineage Exchange)',
+      offerSpeciesId: 19, // Lumisprite
+      offerNickname: 'Starweaver',
+      offerLevel: 26,
+      offerGeneticTier: 'SS',
+      offerIsRadiant: true,
+      bonusItem: 'apexTome',
+      quote: '"An SS-Rank Radiant Lumisprite from the upper Sanctum! Worthy of a true Sovereign Tamer!"'
     }
   ];
 
@@ -1486,6 +2238,41 @@
     });
   }
 
+  DAILY_LOGIN_REWARDS.forEach((d) => {
+    if (!d.label) d.label = d.desc;
+    if (!d.outfitId && d.unlockOutfit) d.outfitId = d.unlockOutfit;
+    if (!d.emoteId && d.unlockEmote) d.emoteId = d.unlockEmote;
+    if (d.isGrandPrize) d.isWeeklyGrandPrize = true;
+  });
+
+  BATTLE_PASS_TIERS.forEach((t) => {
+    if (!t.free && t.freeReward) {
+      t.free = Object.assign({ label: t.freeDesc, icon: "🎁", outfitId: t.freeReward.unlockOutfit, emoteId: t.freeReward.unlockEmote }, t.freeReward);
+    }
+    if (!t.gold && t.goldReward) {
+      t.gold = Object.assign({ label: t.goldDesc, icon: "👑", outfitId: t.goldReward.unlockOutfit, emoteId: t.goldReward.unlockEmote }, t.goldReward);
+    }
+  });
+
+  NPC_TRADES.forEach((tr) => {
+    if (!tr.offersSpeciesId) tr.offersSpeciesId = tr.offerSpeciesId;
+    if (!tr.offersNickname) tr.offersNickname = tr.offerNickname;
+    if (!tr.offersLevel) tr.offersLevel = tr.offerLevel;
+    if (!tr.offersGeneticTier) tr.offersGeneticTier = tr.offerGeneticTier;
+    if (tr.isRadiant === undefined) tr.isRadiant = Boolean(tr.offerIsRadiant);
+    if (!tr.wantsSpeciesId) {
+      const matchMap = {
+        trade_meadow_volt: 10,
+        trade_cove_ember: 4,
+        trade_canopy_tide: 13,
+        trade_frost_grove: 16,
+        trade_ember_umbra: 1,
+        trade_sanctum_apex: 19
+      };
+      tr.wantsSpeciesId = matchMap[tr.id] || 7;
+    }
+  });
+
   return {
     AFFINITIES,
     TYPE_CHART,
@@ -1493,11 +2280,18 @@
     KIN_SPECIES,
     ITEMS,
     MARKETPLACE_BUNDLES,
+    GEM_BUNDLES: MARKETPLACE_BUNDLES,
     ZONES,
     WARDENS,
     GENETIC_TIERS,
     STORY_CHAPTERS,
     SIDE_QUESTS,
+    TAMER_TASKS,
+    TAMER_OUTFITS,
+    TAMER_EMOTES,
+    DAILY_LOGIN_REWARDS,
+    BATTLE_PASS_TIERS,
+    NPC_TRADES,
     getTypeMultiplier,
     getSpeciesById,
     getBaseStageSpeciesId,

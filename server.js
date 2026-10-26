@@ -331,6 +331,7 @@ app.get('/api/marketplace/catalog', (req, res) => {
     currency: 'USD',
     stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
     bundles: WildkinData.MARKETPLACE_BUNDLES || [],
+    gemBundles: WildkinData.GEM_BUNDLES || WildkinData.MARKETPLACE_BUNDLES || [],
     items: WildkinData.ITEMS || {}
   });
 });

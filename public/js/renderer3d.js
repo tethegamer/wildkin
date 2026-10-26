@@ -615,7 +615,10 @@
       armR,
       legL,
       legR,
-      footRing
+      footRing,
+      coatMat,
+      trimMat,
+      hairMat
     };
 
     return group;
@@ -832,8 +835,11 @@
 
     overworld.zoneGroup = new THREE.Group();
     overworld.npcGroup = new THREE.Group();
+    overworld.wildGroup = new THREE.Group();
+    overworld.wildMeshes = new Map();
     overworld.scene.add(overworld.zoneGroup);
     overworld.scene.add(overworld.npcGroup);
+    overworld.scene.add(overworld.wildGroup);
 
     // Build 3D Player Tamer
     overworld.playerMesh = buildHumanoid3D({
@@ -1245,6 +1251,67 @@
    * Raycasts a screen tap/click (clientX, clientY) onto the 3D ground plane
    * and returns the exact float tile coordinates { x, y }.
    */
+  function syncPlayerOutfit(outfitObj) {
+    if (!overworld.playerMesh || !overworld.playerMesh.userData || !outfitObj) return;
+    const u = overworld.playerMesh.userData;
+    const coatHex = hexToInt(outfitObj.coatColor || 0x0284c7, 0x0284c7);
+    const trimHex = hexToInt(outfitObj.trimColor || 0xfacc15, 0xfacc15);
+    const hairHex = hexToInt(outfitObj.hairColor || 0x0f172a, 0x0f172a);
+    if (u.coatMat && u.coatMat.color) u.coatMat.color.setHex(coatHex);
+    if (u.trimMat && u.trimMat.color) {
+      u.trimMat.color.setHex(trimHex);
+      if (u.trimMat.emissive) u.trimMat.emissive.setHex(trimHex);
+    }
+    if (u.hairMat && u.hairMat.color) u.hairMat.color.setHex(hairHex);
+  }
+
+  function syncWildSpawns(wildSpawns = [], getSpeciesFn = null) {
+    const THREE = getThree();
+    if (!THREE || !overworld.initialized || !overworld.wildGroup) return;
+    while (overworld.wildGroup.children.length > 0) {
+      overworld.wildGroup.remove(overworld.wildGroup.children[0]);
+    }
+    overworld.wildMeshes = new Map();
+    if (!Array.isArray(wildSpawns)) return;
+
+    wildSpawns.forEach((sp, idx) => {
+      if (!sp || sp.caught || sp.defeated) return;
+      const species = typeof getSpeciesFn === "function" ? getSpeciesFn(sp.speciesId) : (sp.species || { id: sp.speciesId, name: "Wild Kin", affinity: "Grove" });
+      const wrapper = new THREE.Group();
+      const kinMesh = buildKin3DMesh(species, Boolean(sp.isRadiant));
+      if (kinMesh) {
+        kinMesh.scale.setScalar(0.62);
+        kinMesh.userData.baseScale = 0.62;
+        wrapper.add(kinMesh);
+      }
+      const ringColor = sp.isRadiant ? 0xfacc15 : 0x4ade80;
+      const wildRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.45, 0.62, 24),
+        new THREE.MeshBasicMaterial({
+          color: ringColor,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.72
+        })
+      );
+      wildRing.rotation.x = Math.PI / 2;
+      wildRing.position.y = 0.05;
+      wrapper.add(wildRing);
+
+      const wildGem = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.14, 0),
+        new THREE.MeshBasicMaterial({ color: sp.isRadiant ? 0xfacc15 : 0xf43f5e })
+      );
+      wildGem.position.y = 1.45;
+      wrapper.add(wildGem);
+
+      wrapper.position.set((sp.x || 4) * TILE_SIZE, 0, (sp.y || 4) * TILE_SIZE);
+      wrapper.userData = { kinMesh, wildRing, wildGem, spawnId: sp.id || ("w_" + idx), phase: idx * 1.1 };
+      overworld.wildGroup.add(wrapper);
+      overworld.wildMeshes.set(wrapper.userData.spawnId, wrapper);
+    });
+  }
+
   function screenToWorldTile(clientX, clientY, viewportEl) {
     const THREE = getThree();
     if (!THREE || !overworld.initialized || !overworld.camera || !overworld.raycaster) return null;
@@ -1345,6 +1412,30 @@
     overworld.npcGroup.children.forEach((npcMesh, idx) => {
       animateHumanoid3D(npcMesh, timeSec + idx * 0.7, 0);
     });
+
+    if (overworld.wildGroup && overworld.wildGroup.children.length > 0) {
+      const spawnsList = Array.isArray(playerState.wildSpawns) ? playerState.wildSpawns : [];
+      overworld.wildGroup.children.forEach((wrapper, idx) => {
+        const u = wrapper.userData || {};
+        const match = spawnsList.find((s) => s.id === u.spawnId) || spawnsList[idx];
+        if (match) {
+          const tx = (match.x || 0) * TILE_SIZE;
+          const tz = (match.y || 0) * TILE_SIZE;
+          wrapper.position.x += (tx - wrapper.position.x) * 0.18;
+          wrapper.position.z += (tz - wrapper.position.z) * 0.18;
+          if (typeof match.angle === "number") {
+            wrapper.rotation.y = match.angle;
+          }
+        }
+        if (u.kinMesh) {
+          animateKinMesh(u.kinMesh, timeSec + (u.phase || 0), true, 0);
+        }
+        if (u.wildGem) {
+          u.wildGem.rotation.y = timeSec * 3.2;
+          u.wildGem.position.y = 1.42 + Math.sin(timeSec * 4 + (u.phase || 0)) * 0.1;
+        }
+      });
+    }
 
     // Animate Target Beacon
     if (overworld.targetBeacon && overworld.targetBeacon.visible) {
@@ -1775,21 +1866,36 @@
     }
 
     const prismGroup = new THREE.Group();
-    const crystal = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.45, 0),
-      new THREE.MeshStandardMaterial({
-        color: prismColorHex,
-        emissive: prismColorHex,
-        emissiveIntensity: 0.75,
-        roughness: 0.1,
-        metalness: 0.6
-      })
-    );
-    const goldBand = new THREE.Mesh(
-      new THREE.TorusGeometry(0.48, 0.05, 8, 24),
+    const cageMat = new THREE.MeshStandardMaterial({
+      color: 0xd97706,
+      roughness: 0.25,
+      metalness: 0.85
+    });
+    const energyMat = new THREE.MeshStandardMaterial({
+      color: prismColorHex,
+      emissive: prismColorHex,
+      emissiveIntensity: 0.85,
+      roughness: 0.15,
+      metalness: 0.6
+    });
+    // Mechanical Base Claw Ring & Upper Lock Ring
+    const baseJaw = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.54, 0.14, 12), cageMat);
+    baseJaw.position.y = -0.28;
+    const topClamp = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.12, 12), cageMat);
+    topClamp.position.y = 0.28;
+    // 6 Vertical Snare Containment Bars
+    for (let b = 0; b < 6; b++) {
+      const ang = (b / 6) * Math.PI * 2;
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.56, 8), energyMat);
+      bar.position.set(Math.cos(ang) * 0.42, 0, Math.sin(ang) * 0.42);
+      prismGroup.add(bar);
+    }
+    const stasisCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.26, 0), energyMat);
+    const lockHalo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.52, 0.045, 8, 24),
       new THREE.MeshBasicMaterial({ color: 0xfacc15 })
     );
-    prismGroup.add(crystal, goldBand);
+    prismGroup.add(baseJaw, topClamp, stasisCore, lockHalo);
     prismGroup.position.set(PLAYER_BASE_POS.x, PLAYER_BASE_POS.y + 1.4, PLAYER_BASE_POS.z);
     battle3d.vfxGroup.add(prismGroup);
 
@@ -2041,6 +2147,8 @@
     cycleCameraMode,
     syncZone,
     syncCompanionKin,
+    syncWildSpawns,
+    syncPlayerOutfit,
     screenToWorldTile,
     setTargetBeacon,
     renderOverworldFrame,

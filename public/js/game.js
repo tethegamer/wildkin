@@ -165,10 +165,16 @@
       marketTab: 'recovery',
       selectedMarketKinIdx: 0,
       activeCheckoutBundleId: null,
+      bagTier: 0,
+      maxSquadSize: 4,
+      maxVaultSize: 8,
       inventory: {
-        basicPrism: 5,
-        greaterPrism: 1,
+        basicPrism: 6,
+        greaterPrism: 2,
         masteryPrism: 0,
+        bagUpgrade1: 0,
+        bagUpgrade2: 0,
+        bagUpgrade3: 0,
         dewTonic: 3,
         vitalTonic: 2,
         hiTonic: 1,
@@ -196,10 +202,27 @@
         kinBound: 0,
         stepsTaken: 0,
         kinBred: 0,
-        evolutions: 0
+        evolutions: 0,
+        foodFed: 0,
+        radiantBound: 0,
+        tradesDone: 0
       },
       storyChapter: 1,
+      storyModalTab: 'story',
       claimedChapters: {},
+      claimedSideQuests: {},
+      claimedTasks: {},
+      battlePassXp: 120,
+      battlePassGold: false,
+      claimedBpFree: {},
+      claimedBpGold: {},
+      loginStreak: 1,
+      claimedLoginDays: {},
+      unlockedOutfits: { homestead_tunic: true, crimson_vanguard: true },
+      equippedOutfit: 'homestead_tunic',
+      unlockedEmotes: { emote_wave: true, emote_fire: true, emote_hype: true },
+      completedTrades: {},
+      wildSpawns: [],
       spireFloor: 1,
       ranchTab: 'care',
       breedParentA: null,
@@ -339,11 +362,389 @@
     state.kindexSeen[Number(speciesId)] = true;
   }
 
-  function markBound(speciesId) {
+  function markBound(speciesId, isRadiant = false) {
     const id = Number(speciesId);
     state.kindexSeen[id] = true;
     state.kindexBound[id] = true;
+    if (!state.stats) state.stats = { battlesWon: 0, kinBound: 0, stepsTaken: 0, kinBred: 0, evolutions: 0, foodFed: 0, radiantBound: 0, tradesDone: 0 };
     state.stats.kinBound = Object.keys(state.kindexBound).length;
+    if (isRadiant) {
+      state.stats.radiantBound = (state.stats.radiantBound || 0) + 1;
+    }
+  }
+
+  function getMaxSquadSize(st = state) {
+    return Math.max(4, Number((st && st.maxSquadSize) || 4));
+  }
+
+  function getMaxVaultSize(st = state) {
+    return Math.max(8, Number((st && st.maxVaultSize) || 8));
+  }
+
+  function upgradeKinBag(bagItemId, st = state) {
+    if (!st || !DATA || !DATA.ITEMS) return { ok: false, reason: "invalid_state" };
+    const item = DATA.ITEMS[bagItemId];
+    if (!item || item.category !== "bag") return { ok: false, reason: "invalid_bag_item" };
+    if (!st.inventory) st.inventory = {};
+    const curTier = Number(st.bagTier || 0);
+    if (curTier >= item.bagTier && Number(st.maxSquadSize || 4) >= item.maxSquadSize) {
+      return { ok: false, reason: "already_upgraded" };
+    }
+    if ((st.inventory[bagItemId] || 0) > 0) {
+      st.inventory[bagItemId] -= 1;
+    }
+    st.bagTier = Math.max(curTier, Number(item.bagTier || 1));
+    st.maxSquadSize = Math.max(Number(st.maxSquadSize || 4), Number(item.maxSquadSize || 5));
+    st.maxVaultSize = Math.max(Number(st.maxVaultSize || 8), Number(item.maxVaultSize || 16));
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      showToast(`🎒 Equipped ${item.name}! Active Squad expanded to ${st.maxSquadSize} Kin & Reserve Bag to ${st.maxVaultSize}!`, 3600);
+    }
+    return {
+      ok: true,
+      bagTier: st.bagTier,
+      maxSquadSize: st.maxSquadSize,
+      maxVaultSize: st.maxVaultSize
+    };
+  }
+
+  function getBattlePassLevel(st = state) {
+    const xp = Number((st && st.battlePassXp) || 0);
+    const tiers = (DATA && DATA.BATTLE_PASS_TIERS) || [];
+    let lvl = 1;
+    for (const t of tiers) {
+      if (xp >= t.xpRequired) lvl = t.tier;
+    }
+    return lvl;
+  }
+
+  function addBattlePassXp(amount, st = state) {
+    if (!st) return 1;
+    const prevLv = getBattlePassLevel(st);
+    st.battlePassXp = Number(st.battlePassXp || 0) + Math.max(0, Number(amount || 0));
+    const newLv = getBattlePassLevel(st);
+    if (st === state && newLv > prevLv) {
+      showToast(`🎖️ Battle Pass Tier Up! Reached Tier ${newLv}/20 — Claim your rewards in 🎖️ Pass!`, 3400);
+    }
+    return newLv;
+  }
+
+  function grantRewardBundle(rew, st = state) {
+    if (!rew || !st) return;
+    if (!st.inventory) st.inventory = {};
+    if (!st.unlockedOutfits) st.unlockedOutfits = { homestead_tunic: true };
+    if (!st.unlockedEmotes) st.unlockedEmotes = { emote_wave: true };
+    if (rew.shards) st.shards = Number(st.shards || 0) + Number(rew.shards);
+    if (rew.gems) st.gems = Number(st.gems || 0) + Number(rew.gems);
+    if (rew.items && typeof rew.items === "object") {
+      Object.entries(rew.items).forEach(([k, q]) => {
+        st.inventory[k] = Number(st.inventory[k] || 0) + Number(q || 0);
+      });
+    }
+    const oId = rew.outfitId || rew.unlockOutfit;
+    if (oId) {
+      st.unlockedOutfits[oId] = true;
+      if (oId === "astral_sovereign") st.unlockedOutfits.sovereign_regalia = true;
+      if (oId === "sovereign_regalia") st.unlockedOutfits.astral_sovereign = true;
+    }
+    const eId = rew.emoteId || rew.unlockEmote;
+    if (eId) {
+      st.unlockedEmotes[eId] = true;
+    }
+  }
+
+  function claimDailyLoginReward(dayNumber, st = state) {
+    if (!st || !DATA || !DATA.DAILY_LOGIN_REWARDS) return { ok: false, reason: "no_data" };
+    if (!st.claimedLoginDays) st.claimedLoginDays = {};
+    const targetDay = Number(dayNumber || st.loginStreak || 1);
+    const entry = DATA.DAILY_LOGIN_REWARDS.find((d) => d.day === targetDay);
+    if (!entry) return { ok: false, reason: "invalid_day" };
+    if (st.claimedLoginDays[targetDay]) return { ok: false, reason: "already_claimed" };
+
+    st.claimedLoginDays[targetDay] = true;
+    grantRewardBundle(entry, st);
+    st.loginStreak = Math.min(7, Math.max(Number(st.loginStreak || 1), targetDay + 1));
+    addBattlePassXp(50, st);
+
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      showToast(`🎁 Claimed ${entry.title}: ${entry.label}! (+50 BP XP)`, 3500);
+    }
+    return { ok: true, day: targetDay, reward: entry };
+  }
+
+  function claimBattlePassTier(tierNumber, track = "free", st = state) {
+    if (!st || !DATA || !DATA.BATTLE_PASS_TIERS) return { ok: false, reason: "no_data" };
+    const tNum = Number(tierNumber);
+    const tierObj = DATA.BATTLE_PASS_TIERS.find((t) => t.tier === tNum);
+    if (!tierObj) return { ok: false, reason: "invalid_tier" };
+    if (Number(st.battlePassXp || 0) < tierObj.xpRequired) {
+      return { ok: false, reason: "insufficient_bp_xp" };
+    }
+    if (!st.claimedBpFree) st.claimedBpFree = {};
+    if (!st.claimedBpGold) st.claimedBpGold = {};
+
+    if (track === "gold") {
+      if (!st.battlePassGold) return { ok: false, reason: "gold_locked" };
+      if (st.claimedBpGold[tNum]) return { ok: false, reason: "already_claimed" };
+      st.claimedBpGold[tNum] = true;
+      grantRewardBundle(tierObj.gold, st);
+    } else {
+      if (st.claimedBpFree[tNum]) return { ok: false, reason: "already_claimed" };
+      st.claimedBpFree[tNum] = true;
+      grantRewardBundle(tierObj.free, st);
+    }
+
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      const rew = track === "gold" ? tierObj.gold : tierObj.free;
+      showToast(`🎖️ Claimed Battle Pass Tier ${tNum} (${track.toUpperCase()}): ${rew.label}!`, 3400);
+    }
+    return { ok: true, tier: tNum, track };
+  }
+
+  function unlockGoldBattlePass(st = state) {
+    if (!st) return { ok: false };
+    if (st.battlePassGold) return { ok: true, already: true };
+    if (Number(st.gems || 0) < 200) {
+      if (st === state) showToast("Need 200 💎 Aether Gems to unlock the Gold Battle Pass Track!");
+      return { ok: false, reason: "insufficient_gems" };
+    }
+    st.gems -= 200;
+    st.battlePassGold = true;
+    addBattlePassXp(240, st);
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      showToast("👑 Unlocked Season 1 GOLD BATTLE PASS +240 Bonus BP XP!", 3800);
+    }
+    return { ok: true };
+  }
+
+  function equipOutfit(outfitId, st = state) {
+    if (!st || !DATA || !DATA.TAMER_OUTFITS) return { ok: false, reason: "no_data" };
+    const normId = outfitId === "sovereign_regalia" ? "astral_sovereign" : outfitId;
+    const outfit = DATA.TAMER_OUTFITS.find((o) => o.id === normId || o.id === outfitId);
+    if (!outfit) return { ok: false, reason: "invalid_outfit" };
+    if (!st.unlockedOutfits) st.unlockedOutfits = { homestead_tunic: true };
+    if (!st.unlockedOutfits[outfitId]) {
+      return { ok: false, reason: "locked" };
+    }
+    st.equippedOutfit = outfitId;
+    if (st === state) {
+      if (root.WILDKIN_3D && typeof root.WILDKIN_3D.syncPlayerOutfit === "function") {
+        root.WILDKIN_3D.syncPlayerOutfit(outfit);
+      }
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(680, 0.06);
+      saveGame();
+      updateHud();
+      showToast(`👕 Equipped 3D Outfit: ${outfit.icon} ${outfit.name}!`, 2800);
+    }
+    return { ok: true, outfit };
+  }
+
+  let emoteTimer = null;
+  function triggerEmote(emoteId, st = state) {
+    if (!DATA || !DATA.TAMER_EMOTES) return { ok: false };
+    const em = DATA.TAMER_EMOTES.find((e) => e.id === emoteId) || DATA.TAMER_EMOTES[0];
+    if (typeof document !== "undefined") {
+      const bubble = $("playerEmoteBubble");
+      if (bubble) {
+        bubble.textContent = `${em.icon} ${em.bubbleText}`;
+        bubble.classList.remove("hidden");
+        if (emoteTimer) clearTimeout(emoteTimer);
+        emoteTimer = setTimeout(() => {
+          bubble.classList.add("hidden");
+        }, 2300);
+      }
+      const wheel = $("emoteWheelPopover");
+      if (wheel) wheel.classList.add("hidden");
+    }
+    if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(760, 0.08);
+    return { ok: true, emote: em };
+  }
+
+  function executeNpcTrade(tradeId, st = state) {
+    if (!st || !DATA || !DATA.NPC_TRADES) return { ok: false, reason: "no_data" };
+    const offer = DATA.NPC_TRADES.find((t) => t.id === tradeId);
+    if (!offer) return { ok: false, reason: "invalid_trade" };
+    if (!st.completedTrades) st.completedTrades = {};
+    if (st.completedTrades[tradeId]) return { ok: false, reason: "already_traded" };
+
+    // Find requested Kin by wantsSpeciesId OR wantsAffinity (or any extra Kin in squad/vault)
+    const matchesOffer = (k) => {
+      if (!k) return false;
+      if (offer.wantsSpeciesId && Number(k.speciesId) === Number(offer.wantsSpeciesId)) return true;
+      const sp = DATA.getSpeciesById(k.speciesId);
+      if (offer.wantsAffinity && sp && sp.affinity === offer.wantsAffinity) return true;
+      return false;
+    };
+    let fromSquadIdx = (st.squad || []).findIndex(matchesOffer);
+    let fromVaultIdx = (st.vault || []).findIndex(matchesOffer);
+    if (fromSquadIdx === -1 && fromVaultIdx === -1 && (st.squad || []).length >= 2) {
+      fromSquadIdx = st.squad.length - 1;
+    }
+
+    const totalKin = ((st.squad && st.squad.length) || 0) + ((st.vault && st.vault.length) || 0);
+    if (fromSquadIdx === -1 && fromVaultIdx === -1) {
+      return { ok: false, reason: "missing_wanted_species", wantedSpeciesId: offer.wantsSpeciesId };
+    }
+    if (fromSquadIdx !== -1 && (st.squad || []).length <= 1 && fromVaultIdx === -1) {
+      // Replace the 1 squad kin directly so player still has at least 1 Kin
+    }
+
+    const receivedKin = DATA.createKinInstance(offer.offersSpeciesId, offer.offersLevel || 10, {
+      nickname: offer.offersNickname,
+      geneticTier: offer.offersGeneticTier || "A",
+      isRadiant: Boolean(offer.isRadiant),
+      caughtZone: `Traded w/ ${offer.npcName}`
+    });
+
+    if (fromVaultIdx !== -1) {
+      st.vault.splice(fromVaultIdx, 1, receivedKin);
+    } else if (fromSquadIdx !== -1) {
+      st.squad.splice(fromSquadIdx, 1, receivedKin);
+    }
+
+    st.completedTrades[tradeId] = true;
+    if (!st.stats) st.stats = { battlesWon: 0, kinBound: 0, stepsTaken: 0, kinBred: 0, evolutions: 0, foodFed: 0, radiantBound: 0, tradesDone: 0 };
+    st.stats.tradesDone = (st.stats.tradesDone || 0) + 1;
+    if (offer.bonusItem && st.inventory) {
+      st.inventory[offer.bonusItem] = (st.inventory[offer.bonusItem] || 0) + 1;
+    }
+    st.kindexSeen[receivedKin.speciesId] = true;
+    st.kindexBound[receivedKin.speciesId] = true;
+    st.stats.kinBound = Object.keys(st.kindexBound).length;
+    addBattlePassXp(65, st);
+
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      showToast(`🔄 Trade Complete! Received ${receivedKin.nickname} (${receivedKin.geneticTier}-Rank Lv.${receivedKin.level}) from ${offer.npcName}!`, 3800);
+    }
+    return { ok: true, receivedKin, offer };
+  }
+
+  function evaluateQuestMetric(metric, st = state) {
+    if (!st) return 0;
+    const stats = st.stats || {};
+    const allKin = (st.squad || []).concat(st.vault || []);
+    if (metric === "kinBound" || metric === "kindexCount" || metric === "wildCaught" || metric === "trapsThrown") return Object.keys(st.kindexBound || {}).length;
+    if (metric === "totalKinOwned") return allKin.length;
+    if (metric === "battlesWon") return Number(stats.battlesWon || 0);
+    if (metric === "stepsTaken") return Number(stats.stepsTaken || 0);
+    if (metric === "kinBred" || metric === "eggsHatched") return Number(stats.kinBred || 0);
+    if (metric === "evolutions" || metric === "evolutionsTriggered") return Number(stats.evolutions || 0);
+    if (metric === "foodFed") return Number(stats.foodFed || 0);
+    if (metric === "radiantBound" || metric === "radiantCount") {
+      const hasRad = allKin.filter((k) => k && k.isRadiant).length;
+      return Math.max(Number(stats.radiantBound || 0), hasRad);
+    }
+    if (metric === "tradesDone" || metric === "kinTraded") return Number(stats.tradesDone || 0);
+    if (metric === "crestsEarned" || metric === "badgesCount") return (st.crests || []).length;
+    if (metric === "spireFloor") return Number(st.spireFloor || 1);
+    if (metric === "bagTier") return Number(st.bagTier || 0);
+    if (metric === "maxBond" || metric === "maxBondLevel") return allKin.reduce((m, k) => Math.max(m, Number((k && k.bondLevel) || 1)), 1);
+    if (metric === "sRankBred") return allKin.filter((k) => k && (k.geneticTier === "S" || k.geneticTier === "SS")).length;
+    if (metric === "maxLevel") return allKin.reduce((m, k) => Math.max(m, Number((k && k.level) || 1)), 1);
+    if (metric === "highRankCount") {
+      return allKin.filter((k) => k && (k.geneticTier === "A" || k.geneticTier === "S" || k.geneticTier === "SS")).length;
+    }
+    return 0;
+  }
+
+  function claimSideQuest(questId, st = state) {
+    if (!st || !DATA || !DATA.SIDE_QUESTS) return { ok: false, reason: "no_data" };
+    const sq = DATA.SIDE_QUESTS.find((q) => q.id === questId);
+    if (!sq) return { ok: false, reason: "not_found" };
+    if (!st.claimedSideQuests) st.claimedSideQuests = {};
+    if (st.claimedSideQuests[questId]) return { ok: false, reason: "already_claimed" };
+    const progress = evaluateQuestMetric(sq.metric, st);
+    if (progress < sq.target) return { ok: false, reason: "incomplete", progress, target: sq.target };
+
+    st.claimedSideQuests[questId] = true;
+    grantRewardBundle({ shards: sq.rewardShards, gems: sq.rewardGems, items: sq.rewardItems }, st);
+    addBattlePassXp(75, st);
+
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      showToast(`🗺️ Side Quest Complete: ${sq.title}! +${sq.rewardShards}🪙 +${sq.rewardGems || 0}💎 & +75 BP XP!`, 3600);
+    }
+    return { ok: true, quest: sq };
+  }
+
+  function claimTamerTask(taskId, st = state) {
+    if (!st || !DATA || !DATA.TAMER_TASKS) return { ok: false, reason: "no_data" };
+    const task = DATA.TAMER_TASKS.find((t) => t.id === taskId);
+    if (!task) return { ok: false, reason: "not_found" };
+    if (!st.claimedTasks) st.claimedTasks = {};
+    if (st.claimedTasks[taskId]) return { ok: false, reason: "already_claimed" };
+    const progress = evaluateQuestMetric(task.metric, st);
+    if (progress < task.target) return { ok: false, reason: "incomplete", progress, target: task.target };
+
+    st.claimedTasks[taskId] = true;
+    grantRewardBundle({ shards: task.rewardShards, gems: task.rewardGems, items: task.rewardItems }, st);
+    addBattlePassXp(45, st);
+
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      showToast(`🎯 Task Claimed: ${task.title}! +${task.rewardShards}🪙 +${task.rewardGems || 0}💎!`, 3400);
+    }
+    return { ok: true, task };
+  }
+
+  function ensureZoneWildSpawns(zoneId = state.zone) {
+    if (!DATA || !root.WILDKIN_MAPS) return [];
+    const mapObj = root.WILDKIN_MAPS.ZONE_MAPS[zoneId] || root.WILDKIN_MAPS.ZONE_MAPS.meadow;
+    if (!mapObj) return [];
+    const grassTiles = [];
+    for (let y = 1; y < root.WILDKIN_MAPS.MAP_HEIGHT - 1; y++) {
+      for (let x = 1; x < root.WILDKIN_MAPS.MAP_WIDTH - 1; x++) {
+        const ch = root.WILDKIN_MAPS.getTileAt(zoneId, x, y);
+        if (ch === "G" || ch === "W" || ch === "~") {
+          grassTiles.push({ x, y });
+        }
+      }
+    }
+    if (grassTiles.length === 0) {
+      grassTiles.push({ x: 3, y: 3 }, { x: 11, y: 4 }, { x: 4, y: 8 }, { x: 11, y: 8 });
+    }
+    const spawns = [];
+    for (let i = 0; i < 4; i++) {
+      const pickTile = grassTiles[(i * 7 + 3) % grassTiles.length];
+      const rolled = rollWildSpeciesForZone(zoneId);
+      spawns.push({
+        id: `wild_${zoneId}_${i}_${Date.now()}`,
+        zone: zoneId,
+        speciesId: rolled.speciesId,
+        level: rolled.level,
+        isRadiant: i === 3 && Math.random() < 0.18,
+        x: pickTile.x,
+        y: pickTile.y,
+        homeX: pickTile.x,
+        homeY: pickTile.y,
+        angle: (i * Math.PI) / 2,
+        timer: i * 1.4
+      });
+    }
+    state.wildSpawns = spawns;
+    playerMotion.wildSpawns = spawns;
+    if (root.WILDKIN_3D && typeof root.WILDKIN_3D.syncWildSpawns === "function") {
+      root.WILDKIN_3D.syncWildSpawns(spawns, DATA.getSpeciesById);
+    }
+    return spawns;
   }
 
   // =========================================================================
@@ -599,8 +1000,16 @@
       return { ok: false, error: 'Out of stock' };
     }
 
+    if (item.category === "bag") {
+      return upgradeKinBag(itemId, st);
+    }
+
     const squad = st.squad || [];
     const kin = squad[kinIndex] || squad[0] || null;
+    if (!st.stats) st.stats = { battlesWon: 0, kinBound: 0, stepsTaken: 0, kinBred: 0, evolutions: 0, foodFed: 0, radiantBound: 0, tradesDone: 0 };
+    if (item.category === "food" || item.bondGain) {
+      st.stats.foodFed = (st.stats.foodFed || 0) + 1;
+    }
 
     // 1. Whole-Squad Feast Platter
     if (item.squadFullHeal) {
@@ -819,6 +1228,18 @@
     const crestsEl = $('hudCrests');
     const totalWardens = (DATA && DATA.WARDENS && DATA.WARDENS.length) || 6;
     if (crestsEl) crestsEl.textContent = `${state.crests.length}/${totalWardens}`;
+
+    const bpTier = getBattlePassLevel(state);
+    const passEl = $('hudPassTier');
+    if (passEl) passEl.textContent = `T${bpTier}`;
+    const lobbyPassEl = $('lobbyPassTierBadge');
+    if (lobbyPassEl) lobbyPassEl.textContent = `Tier ${bpTier}`;
+    const lobbyBagEl = $('lobbyBagCapBadge');
+    if (lobbyBagEl) lobbyBagEl.textContent = `Squad ${(state.squad || []).length}/${getMaxSquadSize(state)}`;
+    const outfitObj = (DATA && DATA.TAMER_OUTFITS && DATA.TAMER_OUTFITS.find((o) => o.id === state.equippedOutfit)) || (DATA && DATA.TAMER_OUTFITS && DATA.TAMER_OUTFITS[0]);
+    const lobbyOutfitEl = $('lobbyOutfitBadge');
+    if (lobbyOutfitEl && outfitObj) lobbyOutfitEl.textContent = `${outfitObj.icon} ${outfitObj.name.split(" ")[0]}`;
+    renderLobbyHeroCard();
     updateStoryTrackerHud();
 
     const boundCount = Object.keys(state.kindexBound).length;
@@ -1052,12 +1473,69 @@
     }
   }
 
+  function renderLobbyHeroCard() {
+    if (typeof document === "undefined" || !DATA) return;
+    const card = $("lobbyHeroCard");
+    if (!card) return;
+    const lead = (state.squad && state.squad[0]) || null;
+    const sp = lead ? DATA.getSpeciesById(lead.speciesId) : DATA.getSpeciesById(state.selectedStarterId || 1);
+    const svg = root.WILDKIN_SPRITES && sp ? root.WILDKIN_SPRITES.renderKinSvg(sp, 52, lead ? lead.isRadiant : false) : "";
+    const outfit = (DATA.TAMER_OUTFITS || []).find((o) => o.id === state.equippedOutfit) || (DATA.TAMER_OUTFITS && DATA.TAMER_OUTFITS[0]);
+    const bpTier = getBattlePassLevel(state);
+    const maxSq = getMaxSquadSize(state);
+    const maxVt = getMaxVaultSize(state);
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px">
+        ${svg}
+        <div>
+          <div style="font-size:0.84rem;font-weight:900;color:#fde047">${lead ? lead.nickname : sp.name} <span style="font-size:0.7rem;color:#38bdf8">Lv.${lead ? lead.level : 5}</span></div>
+          <div style="font-size:0.66rem;color:#cbd5e1">🐾 Active Squad: <strong>${(state.squad || []).length}/${maxSq}</strong> • 🎒 Carrier Bag: <strong>${(state.vault || []).length}/${maxVt}</strong></div>
+          <div style="font-size:0.65rem;color:#86efac">👕 ${outfit ? outfit.name : "Homestead Tunic"} • 🎖️ Season 1 Pass Tier ${bpTier}/20</div>
+        </div>
+      </div>
+      <div style="text-align:right;font-size:0.68rem;color:#f8fafc">
+        <div>🪙 <strong style="color:#fde047">${state.shards || 0}</strong></div>
+        <div>💎 <strong style="color:#d8b4fe">${state.gems || 0}</strong></div>
+      </div>
+    `;
+  }
+
+  function openLobbyScreen() {
+    if (typeof document === "undefined") return;
+    const lobby = $("mainMenuOverlay");
+    if (lobby) lobby.classList.remove("hidden");
+    document.body.classList.add("in-lobby");
+    closeHubMenuDrawer();
+    renderLobbyHeroCard();
+  }
+
+  function closeLobbyScreen() {
+    if (typeof document === "undefined") return;
+    const lobby = $("mainMenuOverlay");
+    if (lobby) lobby.classList.add("hidden");
+    document.body.classList.remove("in-lobby");
+  }
+
+  function openHubMenuDrawer() {
+    if (typeof document === "undefined") return;
+    const drawer = $("tamerMenuDrawer");
+    if (drawer) drawer.classList.remove("hidden");
+  }
+
+  function closeHubMenuDrawer() {
+    if (typeof document === "undefined") return;
+    const drawer = $("tamerMenuDrawer");
+    if (drawer) drawer.classList.add("hidden");
+  }
+
   function selectStarter(speciesId) {
     const id = Number(speciesId || state.selectedStarterId || 1);
     state = createInitialState(id);
     syncMotionFromState();
+    ensureZoneWildSpawns(state.zone);
     const overlay = $('starterOverlay', 'starter-overlay') || $('title-overlay');
     if (overlay) overlay.classList.add('hidden');
+    closeLobbyScreen();
     if (root.WILDKIN_AUDIO) {
       root.WILDKIN_AUDIO.playLevelUp();
       root.WILDKIN_AUDIO.startBgm('overworld');
@@ -1065,7 +1543,7 @@
     saveGame();
     updateHud();
     const sp = DATA.getSpeciesById(id);
-    showToast(`💠 Bound ${sp.name} (Lv.5)! Welcome to Sunleaf Meadow!`);
+    showToast(`💠 Bound 1st Partner ${sp.name} (1/4 Squad)! Catch wild Kin with 🪤 Snare Traps, Trade, or Breed to grow your team!`, 3800);
   }
 
   // =========================================================================
@@ -1169,9 +1647,10 @@
     const hint = $('zoneHint');
     if (hint) hint.textContent = `${zInfo.name} (${zInfo.subtitle})`;
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(740, 0.08);
+    ensureZoneWildSpawns(targetZoneId);
     saveGame();
     updateHud();
-    showToast(`🗺️ Entered ${zInfo.name}!`);
+    showToast(`🗺️ Entered ${zInfo.name}! Wild Kin are roaming nearby!`);
   }
 
   function rollWildSpeciesForZone(zoneId) {
@@ -1465,6 +1944,11 @@
   function openBattleOverlay(bgmType = 'battle') {
     const overlay = $('battleOverlay', 'battle-layer');
     if (overlay) overlay.classList.remove('hidden');
+    if (typeof document !== "undefined") {
+      document.body.classList.add("in-battle");
+    }
+    closeHubMenuDrawer();
+    closeLobbyScreen();
     const interactBtn = $('interactBanner');
     if (interactBtn) interactBtn.classList.add('hidden');
 
@@ -1480,6 +1964,7 @@
 
     if (root.WILDKIN_3D) {
       root.WILDKIN_3D.initBattleArena($("battleStage"));
+      root.WILDKIN_3D.resizeBattleArena($("battleStage"));
     }
     renderBattleUI();
   }
@@ -1487,6 +1972,9 @@
   function closeBattleOverlay() {
     const overlay = $('battleOverlay', 'battle-layer');
     if (overlay) overlay.classList.add('hidden');
+    if (typeof document !== "undefined") {
+      document.body.classList.remove("in-battle");
+    }
     battleState = null;
     if (root.WILDKIN_AUDIO) {
       root.WILDKIN_AUDIO.startBgm('overworld');
@@ -1591,7 +2079,20 @@
       pXpFill.style.width = `${xpPct}%`;
     }
 
-    // Sprites
+    // Mini SVG Badges inside compact top HUD plates + hidden legacy holders
+    const eMini = $("enemyMiniSvg");
+    if (eMini) eMini.innerHTML = root.WILDKIN_SPRITES.renderKinSvg(eSpecies, 26, enemy.isRadiant);
+    const pMini = $("playerMiniSvg");
+    if (pMini) pMini.innerHTML = root.WILDKIN_SPRITES.renderKinSvg(pSpecies, 26, player.isRadiant);
+    const catchHintEl = $("enemyCatchHint");
+    if (catchHintEl) {
+      if (battleState.mode === "wild" && DATA.ITEMS && DATA.ITEMS.basicPrism) {
+        const pct = Math.round(calculateCatchChance(enemy, DATA.ITEMS.basicPrism) * 100);
+        catchHintEl.textContent = `🪤 ${pct}% Trap`;
+      } else {
+        catchHintEl.textContent = battleState.mode.toUpperCase();
+      }
+    }
     const eHolder = $('enemySpriteHolder', 'enemy-sprite-canvas');
     if (eHolder) {
       eHolder.innerHTML = root.WILDKIN_SPRITES.renderKinSvg(eSpecies, 64, enemy.isRadiant);
@@ -1651,6 +2152,54 @@
           executePlayerMove(idx);
         });
       });
+    } else if (battleState.activeTab === 'trap') {
+      const trapKeys = ['basicPrism', 'greaterPrism', 'masteryPrism'].filter((k) => DATA.ITEMS[k]);
+      const trapCards = trapKeys.map((key) => {
+        const item = DATA.ITEMS[key];
+        const count = state.inventory[key] || 0;
+        const pct = battleState.mode === 'wild' ? Math.round(calculateCatchChance(enemy, item) * 100) : 0;
+        return `
+          <button type="button" class="pack-btn" data-trap-id="${key}" style="border-color:${item.color || '#f59e0b'};${count <= 0 ? 'opacity:0.65' : ''}">
+            <div class="move-btn-top">
+              <span>🪤 ${item.name}</span>
+              <span style="color:#fde047">x${count}</span>
+            </div>
+            <div class="move-btn-sub">
+              <span>${item.catchRate}x Snare Rate</span>
+              <span style="color:#4ade80;font-weight:900">${battleState.mode === 'wild' ? pct + '% CATCH' : 'WILD ONLY'}</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+
+      const quickBuyHtml = `
+        <button type="button" class="pack-btn" id="btnBattleQuickBuyTrap" style="border-color:#38bdf8">
+          <div class="move-btn-top">
+            <span>🛒 Restock Snare Trap</span>
+            <span style="color:#fde047">50 🪙</span>
+          </div>
+          <div class="move-btn-sub">
+            <span>Squad ${state.squad.length}/${getMaxSquadSize(state)}</span>
+            <span style="color:#38bdf8">+1 Copper Trap</span>
+          </div>
+        </button>
+      `;
+
+      deck.innerHTML = trapCards + quickBuyHtml;
+      deck.querySelectorAll('[data-trap-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const itemId = btn.getAttribute('data-trap-id');
+          usePackItemInBattle(itemId);
+        });
+      });
+      const qb = $('btnBattleQuickBuyTrap');
+      if (qb) {
+        qb.addEventListener('click', () => {
+          if (buyShopItem('basicPrism', false)) {
+            renderBattleDeck();
+          }
+        });
+      }
     } else if (battleState.activeTab === 'pack') {
       const itemKeys = [
         'basicPrism', 'greaterPrism', 'masteryPrism',
@@ -2016,8 +2565,8 @@
     const caught = Math.random() < chance;
     const shakes = caught ? 3 : Math.max(1, Math.min(2, Math.ceil(chance * 3)));
 
-    setBattleTurnBanner('phase-player', 'TURN 1 • AETHER PRISM', `Binding wild ${enemy.nickname} (${Math.round(chance * 100)}%)`);
-    setBattleLog(`💠 Threw ${prismItem.name} at wild ${enemy.nickname}! (${Math.round(chance * 100)}% resonance)`);
+    setBattleTurnBanner('phase-player', 'TURN 1 • SNARE TRAP DEPLOYED', `Trapping wild ${enemy.nickname} (${Math.round(chance * 100)}%)`);
+    setBattleLog(`🪤 Threw ${prismItem.name} at wild ${enemy.nickname}! (${Math.round(chance * 100)}% snare lock)`);
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playPrismThrow();
     if (root.WILDKIN_3D) {
       root.WILDKIN_3D.playPrismCapture3D(prismItem.color, shakes, caught);
@@ -2064,7 +2613,7 @@
 
   function completePrismCatch(enemy) {
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playPrismCatchSuccess();
-    markBound(enemy.speciesId);
+    markBound(enemy.speciesId, enemy.isRadiant);
 
     const captured = Object.assign({}, enemy, {
       currentHp: enemy.maxHp,
@@ -2072,26 +2621,33 @@
       caughtZone: getZoneObj(state.zone).name
     });
 
-    let dest = 'Squad';
-    if (state.squad.length < 6) {
+    const maxSq = getMaxSquadSize(state);
+    const maxVt = getMaxVaultSize(state);
+    let dest = `Active Squad (${state.squad.length + 1}/${maxSq})`;
+    if (state.squad.length < maxSq) {
       state.squad.push(captured);
     } else {
-      state.vault.push(captured);
-      dest = 'Sanctuary Vault';
+      if (state.vault.length < maxVt) {
+        state.vault.push(captured);
+      } else {
+        state.vault.push(captured);
+      }
+      dest = `Carrier Bag Reserve (${state.vault.length}/${maxVt})`;
     }
 
     const bonusShards = 25 + enemy.level * 5;
     state.shards += bonusShards;
     const xpGain = 22 + enemy.level * 12;
     grantXpToActiveKin(xpGain);
+    addBattlePassXp(60, state);
 
-    setBattleLog(`🌟 BOUND! ${enemy.nickname} joined your ${dest}! (+${bonusShards}💎, +${xpGain} XP)`);
+    setBattleLog(`🪤 TRAPPED & BOUND! ${enemy.nickname} joined your ${dest}! (+${bonusShards}🪙, +${xpGain} XP, +60 BP XP)`);
     renderBattleUI();
     setTimeout(() => {
       const eHolder = $('enemySpriteHolder');
       if (eHolder) eHolder.style.opacity = '1';
       closeBattleOverlay();
-      showToast(`💠 Bound ${enemy.nickname} (Lv.${enemy.level}) → ${dest}!`);
+      showToast(`🪤 Caught ${enemy.nickname} (Lv.${enemy.level}) → ${dest}!`, 3400);
     }, 1150);
   }
 
@@ -2185,6 +2741,7 @@
     state.stats.battlesWon = (state.stats.battlesWon || 0) + 1;
     const reward = battleState.rewardShards || 50;
     state.shards += reward;
+    addBattlePassXp(45, state);
 
     let winMsg = `🏆 Victory! Earned +${reward}💎 Aether Shards & +${xpGain} XP!`;
     if (lvlRes.leveledUp) {
@@ -2326,6 +2883,10 @@
       state.shards -= item.cost;
     }
     state.inventory[itemId] = (state.inventory[itemId] || 0) + 1;
+    if (item.category === "bag") {
+      upgradeKinBag(itemId, state);
+      return true;
+    }
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(720, 0.06);
     saveGame();
     updateHud();
@@ -2343,7 +2904,13 @@
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(540, 0.04);
 
     if (tab === 'squad') {
-      titleEl.textContent = `🐾 Squad (${state.squad.length}/6) & Sanctuary Vault (${state.vault.length})`;
+      closeHubMenuDrawer();
+      const maxSq = getMaxSquadSize(state);
+      const maxVt = getMaxVaultSize(state);
+      const nextBagKey = (state.bagTier || 0) === 0 ? 'bagUpgrade1' : (state.bagTier === 1 ? 'bagUpgrade2' : (state.bagTier === 2 ? 'bagUpgrade3' : null));
+      const nextBagItem = nextBagKey && DATA.ITEMS ? DATA.ITEMS[nextBagKey] : null;
+
+      titleEl.textContent = `🐾 Active Squad (${state.squad.length}/${maxSq}) & Carrier Bag (${state.vault.length}/${maxVt})`;
       const renderKinCard = (kin, idx, isVault) => {
         const sp = DATA.getSpeciesById(kin.speciesId);
         const aff = DATA.AFFINITIES[sp.affinity];
@@ -2362,19 +2929,41 @@
             <div class="mini-btn-row">
               ${!isVault && kin.currentHp < kin.maxHp ? `<button class="mini-btn" style="background:#16a34a" data-quick-heal-idx="${idx}">🍖 Feed / Heal</button>` : ''}
               ${!isVault && idx > 0 ? `<button class="mini-btn" data-lead-idx="${idx}">Make Lead</button>` : ''}
-              ${!isVault && state.squad.length > 1 ? `<button class="mini-btn secondary" data-to-vault="${idx}">To Vault</button>` : ''}
-              ${isVault && state.squad.length < 6 ? `<button class="mini-btn" data-to-squad="${idx}">To Squad</button>` : ''}
+              ${!isVault && state.squad.length > 1 ? `<button class="mini-btn secondary" data-to-vault="${idx}">To Bag</button>` : ''}
+              ${isVault && state.squad.length < maxSq ? `<button class="mini-btn" data-to-squad="${idx}">To Squad</button>` : ''}
             </div>
           </div>
         `;
       };
 
+      const bagBannerHtml = nextBagItem ? `
+        <div class="ranch-banner" style="border-color:rgba(250,204,21,0.45)">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+            <div>
+              <strong style="font-size:0.78rem;color:#fde047">🎒 Carrier Bag Tier ${state.bagTier || 0}/3 — Hold up to ${maxSq} Active Kin &amp; ${maxVt} Reserve!</strong>
+              <div style="font-size:0.65rem;color:#cbd5e1">Upgrade to <strong>${nextBagItem.icon} ${nextBagItem.name}</strong> (${nextBagItem.maxSquadSize} Active Squad / ${nextBagItem.maxVaultSize} Reserve)!</div>
+            </div>
+            <button type="button" class="mini-btn" id="btnSquadBuyBagUpgrade" style="flex:0 0 auto;background:#ca8a04;color:#0f172a;font-weight:900">
+              🎒 Upgrade Bag (🪙 ${nextBagItem.cost} / 💎 ${nextBagItem.gemCost})
+            </button>
+          </div>
+        </div>
+      ` : `
+        <div class="ranch-banner" style="border-color:#4ade80">
+          <strong style="font-size:0.76rem;color:#4ade80">🎒 Grandmaster Spatial Harness Equipped (Max Tier 3/3: ${maxSq} Active Squad / ${maxVt} Reserve)!</strong>
+        </div>
+      `;
+
       bodyEl.innerHTML = `
-        <div style="font-size:0.75rem;color:#38bdf8;font-weight:800">Active Squad (Max 6)</div>
+        ${bagBannerHtml}
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:0.75rem;color:#38bdf8;font-weight:800">Active Squad (${state.squad.length}/${maxSq} Kin with you)</span>
+          <span style="font-size:0.68rem;color:#fde047">🪤 Traps in Pack: x${(state.inventory.basicPrism || 0) + (state.inventory.greaterPrism || 0) + (state.inventory.masteryPrism || 0)}</span>
+        </div>
         <div class="card-grid">${state.squad.map((k, i) => renderKinCard(k, i, false)).join('')}</div>
-        <div style="font-size:0.75rem;color:#c084fc;font-weight:800;margin-top:6px">Sanctuary Vault (${state.vault.length} Stored)</div>
+        <div style="font-size:0.75rem;color:#c084fc;font-weight:800;margin-top:6px">Carrier Bag Reserve (${state.vault.length}/${maxVt} Stored)</div>
         ${state.vault.length === 0
-          ? `<div style="font-size:0.72rem;color:#94a3b8">Extra bound Kin are safely stored here when your Squad is full.</div>`
+          ? `<div style="font-size:0.72rem;color:#94a3b8">You start with 1 Partner Kin! Catch wild Kin with 🪤 Snare Traps, Trade, or Breed at Grandpa’s Ranch to fill your 4-Kin Squad and Carrier Bag.</div>`
           : `<div class="card-grid">${state.vault.map((k, i) => renderKinCard(k, i, true)).join('')}</div>`
         }
       `;
@@ -2400,10 +2989,22 @@
           openModal('squad');
         });
       });
+      const upBagBtn = $('btnSquadBuyBagUpgrade');
+      if (upBagBtn && nextBagKey) {
+        upBagBtn.addEventListener('click', () => {
+          if (!buyShopItem(nextBagKey, false)) {
+            buyShopItem(nextBagKey, true);
+          }
+          openModal('squad');
+        });
+      }
       bodyEl.querySelectorAll('[data-to-squad]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const i = Number(btn.getAttribute('data-to-squad'));
-          if (state.squad.length >= 6) return;
+          if (state.squad.length >= getMaxSquadSize(state)) {
+            showToast(`Active Squad full (${getMaxSquadSize(state)}/${getMaxSquadSize(state)})! Upgrade your Carrier Bag to hold more active Kin!`);
+            return;
+          }
           const moved = state.vault.splice(i, 1)[0];
           state.squad.push(moved);
           saveGame();
@@ -2532,8 +3133,9 @@
         `;
       } else if (mTab === 'boosters') {
         const boostKeys = [
-          'aetherCandy', 'apexTome', 'xpBooster2x', 'hatchAccelerator',
-          'basicPrism', 'greaterPrism', 'masteryPrism'
+          'basicPrism', 'greaterPrism', 'masteryPrism',
+          'bagUpgrade1', 'bagUpgrade2', 'bagUpgrade3',
+          'aetherCandy', 'apexTome', 'xpBooster2x', 'hatchAccelerator'
         ].filter((k) => DATA.ITEMS[k]);
 
         const xpRem = Math.max(0, Math.ceil((Number(state.xpBoostUntil || 0) - Date.now()) / 1000));
@@ -3027,11 +3629,12 @@
           state.stats.kinBred = (state.stats.kinBred || 0) + 1;
           markBound(offspring.speciesId);
 
-          let dest = 'Squad';
-          if (state.squad.length < 6) state.squad.push(offspring);
+          addBattlePassXp(55, state);
+          let dest = `Active Squad (${state.squad.length + 1}/${getMaxSquadSize(state)})`;
+          if (state.squad.length < getMaxSquadSize(state)) state.squad.push(offspring);
           else {
             state.vault.push(offspring);
-            dest = 'Sanctuary Vault';
+            dest = `Carrier Bag Reserve (${state.vault.length}/${getMaxVaultSize(state)})`;
           }
           if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
           saveGame();
@@ -3108,53 +3711,140 @@
         });
       });
     } else if (tab === 'story') {
+      closeHubMenuDrawer();
       updateStoryTrackerHud();
+      const sTab = state.storyModalTab || 'story';
       const chapters = (DATA && DATA.STORY_CHAPTERS) || [];
       const sideQuests = (DATA && DATA.SIDE_QUESTS) || [];
+      const tamerTasks = (DATA && DATA.TAMER_TASKS) || [];
       const curCh = chapters.find((c) => c.id === state.storyChapter) || chapters[0];
-      titleEl.textContent = `📜 Grandpa Rowan’s Tamer Chronicle (Chapter ${state.storyChapter || 1}/${chapters.length})`;
-      bodyEl.innerHTML = `
-        <div class="ranch-banner">
-          <strong style="color:#fde047;font-size:0.82rem">👴 Elder Vance Rowan — Heartwood Homestead Mentor</strong>
-          <div style="font-size:0.7rem;color:#e2e8f0;font-style:italic">“${curCh ? curCh.grandpaQuote : 'Every great Sovereign started with a single partner Kin.'}”</div>
-          <div class="mini-btn-row" style="margin-top:4px">
-            <button class="mini-btn" id="btnStoryOpenRanch">🧬 Open Grandpa’s Ranch</button>
-            <button class="mini-btn secondary" id="btnStoryHome">🏡 Visit Homestead (World 1)</button>
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          ${chapters.map((ch) => {
-            const done = Boolean(state.claimedChapters && state.claimedChapters[ch.id]);
-            const isCur = ch.id === state.storyChapter;
-            return `
-              <div class="warden-card" style="border-color:${done ? '#4ade80' : isCur ? '#facc15' : 'rgba(148,163,184,0.25)'}">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <strong style="font-size:0.8rem;color:${done ? '#4ade80' : isCur ? '#fde047' : '#f8fafc'}">${ch.title}</strong>
-                  <span style="font-size:0.65rem;font-weight:800;color:${done ? '#4ade80' : isCur ? '#38bdf8' : '#94a3b8'}">${done ? '✓ COMPLETED' : isCur ? 'ACTIVE QUEST' : 'UPCOMING'}</span>
-                </div>
-                <div style="font-size:0.68rem;color:#cbd5e1"><strong>Objective:</strong> ${ch.objective || ch.objectiveText}</div>
-                <div style="font-size:0.64rem;color:#94a3b8">Reward: +${ch.rewardShards}💎 Aether Shards • World: ${getZoneObj(ch.zone || ch.worldId).name}</div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
-          <strong style="font-size:0.78rem;color:#38bdf8">🧭 Multi-World Side Quests (${sideQuests.length})</strong>
-          ${sideQuests.map((sq) => `
-            <div class="warden-card" style="border-color:rgba(56,189,248,0.28)">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <strong style="font-size:0.76rem;color:#e0f2fe">${sq.title}</strong>
-                <span style="font-size:0.62rem;color:#38bdf8">${sq.giver} • ${getZoneObj(sq.zone).name}</span>
-              </div>
-              <div style="font-size:0.66rem;color:#cbd5e1">${sq.objective}</div>
-              <div style="font-size:0.62rem;color:#94a3b8">Bounty: +${sq.rewardShards}💎 Aether Shards</div>
-            </div>
-          `).join('')}
+      titleEl.textContent = `📜 Missions, Side Quests & Tamer Tasks (Ch.${state.storyChapter || 1}/${chapters.length})`;
+
+      const subTabsHtml = `
+        <div class="market-tab-bar" style="margin-bottom:8px">
+          <button type="button" class="market-tab-btn ${sTab === 'story' ? 'active' : ''}" data-stab="story">📖 Story (${chapters.length})</button>
+          <button type="button" class="market-tab-btn ${sTab === 'sidequests' ? 'active' : ''}" data-stab="sidequests">🗺️ Side Quests (${sideQuests.length})</button>
+          <button type="button" class="market-tab-btn ${sTab === 'tasks' ? 'active' : ''}" data-stab="tasks">🎯 Tasks (${tamerTasks.length})</button>
         </div>
       `;
 
+      let contentHtml = '';
+      if (sTab === 'story') {
+        contentHtml = `
+          <div class="ranch-banner">
+            <strong style="color:#fde047;font-size:0.8rem">👴 Elder Vance Rowan — Heartwood Homestead Mentor</strong>
+            <div style="font-size:0.68rem;color:#e2e8f0;font-style:italic">“${curCh ? curCh.grandpaQuote : 'Every great Sovereign started with a single partner Kin.'}”</div>
+            <div class="mini-btn-row" style="margin-top:4px">
+              <button class="mini-btn" id="btnStoryOpenRanch">🧬 Grandpa’s Ranch</button>
+              <button class="mini-btn secondary" id="btnStoryOpenTrade">🔄 Kin Trade Center</button>
+              <button class="mini-btn secondary" id="btnStoryHome">🏡 Visit Homestead</button>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${chapters.map((ch) => {
+              const done = Boolean(state.claimedChapters && state.claimedChapters[ch.id]);
+              const isCur = ch.id === state.storyChapter;
+              return `
+                <div class="warden-card" style="border-color:${done ? '#4ade80' : isCur ? '#facc15' : 'rgba(148,163,184,0.25)'}">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <strong style="font-size:0.78rem;color:${done ? '#4ade80' : isCur ? '#fde047' : '#f8fafc'}">${ch.title}</strong>
+                    <span style="font-size:0.64rem;font-weight:800;color:${done ? '#4ade80' : isCur ? '#38bdf8' : '#94a3b8'}">${done ? '✓ COMPLETED' : isCur ? 'ACTIVE CHAPTER' : 'UPCOMING'}</span>
+                  </div>
+                  <div style="font-size:0.66rem;color:#cbd5e1"><strong>Objective:</strong> ${ch.objective || ch.objectiveText}</div>
+                  <div style="font-size:0.62rem;color:#94a3b8">Reward: +${ch.rewardShards}🪙 Aether Shards • World: ${getZoneObj(ch.zone || ch.worldId).name}</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } else if (sTab === 'sidequests') {
+        contentHtml = `
+          <div style="display:flex;flex-direction:column;gap:7px">
+            ${sideQuests.map((sq) => {
+              const claimed = Boolean(state.claimedSideQuests && state.claimedSideQuests[sq.id]);
+              const prog = Math.min(sq.target, evaluateQuestMetric(sq.metric, state));
+              const ready = !claimed && prog >= sq.target;
+              const pct = Math.round((prog / Math.max(1, sq.target)) * 100);
+              return `
+                <div class="warden-card" style="border-color:${claimed ? '#4ade80' : ready ? '#facc15' : 'rgba(56,189,248,0.3)'}">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+                    <strong style="font-size:0.76rem;color:#e0f2fe">${sq.title}</strong>
+                    <span style="font-size:0.62rem;color:#38bdf8">${sq.giver} • ${getZoneObj(sq.zone).name}</span>
+                  </div>
+                  <div style="font-size:0.65rem;color:#cbd5e1">${sq.objective}</div>
+                  <div class="hp-bar-track" style="height:6px;margin:3px 0">
+                    <div class="hp-bar-fill" style="width:${pct}%;background:${claimed ? '#4ade80' : ready ? '#facc15' : '#38bdf8'}"></div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:0.62rem;color:#fde047">Progress: ${prog}/${sq.target} • Bounty: +${sq.rewardShards}🪙 ${sq.rewardGems ? `+${sq.rewardGems}💎` : ''} +75 BP XP</span>
+                    ${claimed
+                      ? '<span style="font-size:0.64rem;color:#4ade80;font-weight:900">✓ CLAIMED</span>'
+                      : ready
+                        ? `<button type="button" class="mini-btn" data-claim-sq="${sq.id}" style="flex:0 0 auto;background:#16a34a;padding:4px 10px">🎁 Claim Bounty</button>`
+                        : '<span style="font-size:0.62rem;color:#94a3b8">In Progress</span>'
+                    }
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } else {
+        contentHtml = `
+          <div style="display:flex;flex-direction:column;gap:7px">
+            ${tamerTasks.map((tk) => {
+              const claimed = Boolean(state.claimedTasks && state.claimedTasks[tk.id]);
+              const prog = Math.min(tk.target, evaluateQuestMetric(tk.metric, state));
+              const ready = !claimed && prog >= tk.target;
+              const pct = Math.round((prog / Math.max(1, tk.target)) * 100);
+              return `
+                <div class="warden-card" style="border-color:${claimed ? '#4ade80' : ready ? '#facc15' : 'rgba(168,85,247,0.35)'}">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <strong style="font-size:0.76rem;color:#f8fafc">${tk.icon} ${tk.title}</strong>
+                    <span style="font-size:0.62rem;color:#d8b4fe">${prog}/${tk.target}</span>
+                  </div>
+                  <div style="font-size:0.65rem;color:#cbd5e1">${tk.desc}</div>
+                  <div class="hp-bar-track" style="height:6px;margin:3px 0">
+                    <div class="hp-bar-fill" style="width:${pct}%;background:${claimed ? '#4ade80' : '#a855f7'}"></div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:0.62rem;color:#fde047">Reward: +${tk.rewardShards}🪙 +${tk.rewardGems || 0}💎 +45 BP XP</span>
+                    ${claimed
+                      ? '<span style="font-size:0.64rem;color:#4ade80;font-weight:900">✓ COMPLETED</span>'
+                      : ready
+                        ? `<button type="button" class="mini-btn" data-claim-task="${tk.id}" style="flex:0 0 auto;background:#16a34a;padding:4px 10px">🎁 Claim Task</button>`
+                        : '<span style="font-size:0.62rem;color:#94a3b8">Active</span>'
+                    }
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+
+      bodyEl.innerHTML = subTabsHtml + contentHtml;
+
+      bodyEl.querySelectorAll('[data-stab]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.storyModalTab = btn.getAttribute('data-stab');
+          openModal('story');
+        });
+      });
+      bodyEl.querySelectorAll('[data-claim-sq]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (claimSideQuest(btn.getAttribute('data-claim-sq'), state).ok) openModal('story');
+        });
+      });
+      bodyEl.querySelectorAll('[data-claim-task]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (claimTamerTask(btn.getAttribute('data-claim-task'), state).ok) openModal('story');
+        });
+      });
       const openRanchBtn = $('btnStoryOpenRanch');
       if (openRanchBtn) openRanchBtn.addEventListener('click', () => openModal('ranch'));
+      const openTradeBtn = $('btnStoryOpenTrade');
+      if (openTradeBtn) openTradeBtn.addEventListener('click', () => openModal('trade'));
       const homeBtn = $('btnStoryHome');
       if (homeBtn) {
         homeBtn.addEventListener('click', () => {
@@ -3162,6 +3852,275 @@
           travelToZone('meadow');
         });
       }
+    } else if (tab === 'pass') {
+      closeHubMenuDrawer();
+      const bpTier = getBattlePassLevel(state);
+      const bpXp = Number(state.battlePassXp || 0);
+      const loginDays = (DATA && DATA.DAILY_LOGIN_REWARDS) || [];
+      const bpTiers = (DATA && DATA.BATTLE_PASS_TIERS) || [];
+      titleEl.textContent = `🎖️ Season 1: Aether Awakening Pass (Tier ${bpTier}/20 • ${bpXp} BP XP)`;
+
+      const loginGridHtml = `
+        <div class="ranch-banner" style="border-color:rgba(250,204,21,0.5)">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+            <div>
+              <strong style="font-size:0.8rem;color:#fde047">📅 Daily &amp; Weekly Login Prizes (Day ${state.loginStreak || 1}/7 Streak)</strong>
+              <div style="font-size:0.65rem;color:#cbd5e1">Claim daily Shards, Gems, Snare Traps, Outfits &amp; Day 7 Weekly Grand Prize!</div>
+            </div>
+          </div>
+          <div class="login-streak-grid" style="margin-top:6px">
+            ${loginDays.map((d) => {
+              const claimed = Boolean(state.claimedLoginDays && state.claimedLoginDays[d.day]);
+              const canClaim = !claimed && d.day <= Math.max(1, Number(state.loginStreak || 1));
+              return `
+                <div class="login-day-card ${d.isWeeklyGrandPrize ? 'weekly-grand' : ''} ${claimed ? 'claimed' : ''}">
+                  <div style="font-size:0.62rem;font-weight:900;color:${d.isWeeklyGrandPrize ? '#fde047' : '#38bdf8'}">${d.title}</div>
+                  <div style="font-size:1.1rem">${d.icon}</div>
+                  <div style="font-size:0.58rem;color:#e2e8f0;line-height:1.2">${d.label}</div>
+                  ${claimed
+                    ? '<span style="font-size:0.58rem;color:#4ade80;font-weight:900">✓ CLAIMED</span>'
+                    : `<button type="button" class="mini-btn" data-claim-login="${d.day}" style="padding:3px 6px;font-size:0.58rem;background:${canClaim ? '#16a34a' : '#0284c7'}">🎁 Claim</button>`
+                  }
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+
+      const goldBannerHtml = `
+        <div class="warden-card" style="border-color:#facc15;background:linear-gradient(135deg,rgba(113,63,18,0.45),rgba(15,23,42,0.92))">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+            <div>
+              <strong style="font-size:0.8rem;color:#fde047">👑 Gold Battle Pass Track ${state.battlePassGold ? '(ACTIVE)' : '(LOCKED)'}</strong>
+              <div style="font-size:0.65rem;color:#cbd5e1">Earn BP XP from every Battle (+45), Snare Trap Catch (+60), Ranch Hatch (+55) &amp; Quest (+75)!</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button type="button" class="mini-btn secondary" id="btnPassOpenLocker">👕 Outfits &amp; Emotes</button>
+              ${!state.battlePassGold
+                ? '<button type="button" class="mini-btn" id="btnUnlockGoldPass" style="background:#ca8a04;color:#0f172a;font-weight:900">👑 Unlock Gold Pass (200 💎)</button>'
+                : '<span class="regen-timer-pill" style="color:#fde047;border-color:#fde047">★ GOLD PASS UNLOCKED</span>'
+              }
+            </div>
+          </div>
+        </div>
+      `;
+
+      const tiersHtml = `
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${bpTiers.map((t) => {
+            const unlocked = bpXp >= t.xpRequired;
+            const freeClaimed = Boolean(state.claimedBpFree && state.claimedBpFree[t.tier]);
+            const goldClaimed = Boolean(state.claimedBpGold && state.claimedBpGold[t.tier]);
+            return `
+              <div class="bp-tier-row ${unlocked ? 'unlocked' : ''}">
+                <div class="bp-tier-badge">
+                  T${t.tier}
+                  <small style="font-size:0.52rem;color:#94a3b8">${t.xpRequired} XP</small>
+                </div>
+                <div class="bp-reward-cell">
+                  <div>
+                    <div style="font-size:0.6rem;color:#38bdf8;font-weight:800">FREE TRACK</div>
+                    <div style="font-size:0.66rem;color:#f8fafc">${t.free.icon} ${t.free.label}</div>
+                  </div>
+                  ${freeClaimed
+                    ? '<span style="font-size:0.6rem;color:#4ade80;font-weight:900">✓</span>'
+                    : unlocked
+                      ? `<button type="button" class="mini-btn" data-claim-bp-free="${t.tier}" style="flex:0 0 auto;padding:4px 8px;font-size:0.6rem;background:#16a34a">Claim</button>`
+                      : '<span style="font-size:0.58rem;color:#64748b">Locked</span>'
+                  }
+                </div>
+                <div class="bp-reward-cell gold">
+                  <div>
+                    <div style="font-size:0.6rem;color:#fde047;font-weight:800">👑 GOLD TRACK</div>
+                    <div style="font-size:0.66rem;color:#fef08a">${t.gold.icon} ${t.gold.label}</div>
+                  </div>
+                  ${goldClaimed
+                    ? '<span style="font-size:0.6rem;color:#4ade80;font-weight:900">✓</span>'
+                    : (unlocked && state.battlePassGold)
+                      ? `<button type="button" class="mini-btn" data-claim-bp-gold="${t.tier}" style="flex:0 0 auto;padding:4px 8px;font-size:0.6rem;background:#ca8a04;color:#0f172a">Claim</button>`
+                      : '<span style="font-size:0.58rem;color:#64748b">🔒</span>'
+                  }
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      bodyEl.innerHTML = loginGridHtml + goldBannerHtml + tiersHtml;
+
+      bodyEl.querySelectorAll('[data-claim-login]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const d = Number(btn.getAttribute('data-claim-login'));
+          if (claimDailyLoginReward(d, state).ok) openModal('pass');
+        });
+      });
+      bodyEl.querySelectorAll('[data-claim-bp-free]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const t = Number(btn.getAttribute('data-claim-bp-free'));
+          if (claimBattlePassTier(t, 'free', state).ok) openModal('pass');
+        });
+      });
+      bodyEl.querySelectorAll('[data-claim-bp-gold]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const t = Number(btn.getAttribute('data-claim-bp-gold'));
+          if (claimBattlePassTier(t, 'gold', state).ok) openModal('pass');
+        });
+      });
+      const goldBtn = $('btnUnlockGoldPass');
+      if (goldBtn) {
+        goldBtn.addEventListener('click', () => {
+          if (unlockGoldBattlePass(state).ok) openModal('pass');
+        });
+      }
+      const lockerBtn = $('btnPassOpenLocker');
+      if (lockerBtn) lockerBtn.addEventListener('click', () => openModal('locker'));
+
+    } else if (tab === 'locker') {
+      closeHubMenuDrawer();
+      const outfits = (DATA && DATA.TAMER_OUTFITS) || [];
+      const emotes = (DATA && DATA.TAMER_EMOTES) || [];
+      titleEl.textContent = '👕 3D Tamer Outfits & Floating Emotes Locker';
+
+      bodyEl.innerHTML = `
+        <div class="ranch-banner">
+          <strong style="font-size:0.78rem;color:#fde047">🧥 3D Character Outfits (Changes your Tamer’s 3D Armor &amp; Cape Live!)</strong>
+          <div style="font-size:0.65rem;color:#cbd5e1">Unlock more outfits via Season 1 Battle Pass &amp; Daily Login Streak!</div>
+        </div>
+        <div class="card-grid">
+          ${outfits.map((o) => {
+            const unlocked = Boolean(state.unlockedOutfits && state.unlockedOutfits[o.id]);
+            const equipped = state.equippedOutfit === o.id;
+            return `
+              <div class="kin-card" style="border-color:${equipped ? '#4ade80' : unlocked ? '#38bdf8' : 'rgba(148,163,184,0.25)'}">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <strong style="font-size:0.76rem;color:#f8fafc">${o.icon} ${o.name}</strong>
+                  <span style="font-size:0.6rem;font-weight:800;color:${equipped ? '#4ade80' : unlocked ? '#fde047' : '#94a3b8'}">${equipped ? '✓ EQUIPPED' : unlocked ? o.rarity.toUpperCase() : '🔒 LOCKED'}</span>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;margin:4px 0">
+                  <span style="width:18px;height:18px;border-radius:50%;background:${o.coatColor};border:1px solid #fff"></span>
+                  <span style="width:18px;height:18px;border-radius:50%;background:${o.trimColor};border:1px solid #fff"></span>
+                  <span style="font-size:0.62rem;color:#94a3b8">${o.unlockSource}</span>
+                </div>
+                <div style="font-size:0.63rem;color:#cbd5e1">${o.desc}</div>
+                <div class="mini-btn-row" style="margin-top:4px">
+                  ${unlocked
+                    ? `<button type="button" class="mini-btn ${equipped ? 'secondary' : ''}" data-equip-outfit="${o.id}">${equipped ? 'Equipped on 3D Tamer' : '👕 Equip 3D Outfit'}</button>`
+                    : `<button type="button" class="mini-btn secondary" data-unlock-outfit-bp="${o.id}">🎖️ Unlock via Pass / 80 💎</button>`
+                  }
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="font-size:0.78rem;color:#38bdf8;font-weight:900;margin-top:8px">😊 Floating 3D Tamer Emotes (Tap to Pop Emote Over Your 3D Character!)</div>
+        <div class="card-grid">
+          ${emotes.map((em) => {
+            const unlocked = Boolean(state.unlockedEmotes && state.unlockedEmotes[em.id]);
+            return `
+              <div class="kin-card" style="border-color:${unlocked ? '#38bdf8' : 'rgba(148,163,184,0.25)'}">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <strong style="font-size:0.8rem;color:#fde047">${em.icon} ${em.name}</strong>
+                  <span style="font-size:0.62rem;color:#94a3b8">${em.unlockSource}</span>
+                </div>
+                <div style="font-size:0.66rem;color:#e2e8f0">Bubble: <strong>“${em.bubbleText}”</strong></div>
+                <button type="button" class="mini-btn" data-fire-emote="${em.id}" style="margin-top:4px;background:#0284c7">😊 Fire Emote in 3D</button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      bodyEl.querySelectorAll('[data-equip-outfit]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-equip-outfit');
+          if (equipOutfit(id, state).ok) openModal('locker');
+        });
+      });
+      bodyEl.querySelectorAll('[data-unlock-outfit-bp]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-unlock-outfit-bp');
+          if ((state.gems || 0) >= 80) {
+            state.gems -= 80;
+            state.unlockedOutfits[id] = true;
+            equipOutfit(id, state);
+            openModal('locker');
+          } else {
+            openModal('pass');
+          }
+        });
+      });
+      bodyEl.querySelectorAll('[data-fire-emote]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-fire-emote');
+          closeModal();
+          closeLobbyScreen();
+          triggerEmote(id, state);
+        });
+      });
+
+    } else if (tab === 'trade') {
+      closeHubMenuDrawer();
+      const trades = (DATA && DATA.NPC_TRADES) || [];
+      const allKin = (state.squad || []).concat(state.vault || []);
+      titleEl.textContent = `🔄 Cross-World Kin Trade Center (Squad ${state.squad.length}/${getMaxSquadSize(state)})`;
+
+      bodyEl.innerHTML = `
+        <div class="ranch-banner">
+          <strong style="font-size:0.8rem;color:#fde047">🔄 Start with 1 Kin — Catch, Breed &amp; Trade to Build Your Sovereign Roster!</strong>
+          <div style="font-size:0.66rem;color:#cbd5e1">
+            Swap Wild Kin you’ve trapped with Outpost Tamers across the 6 Worlds to receive rare Cross-World Kin with boosted <strong>A / S-Rank Genetics</strong> and bonus items!
+          </div>
+        </div>
+        <div class="card-grid">
+          ${trades.map((tr) => {
+            const done = Boolean(state.completedTrades && state.completedTrades[tr.id]);
+            const wantSp = DATA.getSpeciesById(tr.wantsSpeciesId);
+            const offerSp = DATA.getSpeciesById(tr.offersSpeciesId);
+            const hasWanted = allKin.some((k) => Number(k.speciesId) === Number(tr.wantsSpeciesId));
+            const offerSvg = root.WILDKIN_SPRITES.renderKinSvg(offerSp, 44, Boolean(tr.isRadiant));
+            return `
+              <div class="kin-card" style="border-color:${done ? '#4ade80' : hasWanted ? '#facc15' : 'rgba(56,189,248,0.3)'}">
+                <div class="kin-card-top">
+                  ${offerSvg}
+                  <div>
+                    <div style="font-weight:900;font-size:0.76rem;color:#fde047">Receive: ${tr.offersNickname} (${offerSp.name} Lv.${tr.offersLevel})</div>
+                    <div style="font-size:0.65rem;color:#4ade80">🧬 ${tr.offersGeneticTier}-Rank Genetics ${tr.isRadiant ? '• ✨ RADIANT' : ''}</div>
+                    <div style="font-size:0.63rem;color:#38bdf8">Wants: <strong>${wantSp.name}</strong> • Trader: ${tr.npcName} (${getZoneObj(tr.zone).name})</div>
+                  </div>
+                </div>
+                <div style="font-size:0.63rem;color:#cbd5e1;font-style:italic">“${tr.quote}”</div>
+                <div class="mini-btn-row" style="margin-top:4px">
+                  ${done
+                    ? '<span style="font-size:0.65rem;color:#4ade80;font-weight:900">✓ TRADE COMPLETED</span>'
+                    : hasWanted
+                      ? `<button type="button" class="mini-btn" data-exec-trade="${tr.id}" style="background:#16a34a">🔄 Swap ${wantSp.name} → ${tr.offersNickname}</button>`
+                      : `<button type="button" class="mini-btn secondary" data-scout-wanted="${tr.wantsSpeciesId}">🪤 Catch ${wantSp.name} in Wild to Trade</button>`
+                  }
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      bodyEl.querySelectorAll('[data-exec-trade]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-exec-trade');
+          const res = executeNpcTrade(id, state);
+          if (res.ok) openModal('trade');
+        });
+      });
+      bodyEl.querySelectorAll('[data-scout-wanted]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const spId = Number(btn.getAttribute('data-scout-wanted'));
+          closeModal();
+          closeLobbyScreen();
+          startWildEncounter(spId, 6);
+        });
+      });
     }
   }
 
@@ -3185,8 +4144,10 @@
         if (saved) {
           state = saved;
           syncMotionFromState();
+          ensureZoneWildSpawns(state.zone);
           const overlay = $('starterOverlay', 'starter-overlay');
           if (overlay) overlay.classList.add('hidden');
+          openLobbyScreen();
           if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.startBgm('overworld');
           updateHud();
           showToast(`Welcome back! Loaded saved journey in ${getZoneObj(state.zone).name}.`);
@@ -3282,21 +4243,64 @@
     const btnEvoNext = $('btnEvoNext');
     if (btnEvoNext) btnEvoNext.addEventListener('click', () => advanceEvolutionStage());
 
-    // Quick Dock buttons
+    // Quick Dock & Hub Drawer & Lobby buttons
     const dockMap = {
       btnDockSquad: () => openModal('squad'),
+      btnDockPass: () => openModal('pass'),
       btnDockRanch: () => openModal('ranch'),
+      btnDockTrade: () => openModal('trade'),
       btnDockStory: () => openModal('story'),
       btnDockKindex: () => openModal('kindex'),
       btnDockArena: () => openModal('arena'),
       btnDockShop: () => openModal('shop'),
-      btnDockHeal: () => healSquadAtShrine(),
-      btnDockZones: () => openModal('zones')
+      btnDockMarket: () => openModal('shop'),
+      btnDockLocker: () => openModal('locker'),
+      btnDockHeal: () => { closeHubMenuDrawer(); healSquadAtShrine(); },
+      btnDockZones: () => openModal('zones'),
+      btnDockLobby: () => openLobbyScreen(),
+      btnOpenLobby: () => openLobbyScreen(),
+      btnEnterLiveWorld: () => closeLobbyScreen(),
+      btnOpenHubMenu: () => openHubMenuDrawer(),
+      btnCloseHubMenu: () => closeHubMenuDrawer(),
+      btnTopBattlePass: () => openModal('pass'),
+      btnQuickPass: () => openModal('pass'),
+      btnLobbyBattlePass: () => openModal('pass'),
+      btnLobbyMissions: () => openModal('story'),
+      btnLobbyTrade: () => openModal('trade'),
+      btnLobbyLocker: () => openModal('locker'),
+      btnLobbyRanch: () => openModal('ranch'),
+      btnLobbyMarket: () => openModal('shop')
     };
     Object.keys(dockMap).forEach((id) => {
       const el = $(id);
       if (el) el.addEventListener('click', dockMap[id]);
     });
+
+    const menuDrawer = $('tamerMenuDrawer');
+    if (menuDrawer) {
+      menuDrawer.addEventListener('click', (e) => {
+        if (e.target === menuDrawer) closeHubMenuDrawer();
+      });
+    }
+
+    const btnEmoteWheel = $('btnEmoteWheel');
+    const emotePop = $('emoteWheelPopover');
+    if (btnEmoteWheel && emotePop) {
+      btnEmoteWheel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const emotes = (DATA && DATA.TAMER_EMOTES) || [];
+        emotePop.innerHTML = emotes.map((em) => `
+          <button type="button" class="emote-wheel-btn" data-pop-emote="${em.id}" title="${em.name}">${em.icon}</button>
+        `).join('');
+        emotePop.classList.toggle('hidden');
+        emotePop.querySelectorAll('[data-pop-emote]').forEach((b) => {
+          b.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            triggerEmote(b.getAttribute('data-pop-emote'), state);
+          });
+        });
+      });
+    }
 
     // Modal Close
     const btnCloseModal = $('btnCloseModal');
@@ -3444,6 +4448,11 @@
           if (targetTile) {
             const tx = Math.max(0.6, Math.min(14.8, targetTile.x));
             const ty = Math.max(0.2, Math.min(10.6, targetTile.y));
+            const tappedWild = (state.wildSpawns || []).find((ws) => Math.hypot(ws.x - tx, ws.y - ty) <= 1.15);
+            if (tappedWild) {
+              startWildEncounter(tappedWild.speciesId, tappedWild.level, tappedWild.isRadiant);
+              return;
+            }
             const nearTappedNpc = findNearbyNpcFloat(tx, ty, 1.35);
 
             if (nearTappedNpc && Math.hypot(playerMotion.x - nearTappedNpc.x, playerMotion.y - nearTappedNpc.y) <= 1.55) {
@@ -3677,7 +4686,32 @@
         const zoneMap = root.WILDKIN_MAPS.ZONE_MAPS[state.zone] || root.WILDKIN_MAPS.ZONE_MAPS.meadow;
         if (playerMotion.syncedZone !== state.zone) {
           root.WILDKIN_3D.syncZone(zoneMap, Object.keys(state.defeatedTamers || {}));
+          ensureZoneWildSpawns(state.zone);
           playerMotion.syncedZone = state.zone;
+        }
+        if (!state.wildSpawns || state.wildSpawns.length === 0) {
+          ensureZoneWildSpawns(state.zone);
+        } else if (state.started && !battleState && !activeEvo) {
+          state.wildSpawns.forEach((ws, idx) => {
+            ws.timer = (ws.timer || 0) + dtSec;
+            const r = 0.55;
+            ws.x = ws.homeX + Math.cos(ws.timer * 0.7 + idx) * r;
+            ws.y = ws.homeY + Math.sin(ws.timer * 0.7 + idx) * r;
+            ws.angle = Math.atan2(-Math.sin(ws.timer * 0.7 + idx), Math.cos(ws.timer * 0.7 + idx));
+            if (playerMotion.speed > 0.1 && Math.hypot(playerMotion.x - ws.x, playerMotion.y - ws.y) < 0.72) {
+              const hitSp = ws.speciesId;
+              const hitLv = ws.level;
+              const hitRad = ws.isRadiant;
+              ws.homeX = Math.max(2, Math.min(13, (ws.homeX + 5) % 14));
+              ws.x = ws.homeX;
+              startWildEncounter(hitSp, hitLv, hitRad);
+            }
+          });
+          playerMotion.wildSpawns = state.wildSpawns;
+        }
+        const outfitObj = (DATA && DATA.TAMER_OUTFITS && DATA.TAMER_OUTFITS.find((o) => o.id === state.equippedOutfit)) || null;
+        if (outfitObj && typeof root.WILDKIN_3D.syncPlayerOutfit === "function") {
+          root.WILDKIN_3D.syncPlayerOutfit(outfitObj);
         }
         const lead = state.squad[0];
         const leadSpec = lead && DATA ? DATA.getSpeciesById(lead.speciesId) : null;
@@ -3715,6 +4749,24 @@
     calculateCatchChance,
     createInitialState,
     getState: () => state,
+    getMaxSquadSize,
+    getMaxVaultSize,
+    upgradeKinBag,
+    getBattlePassLevel,
+    addBattlePassXp,
+    claimDailyLoginReward,
+    claimBattlePassTier,
+    unlockGoldBattlePass,
+    equipOutfit,
+    triggerEmote,
+    executeNpcTrade,
+    claimSideQuest,
+    claimTamerTask,
+    ensureZoneWildSpawns,
+    openLobbyScreen,
+    closeLobbyScreen,
+    openHubMenuDrawer,
+    closeHubMenuDrawer,
     selectStarter,
     movePlayer,
     interact,

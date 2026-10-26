@@ -1681,3 +1681,529 @@ html, body {
   color: #fde047;
   border: 1px solid rgba(234, 179, 8, 0.45);
 }
+
+
+/* ==========================================================================
+   V4 OVERHAUL: DECLUTTERED VIEWPORT, ENTRY LOBBY, SLIDE-UP MENU DRAWER,
+   UNOBSTRUCTED 3D BATTLE ARENA, SNARE TRAPS, BATTLE PASS, LOCKER & TRADING
+   ========================================================================== */
+
+body.in-battle .hud-topbar,
+body.in-lobby .hud-topbar,
+body.in-starter .hud-topbar {
+  display: none !important;
+}
+
+.hud-topbar {
+  padding: 5px 10px !important;
+  gap: 6px !important;
+  min-height: 40px;
+}
+
+.lobby-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.zone-pill-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metric-chip-pass {
+  cursor: pointer;
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.75), rgba(15, 23, 42, 0.95)) !important;
+  border: 1px solid rgba(250, 204, 21, 0.65) !important;
+  color: #fde047 !important;
+}
+
+.emote-top-btn {
+  width: 30px !important;
+  height: 30px !important;
+  font-size: 0.9rem !important;
+}
+
+.hub-menu-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: linear-gradient(135deg, #0284c7, #4f46e5);
+  color: #ffffff;
+  border: 1.5px solid #38bdf8;
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.35);
+}
+
+/* Slide-Up Tamer Command Menu Drawer (Replaces persistent bottom dock!) */
+.tamer-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(3, 7, 18, 0.78);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 10px;
+}
+
+.tamer-menu-sheet {
+  width: 100%;
+  max-width: 560px;
+  background: linear-gradient(165deg, #0b1329 0%, #060913 100%);
+  border: 1.5px solid rgba(56, 189, 248, 0.55);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tamer-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding-bottom: 8px;
+}
+
+.tamer-menu-title {
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: #38bdf8;
+  letter-spacing: 0.05em;
+}
+
+.tamer-menu-sub {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.tamer-menu-sheet .quick-dock {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 8px !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+@media (max-width: 420px) {
+  .tamer-menu-sheet .quick-dock {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+.tamer-menu-utility-row {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+/* Entry / Lobby Command Hub Screen (#mainMenuOverlay) */
+.lobby-hub-screen {
+  z-index: 38;
+  background: radial-gradient(circle at 50% 18%, rgba(14, 116, 144, 0.36) 0%, rgba(6, 9, 19, 0.94) 75%);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.lobby-hub-shell {
+  width: 100%;
+  max-width: 540px;
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.96), rgba(8, 12, 24, 0.98));
+  border: 1.5px solid rgba(56, 189, 248, 0.5);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lobby-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lobby-season-pill {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 900;
+  color: #fde047;
+  background: rgba(234, 179, 8, 0.18);
+  border: 1px solid rgba(250, 204, 21, 0.55);
+  border-radius: 999px;
+  padding: 2px 8px;
+  letter-spacing: 0.06em;
+}
+
+.lobby-game-title {
+  margin: 3px 0 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+}
+
+.lobby-game-title span {
+  color: #38bdf8;
+  font-size: 0.82rem;
+}
+
+.lobby-outfit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(192, 132, 252, 0.55);
+  color: #f3e8ff;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lobby-hero-card {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85));
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lobby-play-cta {
+  width: 100%;
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #4f46e5 100%);
+  border: 2px solid #7dd3fc;
+  border-radius: 14px;
+  padding: 12px 16px;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  box-shadow: 0 8px 26px rgba(37, 99, 235, 0.55);
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.lobby-play-cta:hover,
+.lobby-play-cta:active {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 12px 30px rgba(56, 189, 248, 0.7);
+}
+
+.play-cta-main {
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.play-cta-sub {
+  font-size: 0.68rem;
+  color: #bae6fd;
+  font-weight: 700;
+}
+
+.lobby-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.lobby-feature-card {
+  background: rgba(15, 23, 42, 0.92);
+  border: 1.5px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  padding: 9px 10px;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.lobby-feature-card:hover {
+  transform: translateY(-1px);
+  border-color: #38bdf8;
+}
+
+.lobby-feature-card.highlight-gold {
+  border-color: rgba(250, 204, 21, 0.65);
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.45), rgba(15, 23, 42, 0.95));
+}
+
+.lobby-feature-card.highlight-cyan {
+  border-color: rgba(56, 189, 248, 0.6);
+  background: linear-gradient(135deg, rgba(12, 74, 110, 0.45), rgba(15, 23, 42, 0.95));
+}
+
+.lobby-feature-card.highlight-green {
+  border-color: rgba(74, 222, 128, 0.6);
+  background: linear-gradient(135deg, rgba(20, 83, 45, 0.45), rgba(15, 23, 42, 0.95));
+}
+
+.lobby-feature-card.highlight-purple {
+  border-color: rgba(192, 132, 252, 0.6);
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.45), rgba(15, 23, 42, 0.95));
+}
+
+.lfc-ico {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.lfc-title {
+  font-size: 0.76rem;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.lfc-sub {
+  font-size: 0.63rem;
+  color: #cbd5e1;
+  margin-top: 1px;
+}
+
+/* ==========================================================================
+   UNOBSTRUCTED 3D BATTLE SCREEN OVERRIDES (Fixes Screenshot Overlap & Bulk!)
+   ========================================================================== */
+#battleOverlay.battle-screen {
+  background: transparent !important;
+  padding: 6px !important;
+  gap: 6px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+#battleStage.battle-stage {
+  position: relative;
+  flex: 1;
+  background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  padding: 4px !important;
+  overflow: hidden;
+}
+
+#battle3dCanvas {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1 !important;
+  pointer-events: none;
+}
+
+.battle-top-bar-wrap {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+}
+
+#battleTurnBanner.battle-turn-banner {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+  flex: 1;
+  max-width: 100% !important;
+  padding: 5px 10px !important;
+  justify-content: center;
+}
+
+.battle-emote-btn {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1.5px solid rgba(250, 204, 21, 0.65);
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  z-index: 22;
+  flex-shrink: 0;
+}
+
+.battle-hud-top-row {
+  position: relative;
+  z-index: 18;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+  align-items: start;
+  pointer-events: none;
+}
+
+.battle-hud-top-row .combatant-row {
+  width: 100% !important;
+  margin: 0 !important;
+  display: block !important;
+}
+
+.battle-hud-top-row .status-plate {
+  max-width: 100% !important;
+  width: 100% !important;
+  background: rgba(8, 13, 26, 0.78) !important;
+  backdrop-filter: blur(8px) !important;
+  padding: 6px 8px !important;
+  border-radius: 10px !important;
+}
+
+/* Hide old 2D sprite pedestals inside 3D battle stage so 3D creatures are 100% clear! */
+#battleStage .sprite-pedestal {
+  display: none !important;
+}
+
+.mini-kin-svg svg {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+}
+
+.catch-hint-pill {
+  color: #fde047;
+  font-size: 0.6rem;
+  font-weight: 900;
+}
+
+.xp-mini-lbl {
+  margin-left: auto;
+  font-size: 0.6rem;
+  color: #7dd3fc;
+  font-weight: 700;
+}
+
+.battle-console {
+  position: relative;
+  z-index: 22;
+  background: rgba(8, 12, 24, 0.92) !important;
+  backdrop-filter: blur(12px);
+  padding: 6px !important;
+}
+
+.battle-tabs {
+  display: grid !important;
+  grid-template-columns: repeat(5, 1fr) !important;
+  gap: 4px !important;
+}
+
+.btab-trap {
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.85), rgba(146, 64, 14, 0.95)) !important;
+  border-color: #facc15 !important;
+  color: #fef08a !important;
+}
+
+.btab-trap.active {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #090d16 !important;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.55);
+}
+
+/* Floating 3D Emote Bubble & Emote Wheel Popover */
+.player-emote-bubble {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  transform: translate(-50%, -50%);
+  z-index: 65;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96));
+  border: 2px solid #facc15;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75), 0 0 20px rgba(250, 204, 21, 0.5);
+  pointer-events: none;
+  animation: emotePopBounce 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes emotePopBounce {
+  0% { transform: translate(-50%, -20%) scale(0.4); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.emote-wheel-popover {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 60;
+  background: rgba(9, 14, 28, 0.96);
+  border: 1.5px solid rgba(250, 204, 21, 0.65);
+  border-radius: 14px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8);
+}
+
+.emote-wheel-btn {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  padding: 6px 8px;
+  color: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.emote-wheel-btn:hover {
+  border-color: #facc15;
+  transform: scale(1.05);
+}
+
+/* Compact Overworld HUD Pills */
+.overworld-hud {
+  max-width: 54%;
+}
+
+.zone-hint {
+  font-size: 0.62rem !important;
+  padding: 3px 7px !important;
+}

@@ -15,13 +15,16 @@
 </head>
 <body>
   <div class="app-shell" id="appShell">
-    <!-- Top Glassmorphic Gamer HUD Bar -->
-    <header class="hud-topbar">
+    <!-- Compact Sleek Live-Play Top HUD Bar (Auto-hidden during 3D Battles & Title Screens) -->
+    <header class="hud-topbar" id="hudTopbar">
       <div class="brand-cluster">
-        <span class="power-led" id="powerLed" title="3D Aether Engine Online"></span>
-        <div>
-          <div class="brand-title">WILDKIN <span class="brand-sub">3D AETHER BOUND</span></div>
-          <div class="zone-pill" id="hudZoneName">Sunleaf Meadow</div>
+        <button class="lobby-pill-btn" id="btnOpenLobby" type="button" title="Open Game Lobby & Hub">
+          <span>🏠</span>
+          <span>Lobby</span>
+        </button>
+        <div class="zone-pill-wrap">
+          <span class="power-led" id="powerLed" title="3D Aether Engine Online"></span>
+          <span class="zone-pill" id="hudZoneName">Sunleaf Meadow</span>
         </div>
       </div>
 
@@ -33,43 +36,53 @@
         <button class="metric-chip metric-chip-gems" id="btnTopMarket" type="button" title="Aether Gems — Tap to open Marketplace">
           <span>💎</span>
           <strong id="hudGems">50</strong>
-          <span class="market-plus-badge">+🛒</span>
+          <span class="market-plus-badge">+</span>
         </button>
-        <div class="metric-chip" title="World Crests Earned">
-          <span>👑</span>
-          <strong id="hudCrests">0/6</strong>
-        </div>
-        <div class="metric-chip" title="KinDex Bound Species">
-          <span>💠</span>
-          <strong id="hudBound">0/27</strong>
-        </div>
-        <button class="icon-btn" id="btnStart" title="Cloud Save & Sync" aria-label="Cloud Save">☁️</button>
-        <button class="icon-btn" id="btnBgm" title="Toggle Synth Music" aria-label="Toggle Music">🎵</button>
-        <button class="icon-btn" id="btnMute" title="Toggle Sound Effects" aria-label="Toggle Audio">🔊</button>
+        <button class="metric-chip metric-chip-pass" id="btnTopBattlePass" type="button" title="Season 1 Battle Pass & Daily Login Prizes">
+          <span>🎖️</span>
+          <strong id="hudPassTier">Lv.1</strong>
+        </button>
+        <button class="icon-btn emote-top-btn" id="btnEmoteWheel" type="button" title="Pop 3D Tamer Emote">😊</button>
+        <button class="hub-menu-trigger-btn" id="btnOpenHubMenu" type="button" title="Open In-Game Tamer Menu">
+          <span>☰</span>
+          <span>MENU</span>
+        </button>
+      </div>
+
+      <!-- Hidden metric counters kept in DOM for HUD sync & tests -->
+      <div class="hidden" aria-hidden="true">
+        <strong id="hudCrests">0/6</strong>
+        <strong id="hudBound">0/27</strong>
       </div>
     </header>
 
-    <!-- Full-Bleed 3D World & Arena Viewport -->
+    <!-- Full-Bleed 3D World & Arena Viewport (Fills 100% height without bottom dock clutter!) -->
     <main class="screen-bezel">
       <div class="screen-viewport" id="screenViewport">
         <!-- 3D WebGL Canvas mounts right here alongside 2D fallback canvas -->
         <canvas id="gameCanvas" width="480" height="360"></canvas>
 
-        <!-- Floating Top-Left Lead Partner HUD & Free-Flowing Movement Hint -->
+        <!-- Floating Top-Left Lead Partner HUD & Compact World Hint -->
         <div class="overworld-hud" id="overworldHud">
-          <div class="lead-kin-mini" id="leadKinMini" title="Tap to manage Squad"></div>
-          <div class="zone-hint" id="zoneHint">✨ Tap anywhere in 3D to run • Hold &amp; drag to steer 360°</div>
+          <div class="lead-kin-mini" id="leadKinMini" title="Tap to manage Squad & Carrier Bag"></div>
+          <div class="zone-hint" id="zoneHint">✨ Tap Wild Kin in 3D to battle • Drag to run</div>
         </div>
 
-        <!-- Floating Top-Right Grandpa Rowan Story Quest Tracker HUD -->
-        <div class="quest-tracker-hud" id="questTrackerHud" title="Tap to open Grandpa Rowan's Story & Quest Journal">
+        <!-- Compact Top-Right Story & Mission Tracker Pill -->
+        <div class="quest-tracker-hud" id="questTrackerHud" title="Tap to open Missions, 18 Side Quests & Daily Tasks">
           <div class="quest-tracker-head">
             <span class="quest-chapter-badge" id="questChapterBadge">CH. 1 / 8</span>
-            <span class="quest-speaker">👴 Grandpa Rowan</span>
+            <span class="quest-speaker">📜 Missions</span>
           </div>
           <div class="quest-title-text" id="questTitleText">Grandfather’s Apprentice</div>
-          <div class="quest-obj-text" id="questObjText">Bind 1 Wild Kin in Sunleaf Meadow &amp; win 2 battles</div>
+          <div class="quest-obj-text" id="questObjText">Catch 1 Wild Kin with a Snare Trap &amp; win 2 battles</div>
         </div>
+
+        <!-- Floating 3D Emote Bubble (Pops over your Tamer in 3D World or Battle!) -->
+        <div class="player-emote-bubble hidden" id="playerEmoteBubble">🔥 FIRED UP!</div>
+
+        <!-- Quick Emote Wheel Popover -->
+        <div class="emote-wheel-popover hidden" id="emoteWheelPopover"></div>
 
         <!-- Floating Dynamic Touch-Drag Vector Ring (appears when dragging finger) -->
         <div class="touch-vector-hud hidden" id="touchVectorHud">
@@ -85,12 +98,12 @@
             <span id="recoveryAlertText">Kin wounded! Passive Regen active (+1 HP / 8s)</span>
           </div>
           <div class="recovery-alert-actions">
-            <button class="recovery-btn-feed" id="btnQuickFeedNow" type="button">🍖 Feed / Heal Now</button>
-            <button class="recovery-btn-market" id="btnQuickOpenMarket" type="button">🛒 Marketplace</button>
+            <button class="recovery-btn-feed" id="btnQuickFeedNow" type="button">🍖 Feed / Heal</button>
+            <button class="recovery-btn-market" id="btnQuickOpenMarket" type="button">🛒 Market</button>
           </div>
         </div>
 
-        <!-- Floating 3D World Action Pills (Bottom of 3D Viewport) -->
+        <!-- Compact Floating 3D World Action Pills (Bottom of 3D Viewport) -->
         <div class="world-action-bar" id="worldActionBar">
           <button class="interact-banner hidden" id="interactBanner" type="button">
             <span class="interact-icon" id="interactIcon">⚡</span>
@@ -98,17 +111,21 @@
           </button>
 
           <div class="world-quick-pills">
-            <button class="world-pill-btn" id="btnQuickWild" type="button" title="Scout nearby tall grass for a Wild Kin battle!">
-              <span>⚔️</span>
-              <span>Scout Wild Kin</span>
+            <button class="world-pill-btn" id="btnQuickWild" type="button" title="Hunt a nearby Wild Kin in the tall grass!">
+              <span>🪤</span>
+              <span>Wild Hunt</span>
             </button>
             <button class="world-pill-btn" id="btnQuickRanch" type="button" title="Open Grandpa Rowan's Homestead Breeding & Care Ranch">
               <span>🧬</span>
-              <span>Grandpa's Ranch</span>
+              <span>Ranch</span>
+            </button>
+            <button class="world-pill-btn" id="btnQuickTrade" type="button" title="Open Cross-World Kin Trade Center">
+              <span>🔄</span>
+              <span>Trade</span>
             </button>
             <button class="world-pill-btn" id="btnCameraMode" type="button" title="Switch 3D Camera Angle">
               <span>🎥</span>
-              <span id="camModeLabel">DYNAMIC 3D</span>
+              <span id="camModeLabel">3D CAM</span>
             </button>
           </div>
         </div>
@@ -116,13 +133,13 @@
         <!-- Toast Notification Overlay -->
         <div class="toast-banner hidden" id="toastBanner"></div>
 
-        <!-- Title & 3D Starter Selection Overlay -->
+        <!-- 1. Starter Selection Overlay (New Tamer starts with 1 Partner Kin!) -->
         <section class="overlay-screen" id="starterOverlay">
           <div class="starter-card-shell">
-            <div class="title-badge">⚡ 3D STORY CAMPAIGN • CATCH • RAISE • BREED • 6 WORLDS</div>
+            <div class="title-badge">⚡ START WITH 1 KIN • CATCH • TRADE • BREED • 6 WORLDS</div>
             <h1 class="game-logo">WILDKIN<span>AETHER BOUND 3D</span></h1>
             <p class="elder-dialogue" id="elderDialogue">
-              “Welcome home to <strong>Heartwood Homestead</strong>, grandchild! I’m your <strong>Grandpa Rowan</strong>. For fifty years I tamed, raised, and bred Wildkin across all six Worlds. Choose your first Partner Kin—I’ll teach you how to catch, bond, breed S-Rank offspring, and conquer every World Warden!”
+              “Welcome to <strong>Heartwood Homestead</strong>, grandchild! Every Tamer begins with <strong>1 Starter Kin</strong> (your carrier bag holds up to <strong>4 Active Kin</strong> until upgraded). Catch wild Kin with <strong>Snare Traps</strong>, trade with rival Tamers, or breed S-Rank eggs at our Ranch!”
             </p>
 
             <div class="starter-grid" id="starterGrid"></div>
@@ -131,11 +148,11 @@
 
             <div class="starter-actions">
               <button class="primary-cta" id="btnConfirmStarter" type="button">
-                💠 Bind Partner &amp; Begin Grandpa’s Training
+                💠 Claim Your 1 Starter Kin &amp; Enter Hub
               </button>
               <div class="secondary-cta-row">
                 <button class="ghost-btn hidden" id="btnContinueSave" type="button">
-                  ▶ Continue Saved Journey
+                  ▶ Open Game Lobby (Saved Game)
                 </button>
                 <button class="ghost-btn" id="btnOpenCloudRestore" type="button">
                   ☁️ Load Cloud Code
@@ -145,98 +162,184 @@
           </div>
         </section>
 
-        <!-- High-Impact Turn-by-Turn 3D Battle Arena Overlay -->
-        <section class="overlay-screen battle-screen hidden" id="battleOverlay">
-          <div class="battle-stage" id="battleStage">
-            <!-- 3D WebGL Battle Arena Canvas (#battle3dCanvas) mounts here! -->
-
-            <!-- Turn-by-Turn Phase Choreography Banner -->
-            <div class="battle-turn-banner phase-ready" id="battleTurnBanner">
-              <span class="turn-phase-pill" id="battleTurnPill">YOUR TURN</span>
-              <span class="turn-phase-text" id="battleTurnText">Select a move or action for your Kin!</span>
+        <!-- 2. Dedicated Entry / Lobby Hub Screen (Separate from Live 3D Gameplay!) -->
+        <section class="overlay-screen lobby-hub-screen hidden" id="mainMenuOverlay">
+          <div class="lobby-hub-shell">
+            <div class="lobby-top-header">
+              <div>
+                <div class="lobby-season-pill">✨ SEASON 1: AETHER AWAKENING</div>
+                <h2 class="lobby-game-title">WILDKIN <span>COMMAND LOBBY</span></h2>
+              </div>
+              <button class="lobby-outfit-chip" id="btnLobbyLockerTop" type="button">
+                <span id="lobbyOutfitIcon">🧥</span>
+                <span id="lobbyOutfitName">Ranger Tunic</span>
+              </button>
             </div>
 
-            <!-- Screen-Slash & Impact Flash Layer -->
-            <div class="battle-impact-flash" id="battleImpactFlash"></div>
-            <div class="battle-damage-layer" id="battleDamageLayer"></div>
+            <!-- Active Tamer & Lead Kin Showcase Card -->
+            <div class="lobby-hero-card" id="lobbyHeroCard"></div>
 
-            <!-- Enemy Combatant HUD (Top-Right Floating Glass Plate) -->
-            <div class="combatant-row enemy-row">
-              <div class="status-plate enemy-plate" id="enemyPlateCard">
-                <div class="plate-header">
-                  <span class="kin-name" id="enemyName">Sparkcheep</span>
-                  <span class="radiant-tag hidden" id="enemyRadiantTag">✨ RADIANT</span>
-                  <span class="bound-tag hidden" id="enemyBoundTag" title="Already Bound in KinDex">💠</span>
-                  <span class="kin-lvl" id="enemyLevel">Lv.3</span>
-                </div>
-                <div class="plate-sub">
-                  <span class="affinity-badge" id="enemyAffinityBadge">⚡ Volt</span>
-                  <span class="status-pill hidden" id="enemyStatusPill">BURN</span>
-                </div>
-                <div class="hp-bar-outer">
-                  <div class="hp-bar-fill" id="enemyHpFill" style="width: 100%"></div>
-                </div>
-                <div class="hp-numeric-row">
-                  <span id="enemyHpText">HP 100%</span>
-                  <span id="battleModeBadge" class="battle-mode-badge">WILD ENCOUNTER</span>
-                </div>
-              </div>
+            <!-- Primary CTA: Jump Straight Into Uncluttered Live 3D Gameplay -->
+            <button class="lobby-play-cta" id="btnEnterLiveWorld" type="button">
+              <span class="play-cta-main">▶ ENTER LIVE 3D WORLD</span>
+              <span class="play-cta-sub" id="lobbyPlaySub">Explore Sunleaf Meadow • Roaming 3D Wild Kin Active</span>
+            </button>
 
-              <!-- 2D Mini Badge / Fallback Pedestal (hidden when 3D arena active) -->
-              <div class="sprite-pedestal enemy-pedestal">
-                <div class="pedestal-ring"></div>
-                <div class="sprite-holder" id="enemySpriteHolder"></div>
-                <canvas class="prism-anim-canvas hidden" id="prismAnimCanvas" width="120" height="120"></canvas>
-              </div>
-            </div>
+            <!-- 6 Clean Lobby Feature Cards -->
+            <div class="lobby-grid">
+              <button class="lobby-feature-card highlight-gold" id="btnLobbyBattlePass" type="button">
+                <div class="lfc-ico">🎖️</div>
+                <div class="lfc-info">
+                  <div class="lfc-title">Battle Pass &amp; Login</div>
+                  <div class="lfc-sub" id="lobbyBpSub">Season 1 • Daily Prizes</div>
+                </div>
+              </button>
 
-            <!-- Player Combatant HUD (Bottom-Left Floating Glass Plate) -->
-            <div class="combatant-row player-row">
-              <div class="sprite-pedestal player-pedestal">
-                <div class="pedestal-ring"></div>
-                <div class="sprite-holder" id="playerSpriteHolder"></div>
-              </div>
+              <button class="lobby-feature-card highlight-cyan" id="btnLobbyMissions" type="button">
+                <div class="lfc-ico">📜</div>
+                <div class="lfc-info">
+                  <div class="lfc-title">Missions &amp; Quests</div>
+                  <div class="lfc-sub" id="lobbyQuestSub">18 Side Quests • 12 Tasks</div>
+                </div>
+              </button>
 
-              <div class="status-plate player-plate" id="playerPlateCard">
-                <div class="plate-header">
-                  <span class="kin-name" id="playerName">Cinderkit</span>
-                  <span class="radiant-tag hidden" id="playerRadiantTag">✨</span>
-                  <span class="kin-lvl" id="playerLevel">Lv.5</span>
+              <button class="lobby-feature-card highlight-green" id="btnLobbyTrade" type="button">
+                <div class="lfc-ico">🔄</div>
+                <div class="lfc-info">
+                  <div class="lfc-title">Kin Trade Center</div>
+                  <div class="lfc-sub">Swap Kin • NPC &amp; Live Rooms</div>
                 </div>
-                <div class="plate-sub">
-                  <span class="affinity-badge" id="playerAffinityBadge">🔥 Pyre</span>
-                  <span class="status-pill hidden" id="playerStatusPill">BURN</span>
+              </button>
+
+              <button class="lobby-feature-card highlight-purple" id="btnLobbyLocker" type="button">
+                <div class="lfc-ico">👕</div>
+                <div class="lfc-info">
+                  <div class="lfc-title">Outfits &amp; Emotes</div>
+                  <div class="lfc-sub">3D Skins • Emote Wheel</div>
                 </div>
-                <div class="hp-bar-outer">
-                  <div class="hp-bar-fill" id="playerHpFill" style="width: 100%"></div>
+              </button>
+
+              <button class="lobby-feature-card" id="btnLobbyRanch" type="button">
+                <div class="lfc-ico">🧬</div>
+                <div class="lfc-info">
+                  <div class="lfc-title">Grandpa’s Ranch</div>
+                  <div class="lfc-sub">Breed Eggs • Bond &amp; Feed</div>
                 </div>
-                <div class="hp-numeric-row">
-                  <span id="playerHpText">24 / 24 HP</span>
-                  <span id="playerXpText">XP 0/45</span>
+              </button>
+
+              <button class="lobby-feature-card" id="btnLobbyMarket" type="button">
+                <div class="lfc-ico">🛒</div>
+                <div class="lfc-info">
+                  <div class="lfc-title">Marketplace &amp; Bags</div>
+                  <div class="lfc-sub" id="lobbyBagSub">Squad 1/4 • Upgrade Bag</div>
                 </div>
-                <div class="xp-bar-outer">
-                  <div class="xp-bar-fill" id="playerXpFill" style="width: 0%"></div>
-                </div>
-              </div>
+              </button>
             </div>
           </div>
+        </section>
 
-          <!-- Sleek Action-Packed Tactical Battle Console -->
+        <!-- 3. Unobstructed Full-Viewport 3D Battle Colosseum Overlay -->
+        <section class="overlay-screen battle-screen hidden" id="battleOverlay">
+          <div class="battle-stage" id="battleStage">
+            <!-- 3D WebGL Battle Arena Canvas (#battle3dCanvas) mounts here as full-bleed background! -->
+
+            <!-- Non-Overlapping Top Header Row: Turn Choreography Banner + Quick Emote Button -->
+            <div class="battle-top-bar-wrap">
+              <div class="battle-turn-banner phase-ready" id="battleTurnBanner">
+                <span class="turn-phase-pill" id="battleTurnPill">YOUR TURN</span>
+                <span class="turn-phase-text" id="battleTurnText">Choose your Kin’s action!</span>
+              </div>
+              <button class="battle-emote-btn" id="btnBattleEmote" type="button" title="Send Battle Emote">😊</button>
+            </div>
+
+            <!-- Compact Side-by-Side Corner Glass HUD Plates (Leaves Center 68% 100% Open for 3D Combat!) -->
+            <div class="battle-hud-top-row">
+              <!-- Enemy Combatant HUD (Top-Left) -->
+              <div class="combatant-row enemy-row">
+                <div class="status-plate enemy-plate" id="enemyPlateCard">
+                  <div class="plate-header">
+                    <span class="mini-kin-svg" id="enemyMiniSvg"></span>
+                    <span class="kin-name" id="enemyName">Sparkcheep</span>
+                    <span class="radiant-tag hidden" id="enemyRadiantTag">★</span>
+                    <span class="bound-tag hidden" id="enemyBoundTag" title="Already Bound in KinDex">💠</span>
+                    <span class="kin-lvl" id="enemyLevel">Lv.3</span>
+                  </div>
+                  <div class="plate-sub">
+                    <span class="affinity-badge" id="enemyAffinityBadge">⚡ Volt</span>
+                    <span class="status-pill hidden" id="enemyStatusPill">BURN</span>
+                    <span id="battleModeBadge" class="battle-mode-badge">WILD</span>
+                  </div>
+                  <div class="hp-bar-outer">
+                    <div class="hp-bar-fill" id="enemyHpFill" style="width: 100%"></div>
+                  </div>
+                  <div class="hp-numeric-row">
+                    <span id="enemyHpText">HP 100%</span>
+                    <span id="enemyCatchHint" class="catch-hint-pill">🪤 Ready</span>
+                  </div>
+                </div>
+
+                <!-- Hidden 2D fallback holder kept in DOM for compatibility -->
+                <div class="sprite-pedestal enemy-pedestal">
+                  <div class="pedestal-ring"></div>
+                  <div class="sprite-holder" id="enemySpriteHolder"></div>
+                  <canvas class="prism-anim-canvas hidden" id="prismAnimCanvas" width="120" height="120"></canvas>
+                </div>
+              </div>
+
+              <!-- Player Combatant HUD (Top-Right) -->
+              <div class="combatant-row player-row">
+                <div class="sprite-pedestal player-pedestal">
+                  <div class="pedestal-ring"></div>
+                  <div class="sprite-holder" id="playerSpriteHolder"></div>
+                </div>
+
+                <div class="status-plate player-plate" id="playerPlateCard">
+                  <div class="plate-header">
+                    <span class="mini-kin-svg" id="playerMiniSvg"></span>
+                    <span class="kin-name" id="playerName">Cinderkit</span>
+                    <span class="radiant-tag hidden" id="playerRadiantTag">★</span>
+                    <span class="kin-lvl" id="playerLevel">Lv.5</span>
+                  </div>
+                  <div class="plate-sub">
+                    <span class="affinity-badge" id="playerAffinityBadge">🔥 Pyre</span>
+                    <span class="status-pill hidden" id="playerStatusPill">BURN</span>
+                    <span id="playerXpText" class="xp-mini-lbl">XP 0/45</span>
+                  </div>
+                  <div class="hp-bar-outer">
+                    <div class="hp-bar-fill" id="playerHpFill" style="width: 100%"></div>
+                  </div>
+                  <div class="hp-numeric-row">
+                    <span id="playerHpText">24 / 24 HP</span>
+                  </div>
+                  <div class="xp-bar-outer">
+                    <div class="xp-bar-fill" id="playerXpFill" style="width: 0%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Screen-Slash & Impact Flash Layer + Floating Damage Popups -->
+            <div class="battle-impact-flash" id="battleImpactFlash"></div>
+            <div class="battle-damage-layer" id="battleDamageLayer"></div>
+          </div>
+
+          <!-- Sleek Bottom Tactical Battle Console with Prominent 🪤 TRAP Button -->
           <div class="battle-console">
             <div class="battle-log" id="battleLog">A wild Kin lunged from the swaying grass!</div>
 
             <div class="battle-tabs">
               <button class="btab active" data-btab="moves" id="btabMoves" type="button">⚔️ STRIKE</button>
-              <button class="btab" data-btab="pack" id="btabPack" type="button">💠 PRISM / PACK</button>
+              <button class="btab btab-trap" data-btab="trap" id="btnBattleTrap" type="button">🪤 TRAP</button>
+              <button class="btab" data-btab="pack" id="btabPack" type="button">🎒 PACK</button>
               <button class="btab" data-btab="squad" id="btabSquad" type="button">🐾 SQUAD</button>
-              <button class="btab" data-btab="flee" id="btabFlee" type="button">🏃 RETREAT</button>
+              <button class="btab" data-btab="flee" id="btabFlee" type="button">🏃 FLEE</button>
             </div>
 
             <div class="battle-deck-content" id="battleDeckContent"></div>
           </div>
         </section>
 
-        <!-- 3-Stage Evolution Cutscene Overlay -->
+        <!-- 4. 3-Stage Evolution Cutscene Overlay -->
         <section class="overlay-screen evo-screen hidden" id="evolutionOverlay">
           <div class="evo-card">
             <div class="evo-stage-badge" id="evoStageBadge">AETHER METAMORPHOSIS • STAGE 1/3</div>
@@ -249,51 +352,86 @@
       </div>
     </main>
 
-    <!-- Bottom Glassmorphic Quick-Tap RPG Dock -->
-    <nav class="quick-dock" aria-label="Game Menus">
-      <button class="dock-btn" id="btnDockSquad" type="button">
-        <span class="dock-ico">🐾</span>
-        <span>Squad</span>
-      </button>
-      <button class="dock-btn" id="btnDockRanch" type="button">
-        <span class="dock-ico">🧬</span>
-        <span>Ranch</span>
-      </button>
-      <button class="dock-btn" id="btnDockStory" type="button">
-        <span class="dock-ico">📜</span>
-        <span>Story</span>
-      </button>
-      <button class="dock-btn" id="btnDockKindex" type="button">
-        <span class="dock-ico">📖</span>
-        <span>KinDex</span>
-      </button>
-      <button class="dock-btn" id="btnDockArena" type="button">
-        <span class="dock-ico">👑</span>
-        <span>Wardens</span>
-      </button>
-      <button class="dock-btn" id="btnDockShop" type="button">
-        <span class="dock-ico">🛒</span>
-        <span>Market</span>
-      </button>
-      <button class="dock-btn" id="btnDockHeal" type="button">
-        <span class="dock-ico">⛲</span>
-        <span>Shrine</span>
-      </button>
-      <button class="dock-btn" id="btnDockZones" type="button">
-        <span class="dock-ico">🗺️</span>
-        <span>Worlds</span>
-      </button>
-    </nav>
+    <!-- Slide-Up In-Game Tamer Menu Drawer (Replaces bulky persistent bottom dock!) -->
+    <div class="tamer-menu-backdrop hidden" id="tamerMenuDrawer">
+      <div class="tamer-menu-sheet">
+        <div class="tamer-menu-header">
+          <div>
+            <div class="tamer-menu-title">⚡ TAMER COMMAND MENU</div>
+            <div class="tamer-menu-sub" id="tamerMenuSub">Active Squad: 1/4 Kin • Carrier Bag: 0/8</div>
+          </div>
+          <button class="modal-close" id="btnCloseHubMenu" type="button" aria-label="Close Menu">✕</button>
+        </div>
+
+        <nav class="quick-dock" id="quickDock" aria-label="Game Menus">
+          <button class="dock-btn" id="btnDockSquad" type="button">
+            <span class="dock-ico">🐾</span>
+            <span>Squad &amp; Bag</span>
+          </button>
+          <button class="dock-btn" id="btnDockPass" type="button">
+            <span class="dock-ico">🎖️</span>
+            <span>Battle Pass</span>
+          </button>
+          <button class="dock-btn" id="btnDockStory" type="button">
+            <span class="dock-ico">📜</span>
+            <span>Missions</span>
+          </button>
+          <button class="dock-btn" id="btnDockRanch" type="button">
+            <span class="dock-ico">🧬</span>
+            <span>Ranch &amp; Breed</span>
+          </button>
+          <button class="dock-btn" id="btnDockTrade" type="button">
+            <span class="dock-ico">🔄</span>
+            <span>Kin Trade</span>
+          </button>
+          <button class="dock-btn" id="btnDockShop" type="button">
+            <span class="dock-ico">🛒</span>
+            <span>Marketplace</span>
+          </button>
+          <button class="dock-btn" id="btnDockLocker" type="button">
+            <span class="dock-ico">👕</span>
+            <span>Outfits/Emotes</span>
+          </button>
+          <button class="dock-btn" id="btnDockKindex" type="button">
+            <span class="dock-ico">📖</span>
+            <span>KinDex</span>
+          </button>
+          <button class="dock-btn" id="btnDockZones" type="button">
+            <span class="dock-ico">🗺️</span>
+            <span>6 Worlds</span>
+          </button>
+          <button class="dock-btn" id="btnDockArena" type="button">
+            <span class="dock-ico">👑</span>
+            <span>Spire &amp; PvP</span>
+          </button>
+          <button class="dock-btn" id="btnDockHeal" type="button">
+            <span class="dock-ico">⛲</span>
+            <span>Heal Shrine</span>
+          </button>
+          <button class="dock-btn" id="btnDockLobby" type="button">
+            <span class="dock-ico">🏠</span>
+            <span>Main Lobby</span>
+          </button>
+        </nav>
+
+        <div class="tamer-menu-utility-row">
+          <button class="ghost-btn" id="btnStart" type="button">☁️ Cloud Save</button>
+          <button class="ghost-btn" id="btnBgm" type="button">🎵 Music</button>
+          <button class="ghost-btn" id="btnMute" type="button">🔊 SFX</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Legacy hidden hooks kept only for programmatic compatibility -->
     <div class="hidden" aria-hidden="true">
       <button id="btnSelect" type="button"></button>
+      <button id="btnDockMarket" type="button"></button>
       <button id="btnPadA" type="button"></button>
       <button id="btnPadB" type="button"></button>
     </div>
   </div>
 
-  <!-- Universal Modal Drawer (Squad, Ranch/Breeding, Story, KinDex, Wardens & Spire, Shop, Worlds, Cloud Save) -->
+  <!-- Universal Modal Drawer (Squad, Ranch/Breeding, Story/Missions, Battle Pass, Trade, Locker, KinDex, Wardens & Spire, Shop, Worlds, Cloud Save) -->
   <div class="modal-backdrop hidden" id="modalBackdrop">
     <div class="modal-sheet" id="modalSheet">
       <div class="modal-header">

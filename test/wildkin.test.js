@@ -168,12 +168,37 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities, 6 Worlds, 6
     }
 
     assert.ok(Array.isArray(WildkinData.SIDE_QUESTS));
-    assert.equal(WildkinData.SIDE_QUESTS.length, 6);
+    assert.equal(WildkinData.SIDE_QUESTS.length, 18);
+    assert.equal(WildkinData.TAMER_TASKS.length, 12);
     for (const sq of WildkinData.SIDE_QUESTS) {
       assert.ok(sq.id && sq.title && sq.giver && sq.objective && sq.rewardShards >= 250);
       for (const itemKey of Object.keys(sq.rewardItems)) {
         assert.ok(WildkinData.ITEMS[itemKey], `Side quest ${sq.id} references unknown reward item "${itemKey}"`);
       }
+    }
+  });
+
+  it('defines Food, Recovery, Revive, and Level-Up Booster items in DATA.ITEMS and USD GEM_BUNDLES', () => {
+    const requiredItems = [
+      'sunberryRation', 'heartwoodStew', 'feastPlatter', 'heartwoodBerry', 'apexNectar',
+      'dewTonic', 'vitalTonic', 'hiTonic', 'hyperTonic', 'reviveLeaf', 'phoenixDew',
+      'aetherCandy', 'apexTome', 'xpBooster2x', 'hatchAccelerator',
+      'basicPrism', 'greaterPrism', 'masteryPrism'
+    ];
+    for (const key of requiredItems) {
+      const itm = WildkinData.ITEMS[key];
+      assert.ok(itm, `Missing item "${key}" in DATA.ITEMS`);
+      assert.ok(itm.name && itm.icon && itm.desc, `Item "${key}" missing metadata`);
+      assert.ok(itm.marketTab === 'recovery' || itm.marketTab === 'boosters', `Item "${key}" should declare marketTab`);
+    }
+
+    assert.ok(Array.isArray(WildkinData.MARKETPLACE_BUNDLES), 'Expected MARKETPLACE_BUNDLES array');
+    assert.ok(Array.isArray(WildkinData.GEM_BUNDLES), 'Expected GEM_BUNDLES alias array');
+    assert.equal(WildkinData.GEM_BUNDLES.length, 4);
+    const expectedIds = ['starter_recovery', 'tamers_pouch', 'breeders_vault', 'sovereign_treasury'];
+    assert.deepEqual(WildkinData.GEM_BUNDLES.map((b) => b.id), expectedIds);
+    for (const b of WildkinData.GEM_BUNDLES) {
+      assert.ok(b.priceUsd > 0 && b.priceDisplay && b.gems >= 250 && b.items);
     }
   });
 
@@ -367,6 +392,18 @@ describe('4. public/js/renderer3d.js & Turn-by-Turn 3D Combat / Procedural Surfa
     assert.ok(gameSrc.includes('setTargetBeacon'), 'game.js should show 3D target beacon on tap-to-move');
     assert.ok(gameSrc.includes('playAttack3D'), 'game.js should trigger 3D dash/lunge/beam attacks via playAttack3D');
     assert.ok(gameSrc.includes('spawnBattleDamagePopup'), 'game.js should spawn floating 3D battle damage popups');
+    // Vitality Recovery & 3-Tab Aether Marketplace UI hooks
+    assert.ok(html.includes('id="recoveryAlertBanner"'), 'index.html should have #recoveryAlertBanner');
+    assert.ok(html.includes('id="btnQuickFeedNow"'), 'index.html should have #btnQuickFeedNow');
+    assert.ok(html.includes('id="btnQuickOpenMarket"'), 'index.html should have #btnQuickOpenMarket');
+    assert.ok(html.includes('id="btnTopMarket"'), 'index.html should have #btnTopMarket');
+    assert.ok(html.includes('id="btnDockShop"'), 'index.html should have #btnDockShop');
+    assert.ok(html.includes('id="btnDockMarket"'), 'index.html should have #btnDockMarket');
+    assert.ok(gameSrc.includes('tickPassiveRecovery'), 'game.js should implement tickPassiveRecovery');
+    assert.ok(gameSrc.includes('data-mtab="recovery"'), 'game.js should render recovery marketplace tab');
+    assert.ok(gameSrc.includes('data-mtab="boosters"'), 'game.js should render boosters marketplace tab');
+    assert.ok(gameSrc.includes('data-mtab="gems"'), 'game.js should render gems marketplace tab');
+    assert.ok(gameSrc.includes('purchaseUsdBundle'), 'game.js should implement purchaseUsdBundle checkout flow');
     assert.equal(typeof WildkinGame.selectStarter, 'function');
   });
 
@@ -435,6 +472,104 @@ describe('4. public/js/renderer3d.js & Turn-by-Turn 3D Combat / Procedural Surfa
     const xpRes = WildkinGame.useRecoveryOrBoosterItem('xpBooster2x', 0, st);
     assert.equal(xpRes.ok, true);
     assert.ok(st.xpBoostUntil > Date.now(), '2x XP Surge Elixir should set xpBoostUntil');
+
+    // 8. Ranch Hatch Accelerator activates guaranteed S/SS free breeding hatch
+    st.inventory.hatchAccelerator = 1;
+    const hatchRes = WildkinGame.useRecoveryOrBoosterItem('hatchAccelerator', 0, st);
+    assert.equal(hatchRes.ok, true);
+    assert.equal(st.hatchBoostReady, true);
+
+    // 9. Faster passive HP recovery at Grandpa's Homestead Sanctuary (meadow)
+    lead.currentHp = 5;
+    st.zone = 'meadow';
+    const meadowTick = WildkinGame.tickPassiveRecovery(st, 5);
+    assert.ok(meadowTick.totalHpRestored >= 3, 'Homestead Sanctuary should restore at least +3 HP over 5s');
+  });
+
+  it('starts with 1 Kin, enforces 4-Kin Active Squad limit, and expands Squad & Reserve capacity via Kin Carrier Bag upgrades (bagUpgrade1/2/3)', () => {
+    const st = WildkinGame.createInitialState(1);
+    assert.equal(st.squad.length, 1, 'New player must start with exactly 1 Starter Kin');
+    assert.equal(WildkinGame.getMaxSquadSize(st), 4, 'Default Active Squad limit must be 4 Kin');
+    assert.equal(WildkinGame.getMaxVaultSize(st), 8, 'Default Reserve Carrier Bag limit must be 8 Kin');
+
+    // Upgrade Bag Tier 1 -> 5 Active / 16 Reserve
+    const up1 = WildkinGame.upgradeKinBag('bagUpgrade1', st);
+    assert.equal(up1.ok, true);
+    assert.equal(st.bagTier, 1);
+    assert.equal(WildkinGame.getMaxSquadSize(st), 5);
+    assert.equal(WildkinGame.getMaxVaultSize(st), 16);
+
+    // Upgrade Bag Tier 2 -> 6 Active / 28 Reserve
+    const up2 = WildkinGame.upgradeKinBag('bagUpgrade2', st);
+    assert.equal(up2.ok, true);
+    assert.equal(st.bagTier, 2);
+    assert.equal(WildkinGame.getMaxSquadSize(st), 6);
+    assert.equal(WildkinGame.getMaxVaultSize(st), 28);
+
+    // Upgrade Bag Tier 3 -> 8 Active / 52 Reserve
+    const up3 = WildkinGame.upgradeKinBag('bagUpgrade3', st);
+    assert.equal(up3.ok, true);
+    assert.equal(st.bagTier, 3);
+    assert.equal(WildkinGame.getMaxSquadSize(st), 8);
+    assert.equal(WildkinGame.getMaxVaultSize(st), 52);
+  });
+
+  it('supports Season 1 Battle Pass (20 Tiers), 7-Day Daily/Weekly Login Prizes, 3D Tamer Outfits, Emotes, Cross-World Kin Trading, and 3D Wild Spawns', () => {
+    assert.equal(WildkinData.BATTLE_PASS_TIERS.length, 20);
+    assert.equal(WildkinData.DAILY_LOGIN_REWARDS.length, 7);
+    assert.equal(WildkinData.TAMER_OUTFITS.length, 6);
+    assert.equal(WildkinData.TAMER_EMOTES.length, 6);
+    assert.equal(WildkinData.NPC_TRADES.length, 6);
+    assert.equal(typeof Wildkin3D.syncWildSpawns, 'function');
+    assert.equal(typeof Wildkin3D.syncPlayerOutfit, 'function');
+
+    const st = WildkinGame.createInitialState(4);
+
+    // 1. Claim Day 1 Login Reward & Day 7 Weekly Grand Prize
+    const d1 = WildkinGame.claimDailyLoginReward(1, st);
+    assert.equal(d1.ok, true);
+    assert.equal(st.claimedLoginDays[1], true);
+
+    const d7 = WildkinGame.claimDailyLoginReward(7, st);
+    assert.equal(d7.ok, true);
+    assert.equal(st.unlockedOutfits.sovereign_regalia, true, 'Day 7 Weekly Grand Prize should unlock Astral Sovereign Regalia outfit');
+    assert.equal(st.unlockedEmotes.emote_crown, true, 'Day 7 Weekly Grand Prize should unlock Sovereign King emote');
+
+    // 2. Equip 3D Outfit & Trigger Floating Emote
+    const eqRes = WildkinGame.equipOutfit('sovereign_regalia', st);
+    assert.equal(eqRes.ok, true);
+    assert.equal(st.equippedOutfit, 'sovereign_regalia');
+    const emRes = WildkinGame.triggerEmote('emote_crown', st);
+    assert.equal(emRes.ok, true);
+
+    // 3. Battle Pass XP, Free Track & Gold Track claims
+    st.gems = 300;
+    const goldUnlock = WildkinGame.unlockGoldBattlePass(st);
+    assert.equal(goldUnlock.ok, true);
+    assert.equal(st.battlePassGold, true);
+    WildkinGame.addBattlePassXp(500, st);
+    assert.ok(WildkinGame.getBattlePassLevel(st) >= 4);
+
+    const bpFree = WildkinGame.claimBattlePassTier(1, 'free', st);
+    assert.equal(bpFree.ok, true);
+    const bpGold = WildkinGame.claimBattlePassTier(1, 'gold', st);
+    assert.equal(bpGold.ok, true);
+
+    // 4. Cross-World NPC Kin Trade (Trade Meadow #10Briarhorn for A-Rank #13 Sparkit)
+    st.squad.push(WildkinData.createKinInstance(10, 6));
+    const trRes = WildkinGame.executeNpcTrade('trade_meadow_volt', st);
+    assert.equal(trRes.ok, true);
+    assert.equal(trRes.receivedKin.speciesId, 10);
+    assert.equal(trRes.receivedKin.geneticTier, 'A');
+    assert.equal(st.stats.tradesDone, 1);
+
+    // 5. Decluttered UI & Transparent 3D Battle Arena verification in index.html & styles.css
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'styles.css'), 'utf8');
+    assert.ok(html.includes('id="mainMenuOverlay"'), 'index.html must include separate Entry/Lobby menu #mainMenuOverlay');
+    assert.ok(html.includes('id="tamerMenuDrawer"'), 'index.html must include slide-up In-Game Menu drawer #tamerMenuDrawer');
+    assert.ok(html.includes('id="btnBattleTrap"'), 'index.html must include dedicated Snare Trap button #btnBattleTrap');
+    assert.ok(css.includes('body.in-battle .hud-topbar'), 'styles.css must hide topbar during 3D battles');
   });
 });
 
@@ -644,8 +779,31 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     assert.equal(checkoutRes.status, 200);
     const checkoutData = await checkoutRes.json();
     assert.equal(checkoutData.ok, true);
+    assert.ok(Array.isArray(catData.gemBundles) && catData.gemBundles.length === 4, 'Should also return gemBundles alias');
     assert.equal(checkoutData.order.bundleId, 'starter_recovery');
     assert.equal(checkoutData.order.granted.gems, 250);
     assert.ok(checkoutData.order.granted.items.heartwoodStew >= 5);
+
+    // Verify sovereign_treasury VIP bundle & orders log
+    const vipRes = await fetch(`${baseUrl}/api/marketplace/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bundleId: 'sovereign_treasury',
+        paymentMethod: 'card',
+        trainerName: 'Tamer Aria'
+      })
+    });
+    assert.equal(vipRes.status, 200);
+    const vipData = await vipRes.json();
+    assert.equal(vipData.ok, true);
+    assert.equal(vipData.order.granted.gems, 3800);
+    assert.equal(vipData.order.granted.vipShrinePass, true);
+
+    const ordersRes = await fetch(`${baseUrl}/api/marketplace/orders`);
+    assert.equal(ordersRes.status, 200);
+    const ordersData = await ordersRes.json();
+    assert.equal(ordersData.ok, true);
+    assert.ok(ordersData.orders.length >= 2);
   });
 });
