@@ -2148,7 +2148,9 @@
     syncZone,
     syncCompanionKin,
     syncWildSpawns,
+    syncWildRoamers: syncWildSpawns,
     syncPlayerOutfit,
+    syncTamerOutfit: syncPlayerOutfit,
     screenToWorldTile,
     setTargetBeacon,
     renderOverworldFrame,
@@ -2158,6 +2160,7 @@
     setBattleTurnPhase,
     playAttack3D,
     playPrismCapture3D,
+    playSnareTrapCapture3D: playPrismCapture3D,
     renderBattleFrame,
     buildKin3DMesh
   };

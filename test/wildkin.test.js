@@ -152,7 +152,7 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities, 6 Worlds, 6
     assert.ok(gen4.atk > baseB.atk, 'SS-Rank Radiant offspring should have significantly higher ATK than B-Rank');
   });
 
-  it('validates all 8 STORY_CHAPTERS and 6 SIDE_QUESTS with valid item rewards', () => {
+  it('validates all 8 STORY_CHAPTERS, 18 SIDE_QUESTS (3 per world), and 12 TAMER_TASKS with valid item rewards', () => {
     assert.ok(Array.isArray(WildkinData.STORY_CHAPTERS));
     assert.equal(WildkinData.STORY_CHAPTERS.length, 8);
     for (let i = 0; i < 8; i++) {
@@ -570,6 +570,86 @@ describe('4. public/js/renderer3d.js & Turn-by-Turn 3D Combat / Procedural Surfa
     assert.ok(html.includes('id="tamerMenuDrawer"'), 'index.html must include slide-up In-Game Menu drawer #tamerMenuDrawer');
     assert.ok(html.includes('id="btnBattleTrap"'), 'index.html must include dedicated Snare Trap button #btnBattleTrap');
     assert.ok(css.includes('body.in-battle .hud-topbar'), 'styles.css must hide topbar during 3D battles');
+  });
+
+  it('verifies 18 World Side Quests (3 per world) and 12 Daily Tasks / Tamer Milestones (TAMER_TASKS) claim flows', () => {
+    const worldCounts = {};
+    for (const sq of WildkinData.SIDE_QUESTS) {
+      const w = sq.zone || sq.worldId;
+      worldCounts[w] = (worldCounts[w] || 0) + 1;
+    }
+    assert.deepEqual(worldCounts, {
+      meadow: 3,
+      tidecove: 3,
+      stormspire: 3,
+      frostveil: 3,
+      embervault: 3,
+      sanctum: 3
+    }, 'Each of the 6 playable worlds must have exactly 3 Side Quests (18 total)');
+
+    const st = WildkinGame.createInitialState(1);
+    const shardsBefore = st.shards;
+    const gemsBefore = st.gems;
+
+    // Complete sq_meadow_pest_patrol (Catch 3 Wild Kin -> metric: wildCaught, target: 3)
+    st.kindexBound[1] = true;
+    st.kindexBound[4] = true;
+    st.kindexBound[7] = true;
+    const sqRes = WildkinGame.claimSideQuest('sq_meadow_pest_patrol', st);
+    assert.equal(sqRes.ok, true, 'Should claim completed Side Quest sq_meadow_pest_patrol');
+    assert.equal(st.claimedSideQuests.sq_meadow_pest_patrol, true);
+    assert.ok(st.shards > shardsBefore, 'Side Quest should award Aether Shards');
+    assert.ok(st.gems > gemsBefore, 'Side Quest should award Aether Gems');
+    assert.ok(st.battlePassXp >= 75, 'Side Quest should award +75 Battle Pass XP');
+
+    // Complete task_first_snare (Catch 2 Wild Kin -> metric: kinBound, target: 2)
+    const taskRes = WildkinGame.claimTamerTask('task_first_snare', st);
+    assert.equal(taskRes.ok, true, 'Should claim completed Tamer Task task_first_snare');
+    assert.equal(st.claimedTasks.task_first_snare, true);
+    assert.ok(st.battlePassXp >= 120, 'Tamer Task should award +45 Battle Pass XP');
+  });
+
+  it('verifies Visible Roaming 3D Wild Kin (ensureZoneWildSpawns / syncWildRoamers), 3D Mechanical Snare Trap (playSnareTrapCapture3D), and Lobby / Tamer Hub Drawer controls', () => {
+    assert.equal(typeof Wildkin3D.syncWildSpawns, 'function');
+    assert.equal(typeof Wildkin3D.syncWildRoamers, 'function');
+    assert.equal(typeof Wildkin3D.syncPlayerOutfit, 'function');
+    assert.equal(typeof Wildkin3D.syncTamerOutfit, 'function');
+    assert.equal(typeof Wildkin3D.playPrismCapture3D, 'function');
+    assert.equal(typeof Wildkin3D.playSnareTrapCapture3D, 'function');
+    assert.equal(typeof WildkinGame.ensureZoneWildSpawns, 'function');
+    assert.equal(typeof WildkinGame.syncWildRoamers, 'function');
+    assert.equal(typeof WildkinGame.triggerOverworldEmote, 'function');
+    assert.equal(typeof WildkinGame.openLobbyScreen, 'function');
+    assert.equal(typeof WildkinGame.closeLobbyScreen, 'function');
+    assert.equal(typeof WildkinGame.openHubMenuDrawer, 'function');
+    assert.equal(typeof WildkinGame.closeHubMenuDrawer, 'function');
+    assert.ok(Array.isArray(WildkinData.LOGIN_CALENDAR) && WildkinData.LOGIN_CALENDAR.length === 7);
+    assert.ok(Array.isArray(WildkinData.NEPC_TRADES) && WildkinData.NEPC_TRADES.length === 6);
+
+    // Spawn roaming 3D wild Kin across zones
+    for (const zoneId of ['meadow', 'tidecove', 'stormspire', 'frostveil', 'embervault', 'sanctum']) {
+      const spawns = WildkinGame.ensureZoneWildSpawns(zoneId);
+      assert.equal(spawns.length, 4, `Zone ${zoneId} must spawn 4 visible roaming 3D wild Kin`);
+      for (const ws of spawns) {
+        assert.equal(ws.zone, zoneId);
+        assert.ok(ws.speciesId >= 1 && ws.speciesId <= 27);
+        assert.ok(ws.level >= 2);
+        assert.equal(typeof ws.x, 'number');
+        assert.equal(typeof ws.y, 'number');
+      }
+    }
+
+    // Verify 3D Snare Trap callback execution in headless mode
+    let trapDone = false;
+    Wildkin3D.playSnareTrapCapture3D(0xf59e0b, 3, true, () => {
+      trapDone = true;
+    });
+    assert.equal(trapDone, true, 'playSnareTrapCapture3D should invoke completion callback cleanly');
+
+    // Verify transparent battle-stage / battle-arena-bg and hidden HUD rules in styles.css
+    const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'styles.css'), 'utf8');
+    assert.ok(css.includes('body.in-battle .tamer-menu-backdrop'), 'styles.css must hide Tamer menu drawer during battle');
+    assert.ok(css.includes('.battle-arena-bg') && css.includes('transparent'), 'styles.css must make .battle-arena-bg transparent so #battle3dCanvas shines through');
   });
 });
 

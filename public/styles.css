@@ -1689,6 +1689,7 @@ html, body {
    ========================================================================== */
 
 body.in-battle .hud-topbar,
+body.in-battle .tamer-menu-backdrop,
 body.in-lobby .hud-topbar,
 body.in-starter .hud-topbar {
   display: none !important;
@@ -2008,7 +2009,8 @@ body.in-starter .hud-topbar {
   justify-content: space-between;
 }
 
-#battleStage.battle-stage {
+#battleStage.battle-stage,
+.battle-arena-bg {
   position: relative;
   flex: 1;
   background: transparent !important;
