@@ -91,6 +91,7 @@ function getDefaultRooms() {
 app.use(compression());
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+app.use('/vendor', express.static(path.join(__dirname, 'node_modules', 'three', 'build')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 1. Health Endpoint

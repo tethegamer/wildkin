@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Wildkin" />
-  <meta name="theme-color" content="#090d18" />
-  <title>Wildkin: Aether Bound — Handheld Creature-Catching RPG</title>
+  <meta name="apple-mobile-web-app-title" content="Wildkin 3D" />
+  <meta name="theme-color" content="#060913" />
+  <title>Wildkin: Aether Bound — 3D Creature-Catching Action RPG</title>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
   <link rel="apple-touch-icon" href="/icon.svg" />
@@ -15,12 +15,12 @@
 </head>
 <body>
   <div class="app-shell" id="appShell">
-    <!-- Top Handheld Telemetry Bar -->
+    <!-- Top Glassmorphic Gamer HUD Bar -->
     <header class="hud-topbar">
       <div class="brand-cluster">
-        <span class="power-led" id="powerLed" title="Aether Core Online"></span>
+        <span class="power-led" id="powerLed" title="3D Aether Engine Online"></span>
         <div>
-          <div class="brand-title">WILDKIN <span class="brand-sub">AETHER BOUND</span></div>
+          <div class="brand-title">WILDKIN <span class="brand-sub">3D AETHER BOUND</span></div>
           <div class="zone-pill" id="hudZoneName">Sunleaf Meadow</div>
         </div>
       </div>
@@ -38,39 +38,60 @@
           <span>💠</span>
           <strong id="hudBound">0/27</strong>
         </div>
-        <button class="icon-btn" id="btnBgm" title="Toggle Chiptune Music" aria-label="Toggle Music">🎵</button>
+        <button class="icon-btn" id="btnStart" title="Cloud Save & Sync" aria-label="Cloud Save">☁️</button>
+        <button class="icon-btn" id="btnBgm" title="Toggle Synth Music" aria-label="Toggle Music">🎵</button>
         <button class="icon-btn" id="btnMute" title="Toggle Sound Effects" aria-label="Toggle Audio">🔊</button>
       </div>
     </header>
 
-    <!-- Handheld Screen Frame -->
+    <!-- Full-Bleed 3D World & Arena Viewport -->
     <main class="screen-bezel">
       <div class="screen-viewport" id="screenViewport">
-        <!-- Overworld 2D Canvas -->
+        <!-- 3D WebGL Canvas mounts right here alongside 2D fallback canvas -->
         <canvas id="gameCanvas" width="480" height="360"></canvas>
 
-        <!-- Overworld Floating Zone & Coordinate Banner -->
+        <!-- Floating Top-Left Lead Partner HUD & Free-Flowing Movement Hint -->
         <div class="overworld-hud" id="overworldHud">
           <div class="lead-kin-mini" id="leadKinMini" title="Tap to manage Squad"></div>
-          <div class="zone-hint" id="zoneHint">Walk in tall grass (🌿) to bind Wildkin!</div>
+          <div class="zone-hint" id="zoneHint">✨ Tap anywhere in 3D to run • Hold &amp; drag to steer 360°</div>
         </div>
 
-        <!-- Contextual Interactive Prompt Banner -->
-        <button class="interact-banner hidden" id="interactBanner" type="button">
-          <span class="interact-icon" id="interactIcon">✨</span>
-          <span class="interact-text" id="interactText">Press A or Tap to Interact</span>
-        </button>
+        <!-- Floating Dynamic Touch-Drag Vector Ring (appears when dragging finger) -->
+        <div class="touch-vector-hud hidden" id="touchVectorHud">
+          <div class="touch-vector-base" id="touchVectorBase">
+            <div class="touch-vector-knob" id="touchVectorKnob"></div>
+          </div>
+        </div>
+
+        <!-- Floating 3D World Action Pills (Bottom of 3D Viewport) -->
+        <div class="world-action-bar" id="worldActionBar">
+          <button class="interact-banner hidden" id="interactBanner" type="button">
+            <span class="interact-icon" id="interactIcon">⚡</span>
+            <span class="interact-text" id="interactText">Tap to Interact</span>
+          </button>
+
+          <div class="world-quick-pills">
+            <button class="world-pill-btn" id="btnQuickWild" type="button" title="Scout nearby tall grass for a Wild Kin battle!">
+              <span>⚔️</span>
+              <span>Scout Wild Kin</span>
+            </button>
+            <button class="world-pill-btn" id="btnCameraMode" type="button" title="Switch 3D Camera Angle">
+              <span>🎥</span>
+              <span id="camModeLabel">DYNAMIC 3D</span>
+            </button>
+          </div>
+        </div>
 
         <!-- Toast Notification Overlay -->
         <div class="toast-banner hidden" id="toastBanner"></div>
 
-        <!-- Title & Starter Selection Overlay -->
+        <!-- Title & 3D Starter Selection Overlay -->
         <section class="overlay-screen" id="starterOverlay">
           <div class="starter-card-shell">
-            <div class="title-badge">100% ORIGINAL HANDHELD RPG</div>
-            <h1 class="game-logo">WILDKIN<span>AETHER BOUND</span></h1>
+            <div class="title-badge">⚡ 3D WEBGL ACTION CREATURE RPG</div>
+            <h1 class="game-logo">WILDKIN<span>AETHER BOUND 3D</span></h1>
             <p class="elder-dialogue" id="elderDialogue">
-              “Welcome to the Aether Realm, young Tamer! I am <strong>Elder Rowan</strong>. Choose your first bonded Partner Kin to begin your journey across the four Sanctuaries!”
+              “Welcome to the Aether Realm, Tamer! I am <strong>Elder Rowan</strong>. Choose your first bonded 3D Partner Kin to unleash across the four Sanctuaries!”
             </p>
 
             <div class="starter-grid" id="starterGrid"></div>
@@ -79,7 +100,7 @@
 
             <div class="starter-actions">
               <button class="primary-cta" id="btnConfirmStarter" type="button">
-                💠 Bind Partner &amp; Enter Sunleaf Meadow
+                💠 Bind Partner &amp; Enter 3D World
               </button>
               <div class="secondary-cta-row">
                 <button class="ghost-btn hidden" id="btnContinueSave" type="button">
@@ -93,12 +114,18 @@
           </div>
         </section>
 
-        <!-- Turn-Based Battle Engine Overlay -->
+        <!-- High-Impact 3D Battle Arena Overlay -->
         <section class="overlay-screen battle-screen hidden" id="battleOverlay">
           <div class="battle-stage" id="battleStage">
-            <!-- Enemy Combatant Row (Top-Right) -->
+            <!-- 3D WebGL Battle Arena Canvas (#battle3dCanvas) mounts here! -->
+
+            <!-- Screen-Slash & Impact Flash Layer -->
+            <div class="battle-impact-flash" id="battleImpactFlash"></div>
+            <div class="battle-damage-layer" id="battleDamageLayer"></div>
+
+            <!-- Enemy Combatant HUD (Top-Right Floating Glass Plate) -->
             <div class="combatant-row enemy-row">
-              <div class="status-plate enemy-plate">
+              <div class="status-plate enemy-plate" id="enemyPlateCard">
                 <div class="plate-header">
                   <span class="kin-name" id="enemyName">Sparkcheep</span>
                   <span class="radiant-tag hidden" id="enemyRadiantTag">✨ RADIANT</span>
@@ -118,6 +145,7 @@
                 </div>
               </div>
 
+              <!-- 2D Mini Badge / Fallback Pedestal (hidden when 3D arena active) -->
               <div class="sprite-pedestal enemy-pedestal">
                 <div class="pedestal-ring"></div>
                 <div class="sprite-holder" id="enemySpriteHolder"></div>
@@ -125,14 +153,14 @@
               </div>
             </div>
 
-            <!-- Player Combatant Row (Bottom-Left) -->
+            <!-- Player Combatant HUD (Bottom-Left Floating Glass Plate) -->
             <div class="combatant-row player-row">
               <div class="sprite-pedestal player-pedestal">
                 <div class="pedestal-ring"></div>
                 <div class="sprite-holder" id="playerSpriteHolder"></div>
               </div>
 
-              <div class="status-plate player-plate">
+              <div class="status-plate player-plate" id="playerPlateCard">
                 <div class="plate-header">
                   <span class="kin-name" id="playerName">Cinderkit</span>
                   <span class="radiant-tag hidden" id="playerRadiantTag">✨</span>
@@ -156,15 +184,15 @@
             </div>
           </div>
 
-          <!-- Battle Message Box & Tactical Deck -->
+          <!-- Sleek Action-Packed Tactical Battle Console -->
           <div class="battle-console">
-            <div class="battle-log" id="battleLog">A wild Kin appeared from the swaying grass!</div>
+            <div class="battle-log" id="battleLog">A wild Kin lunged from the swaying grass!</div>
 
             <div class="battle-tabs">
-              <button class="btab active" data-btab="moves" id="btabMoves" type="button">⚔️ FIGHT</button>
-              <button class="btab" data-btab="pack" id="btabPack" type="button">💠 PACK</button>
+              <button class="btab active" data-btab="moves" id="btabMoves" type="button">⚔️ STRIKE</button>
+              <button class="btab" data-btab="pack" id="btabPack" type="button">💠 PRISM / PACK</button>
               <button class="btab" data-btab="squad" id="btabSquad" type="button">🐾 SQUAD</button>
-              <button class="btab" data-btab="flee" id="btabFlee" type="button">🏃 FLEE</button>
+              <button class="btab" data-btab="flee" id="btabFlee" type="button">🏃 RETREAT</button>
             </div>
 
             <div class="battle-deck-content" id="battleDeckContent"></div>
@@ -182,14 +210,9 @@
           </div>
         </section>
       </div>
-      <div class="bezel-caption">
-        <span>AETHER PRISM CONSOLE</span>
-        <span class="caption-dot">•</span>
-        <span>TAP MAP OR USE D-PAD / WASD</span>
-      </div>
     </main>
 
-    <!-- Quick-Tap Utility Dock -->
+    <!-- Bottom Glassmorphic Quick-Tap RPG Dock -->
     <nav class="quick-dock" aria-label="Game Menus">
       <button class="dock-btn" id="btnDockSquad" type="button">
         <span class="dock-ico">🐾</span>
@@ -213,42 +236,16 @@
       </button>
       <button class="dock-btn" id="btnDockZones" type="button">
         <span class="dock-ico">🗺️</span>
-        <span>Zones</span>
+        <span>Realms</span>
       </button>
     </nav>
 
-    <!-- Tactile Handheld Controls (D-Pad + A/B + START/SELECT) -->
-    <section class="controller-deck" aria-label="Handheld Controller">
-      <div class="dpad-cluster">
-        <button class="dpad-btn dpad-up" data-dir="up" aria-label="Move Up" type="button">▲</button>
-        <button class="dpad-btn dpad-left" data-dir="left" aria-label="Move Left" type="button">◀</button>
-        <div class="dpad-center"></div>
-        <button class="dpad-btn dpad-right" data-dir="right" aria-label="Move Right" type="button">▶</button>
-        <button class="dpad-btn dpad-down" data-dir="down" aria-label="Move Down" type="button">▼</button>
-      </div>
-
-      <div class="center-pills">
-        <button class="pill-btn" id="btnSelect" type="button" title="Open KinDex (SELECT)">
-          <span class="pill-cap"></span>
-          <span class="pill-lbl">SELECT</span>
-        </button>
-        <button class="pill-btn" id="btnStart" type="button" title="Save & Cloud Sync (START)">
-          <span class="pill-cap"></span>
-          <span class="pill-lbl">START</span>
-        </button>
-      </div>
-
-      <div class="ab-cluster">
-        <button class="action-round-btn btn-b" id="btnPadB" type="button" aria-label="B Button">
-          <span class="ab-letter">B</span>
-          <span class="ab-sub">BACK / SEARCH</span>
-        </button>
-        <button class="action-round-btn btn-a" id="btnPadA" type="button" aria-label="A Button">
-          <span class="ab-letter">A</span>
-          <span class="ab-sub">ACT / BATTLE</span>
-        </button>
-      </div>
-    </section>
+    <!-- Legacy hidden hooks kept only for programmatic compatibility -->
+    <div class="hidden" aria-hidden="true">
+      <button id="btnSelect" type="button"></button>
+      <button id="btnPadA" type="button"></button>
+      <button id="btnPadB" type="button"></button>
+    </div>
   </div>
 
   <!-- Universal Modal Drawer (Squad, KinDex, Wardens & PvP, Shop, Zones, Cloud Save) -->
@@ -262,10 +259,12 @@
     </div>
   </div>
 
+  <script src="/vendor/three.min.js"></script>
   <script src="/js/data.js"></script>
   <script src="/js/sprites.js"></script>
   <script src="/js/audio.js"></script>
   <script src="/js/maps.js"></script>
+  <script src="/js/renderer3d.js"></script>
   <script src="/js/game.js"></script>
 </body>
 </html>

@@ -199,6 +199,91 @@
   let activeEvo = null;
   let toastTimeout = null;
   let animTick = 0;
+  let lastFrameTime = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const heldDirs = { up: false, down: false, left: false, right: false };
+  const dragSteer = { active: false, startX: 0, startY: 0, vx: 0, vy: 0, pointerId: null, moved: false };
+  const playerMotion = {
+    x: 7,
+    y: 6,
+    vx: 0,
+    vy: 0,
+    angle: 0,
+    speed: 0,
+    targetX: null,
+    targetY: null,
+    targetNpc: null,
+    grassDist: 0,
+    syncedZone: null
+  };
+
+  function syncMotionFromState() {
+    playerMotion.x = state.pos.x;
+    playerMotion.y = state.pos.y;
+    playerMotion.vx = 0;
+    playerMotion.vy = 0;
+    playerMotion.speed = 0;
+    playerMotion.targetX = null;
+    playerMotion.targetY = null;
+    playerMotion.targetNpc = null;
+    if (root.WILDKIN_3D) {
+      root.WILDKIN_3D.setTargetBeacon(0, 0, false);
+    }
+  }
+
+  function isTilePassableFloat(fx, fy) {
+    if (!root.WILDKIN_MAPS) return true;
+    const tx = Math.round(fx);
+    const ty = Math.round(fy);
+    if (tx < 0 || tx >= root.WILDKIN_MAPS.MAP_WIDTH || ty < 0 || ty >= root.WILDKIN_MAPS.MAP_HEIGHT) return false;
+    const ch = root.WILDKIN_MAPS.getTileAt(state.zone, tx, ty);
+    return ch !== "T";
+  }
+
+  function findNearbyNpcFloat(fx, fy, maxRadius = 1.35) {
+    if (!root.WILDKIN_MAPS) return null;
+    const mapObj = root.WILDKIN_MAPS.ZONE_MAPS[state.zone];
+    if (!mapObj || !mapObj.npcs) return null;
+    let best = null;
+    let bestDist = maxRadius;
+    Object.entries(mapObj.npcs).forEach(([coord, npc]) => {
+      const [nx, ny] = coord.split(",").map(Number);
+      const d = Math.hypot(fx - nx, fy - ny);
+      if (d <= bestDist) {
+        bestDist = d;
+        best = Object.assign({ x: nx, y: ny }, npc);
+      }
+    });
+    return best;
+  }
+
+  function spawnBattleDamagePopup(targetSide, damage, isCrit, effectiveness) {
+    const layer = $("battleDamageLayer");
+    const flash = $("battleImpactFlash");
+    if (flash) {
+      flash.classList.add("active");
+      setTimeout(() => flash.classList.remove("active"), 160);
+    }
+    if (!layer) return;
+    const el = document.createElement("div");
+    let cls = "dmg-popup";
+    if (isCrit) cls += " crit";
+    else if (effectiveness === "super") cls += " super";
+    el.className = cls;
+    el.style.left = targetSide === "enemy" ? "66%" : "34%";
+    el.style.top = targetSide === "enemy" ? "36%" : "62%";
+
+    let sub = "";
+    if (isCrit && effectiveness === "super") sub = "<span class=\"dmg-subtag\">⚡ CRITICAL • 2x SUPER EFFECTIVE!</span>";
+    else if (isCrit) sub = "<span class=\"dmg-subtag\">⚡ CRITICAL HIT!</span>";
+    else if (effectiveness === "super") sub = "<span class=\"dmg-subtag\">🔥 SUPER EFFECTIVE!</span>";
+    else if (effectiveness === "resist") sub = "<span class=\"dmg-subtag\">🛡️ RESISTED</span>";
+
+    el.innerHTML = `${sub}-${damage}!`;
+    layer.appendChild(el);
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 950);
+  }
 
   function saveGame() {
     try {
@@ -411,6 +496,8 @@
   }
 
   function getAdjacentInteraction() {
+    const nearFloat = findNearbyNpcFloat(playerMotion.x, playerMotion.y, 1.45);
+    if (nearFloat) return { x: nearFloat.x, y: nearFloat.y, npc: nearFloat };
     if (!root.WILDKIN_MAPS) return null;
     const { x, y, dir } = state.pos;
     const deltas = {
@@ -533,6 +620,7 @@
   function selectStarter(speciesId) {
     const id = Number(speciesId || state.selectedStarterId || 1);
     state = createInitialState(id);
+    syncMotionFromState();
     const overlay = $('starterOverlay', 'starter-overlay') || $('title-overlay');
     if (overlay) overlay.classList.add('hidden');
     if (root.WILDKIN_AUDIO) {
@@ -616,6 +704,7 @@
     state.pos.x = map.spawn.x;
     state.pos.y = map.spawn.y;
     state.pos.dir = 'down';
+    syncMotionFromState();
     const zInfo = getZoneObj(targetZoneId);
     const hint = $('zoneHint');
     if (hint) hint.textContent = `${zInfo.name} (${zInfo.subtitle})`;
@@ -678,6 +767,7 @@
 
     state.pos.x = nx;
     state.pos.y = ny;
+    syncMotionFromState();
     state.stats.stepsTaken = (state.stats.stepsTaken || 0) + 1;
 
     const isEncounterTile = targetTile === 'G' || targetTile === 'W' || targetTile === '~';
@@ -885,6 +975,9 @@
     if (pKin) pKin.buffs = { atk: 1, def: 1, spd: 1 };
     if (eKin) eKin.buffs = { atk: 1, def: 1, spd: 1 };
 
+    if (root.WILDKIN_3D) {
+      root.WILDKIN_3D.initBattleArena($("battleStage"));
+    }
     renderBattleUI();
   }
 
@@ -916,6 +1009,10 @@
 
     const eSpecies = DATA.getSpeciesById(enemy.speciesId);
     const pSpecies = DATA.getSpeciesById(player.speciesId);
+    if (root.WILDKIN_3D) {
+      root.WILDKIN_3D.initBattleArena($("battleStage"));
+      root.WILDKIN_3D.syncBattleCombatants(player, enemy, DATA, state.zone);
+    }
     const eAff = DATA.AFFINITIES[eSpecies.affinity];
     const pAff = DATA.AFFINITIES[pSpecies.affinity];
 
@@ -1104,17 +1201,36 @@
     }
   }
 
-  function animateSpriteHit(isPlayerAttacking, callback) {
-    const attackerHolder = $(isPlayerAttacking ? 'playerSpriteHolder' : 'enemySpriteHolder');
-    const defenderHolder = $(isPlayerAttacking ? 'enemySpriteHolder' : 'playerSpriteHolder');
-    const lungeClass = isPlayerAttacking ? 'lunge-player' : 'lunge-enemy';
+  function animateSpriteHit(isPlayerAttacking, callback, moveObj = null, dmgRes = null) {
+    const attackerHolder = $(isPlayerAttacking ? "playerSpriteHolder" : "enemySpriteHolder");
+    const defenderHolder = $(isPlayerAttacking ? "enemySpriteHolder" : "playerSpriteHolder");
+    const lungeClass = isPlayerAttacking ? "lunge-player" : "lunge-enemy";
 
     if (attackerHolder) attackerHolder.classList.add(lungeClass);
+
+    if (root.WILDKIN_3D && typeof document !== "undefined") {
+      root.WILDKIN_3D.playAttack3D(isPlayerAttacking, moveObj, dmgRes, () => {
+        if (attackerHolder) attackerHolder.classList.remove(lungeClass);
+        if (defenderHolder) defenderHolder.classList.add("hit-flash");
+        if (dmgRes && dmgRes.damage) {
+          spawnBattleDamagePopup(isPlayerAttacking ? "enemy" : "player", dmgRes.damage, dmgRes.isCrit, dmgRes.effectiveness);
+        }
+        setTimeout(() => {
+          if (defenderHolder) defenderHolder.classList.remove("hit-flash");
+        }, 220);
+        if (callback) callback();
+      });
+      return;
+    }
+
     setTimeout(() => {
       if (attackerHolder) attackerHolder.classList.remove(lungeClass);
-      if (defenderHolder) defenderHolder.classList.add('hit-flash');
+      if (defenderHolder) defenderHolder.classList.add("hit-flash");
+      if (dmgRes && dmgRes.damage) {
+        spawnBattleDamagePopup(isPlayerAttacking ? "enemy" : "player", dmgRes.damage, dmgRes.isCrit, dmgRes.effectiveness);
+      }
       setTimeout(() => {
-        if (defenderHolder) defenderHolder.classList.remove('hit-flash');
+        if (defenderHolder) defenderHolder.classList.remove("hit-flash");
         if (callback) callback();
       }, 170);
     }, 150);
@@ -1185,11 +1301,11 @@
       renderBattleUI();
 
       if (enemy.currentHp <= 0) {
-        setTimeout(() => handleEnemyDefeated(), 750);
+        setTimeout(() => handleEnemyDefeated(), 550);
       } else {
-        setTimeout(() => executeEnemyTurn(), 800);
+        setTimeout(() => executeEnemyTurn(), 580);
       }
-    });
+    }, move, res);
   }
 
   function executeEnemyTurn() {
@@ -1282,7 +1398,7 @@
       } else {
         battleState.busy = false;
       }
-    });
+    }, chosenMove, res);
   }
 
   function usePackItemInBattle(itemId) {
@@ -1338,6 +1454,9 @@
 
     setBattleLog(`💠 Threw ${prismItem.name} at wild ${enemy.nickname}! (${Math.round(chance * 100)}% resonance)`);
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playPrismThrow();
+    if (root.WILDKIN_3D) {
+      root.WILDKIN_3D.playPrismCapture3D(prismItem.color, shakes, caught);
+    }
 
     const pCanvas = $('prismAnimCanvas');
     const eHolder = $('enemySpriteHolder');
@@ -1938,6 +2057,7 @@
             const data = await res.json();
             if (data.ok && data.state) {
               state = Object.assign(createInitialState(), data.state, { started: true, cloudCode: data.code });
+              syncMotionFromState();
               saveGame();
               const stOverlay = $('starterOverlay');
               if (stOverlay) stOverlay.classList.add('hidden');
@@ -1974,6 +2094,7 @@
         const saved = loadGame();
         if (saved) {
           state = saved;
+          syncMotionFromState();
           const overlay = $('starterOverlay', 'starter-overlay');
           if (overlay) overlay.classList.add('hidden');
           if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.startBgm('overworld');
@@ -2095,70 +2216,351 @@
       });
     }
 
-    // Tap on Overworld Canvas to step toward tapped tile
-    const canvas = $('gameCanvas', 'game-canvas');
-    if (canvas && root.WILDKIN_MAPS) {
-      canvas.addEventListener('click', (e) => {
+    // Quick Wild Scout & 3D Camera Angle Pill Buttons
+    const btnQuickWild = $("btnQuickWild");
+    if (btnQuickWild) {
+      btnQuickWild.addEventListener("click", (e) => {
+        e.stopPropagation();
         if (!state.started || battleState || activeEvo) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const cx = (e.clientX - rect.left) * scaleX;
-        const cy = (e.clientY - rect.top) * scaleY;
-        const tileX = Math.floor(cx / (canvas.width / root.WILDKIN_MAPS.MAP_WIDTH));
-        const tileY = Math.floor(cy / (canvas.height / root.WILDKIN_MAPS.MAP_HEIGHT));
-        const dx = tileX - state.pos.x;
-        const dy = tileY - state.pos.y;
-        if (dx === 0 && dy === 0) {
-          interact();
-        } else if (Math.abs(dx) >= Math.abs(dy)) {
-          movePlayer(dx > 0 ? 'right' : 'left');
-        } else {
-          movePlayer(dy > 0 ? 'down' : 'up');
-        }
+        startWildEncounter();
+      });
+    }
+    const btnCameraMode = $("btnCameraMode");
+    if (btnCameraMode) {
+      btnCameraMode.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!root.WILDKIN_3D) return;
+        const label = root.WILDKIN_3D.cycleCameraMode();
+        const lblEl = $("camModeLabel");
+        if (lblEl) lblEl.textContent = label;
+        showToast(`🎥 3D Camera: ${label}`);
       });
     }
 
-    // Keyboard controls (WASD / Arrows / Enter / Space / Escape)
-    window.addEventListener('keydown', (e) => {
-      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    // Free-Flowing 3D Viewport Input: Tap-to-Move Raycasting + Touch-Drag 360° Analog Steering!
+    const viewport = $("screenViewport");
+    const vectorHud = $("touchVectorHud");
+    const vectorBase = $("touchVectorBase");
+    const vectorKnob = $("touchVectorKnob");
+
+    if (viewport) {
+      viewport.addEventListener("pointerdown", (e) => {
+        if (!state.started || battleState || activeEvo) return;
+        if (e.target && e.target.closest("button, .overlay-screen, .overworld-hud, .world-action-bar")) return;
+
+        dragSteer.active = true;
+        dragSteer.pointerId = e.pointerId;
+        dragSteer.startX = e.clientX;
+        dragSteer.startY = e.clientY;
+        dragSteer.vx = 0;
+        dragSteer.vy = 0;
+        dragSteer.moved = false;
+
+        try {
+          viewport.setPointerCapture(e.pointerId);
+        } catch (err) {}
+      });
+
+      viewport.addEventListener("pointermove", (e) => {
+        if (!dragSteer.active || e.pointerId !== dragSteer.pointerId) return;
+        const dx = e.clientX - dragSteer.startX;
+        const dy = e.clientY - dragSteer.startY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 11) {
+          dragSteer.moved = true;
+          playerMotion.targetX = null;
+          playerMotion.targetY = null;
+          playerMotion.targetNpc = null;
+          if (root.WILDKIN_3D) root.WILDKIN_3D.setTargetBeacon(0, 0, false);
+
+          const maxR = 42;
+          const clamped = Math.min(dist, maxR);
+          const nx = dx / dist;
+          const ny = dy / dist;
+          dragSteer.vx = nx * (clamped / maxR);
+          dragSteer.vy = ny * (clamped / maxR);
+
+          if (vectorHud && vectorBase && vectorKnob) {
+            const vRect = viewport.getBoundingClientRect();
+            vectorHud.classList.remove("hidden");
+            vectorBase.style.left = `${dragSteer.startX - vRect.left}px`;
+            vectorBase.style.top = `${dragSteer.startY - vRect.top}px`;
+            vectorKnob.style.transform = `translate(${nx * clamped * 0.65}px, ${ny * clamped * 0.65}px)`;
+          }
+        }
+      });
+
+      const endPointer = (e) => {
+        if (!dragSteer.active || (e.pointerId !== undefined && e.pointerId !== dragSteer.pointerId)) return;
+        const wasTap = !dragSteer.moved;
+        dragSteer.active = false;
+        dragSteer.vx = 0;
+        dragSteer.vy = 0;
+        if (vectorHud) vectorHud.classList.add("hidden");
+
+        if (wasTap && state.started && !battleState && !activeEvo) {
+          let targetTile = null;
+          if (root.WILDKIN_3D) {
+            targetTile = root.WILDKIN_3D.screenToWorldTile(e.clientX, e.clientY, viewport);
+          }
+          if (!targetTile && root.WILDKIN_MAPS) {
+            const rect = viewport.getBoundingClientRect();
+            targetTile = {
+              x: ((e.clientX - rect.left) / rect.width) * root.WILDKIN_MAPS.MAP_WIDTH,
+              y: ((e.clientY - rect.top) / rect.height) * root.WILDKIN_MAPS.MAP_HEIGHT
+            };
+          }
+          if (targetTile) {
+            const tx = Math.max(0.6, Math.min(14.8, targetTile.x));
+            const ty = Math.max(0.2, Math.min(10.6, targetTile.y));
+            const nearTappedNpc = findNearbyNpcFloat(tx, ty, 1.35);
+
+            if (nearTappedNpc && Math.hypot(playerMotion.x - nearTappedNpc.x, playerMotion.y - nearTappedNpc.y) <= 1.55) {
+              interactWithNpc(nearTappedNpc);
+              return;
+            }
+
+            playerMotion.targetX = nearTappedNpc ? nearTappedNpc.x : tx;
+            playerMotion.targetY = nearTappedNpc ? nearTappedNpc.y : ty;
+            playerMotion.targetNpc = nearTappedNpc || null;
+
+            if (root.WILDKIN_3D) {
+              root.WILDKIN_3D.setTargetBeacon(playerMotion.targetX, playerMotion.targetY, true, Boolean(nearTappedNpc));
+            }
+            if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(560, 0.03);
+          }
+        }
+      };
+
+      viewport.addEventListener("pointerup", endPointer);
+      viewport.addEventListener("pointercancel", endPointer);
+    }
+
+    // Smooth 60fps Keyboard Controls (WASD / Arrows / Enter / Space / Escape)
+    window.addEventListener("keydown", (e) => {
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
       const key = e.key.toLowerCase();
-      if (key === 'arrowup' || key === 'w') {
+      if (key === "arrowup" || key === "w") {
         e.preventDefault();
-        movePlayer('up');
-      } else if (key === 'arrowdown' || key === 's') {
+        heldDirs.up = true;
+      } else if (key === "arrowdown" || key === "s") {
         e.preventDefault();
-        movePlayer('down');
-      } else if (key === 'arrowleft' || key === 'a') {
+        heldDirs.down = true;
+      } else if (key === "arrowleft" || key === "a") {
         e.preventDefault();
-        movePlayer('left');
-      } else if (key === 'arrowright' || key === 'd') {
+        heldDirs.left = true;
+      } else if (key === "arrowright" || key === "d") {
         e.preventDefault();
-        movePlayer('right');
-      } else if (key === 'enter' || key === ' ' || key === 'z') {
+        heldDirs.right = true;
+      } else if (key === "enter" || key === " " || key === "z") {
         e.preventDefault();
         if (activeEvo) advanceEvolutionStage();
         else if (battleState) executePlayerMove(0);
         else interact();
-      } else if (key === 'escape' || key === 'x') {
+      } else if (key === "escape" || key === "x") {
         closeModal();
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      const key = e.key.toLowerCase();
+      if (key === "arrowup" || key === "w") heldDirs.up = false;
+      else if (key === "arrowdown" || key === "s") heldDirs.down = false;
+      else if (key === "arrowleft" || key === "a") heldDirs.left = false;
+      else if (key === "arrowright" || key === "d") heldDirs.right = false;
+    });
+
+    window.addEventListener("resize", () => {
+      if (root.WILDKIN_3D) {
+        root.WILDKIN_3D.resizeOverworld($("screenViewport"));
+        root.WILDKIN_3D.resizeBattleArena($("battleStage"));
       }
     });
   }
 
+  function updateContinuous3DMovement(dtSec) {
+    if (!state.started || battleState || activeEvo) {
+      playerMotion.speed = 0;
+      return;
+    }
+
+    let dirX = 0;
+    let dirY = 0;
+
+    if (heldDirs.left) dirX -= 1;
+    if (heldDirs.right) dirX += 1;
+    if (heldDirs.up) dirY -= 1;
+    if (heldDirs.down) dirY += 1;
+
+    if (dirX !== 0 || dirY !== 0) {
+      const len = Math.hypot(dirX, dirY);
+      dirX /= len;
+      dirY /= len;
+      playerMotion.targetX = null;
+      playerMotion.targetY = null;
+      playerMotion.targetNpc = null;
+      if (root.WILDKIN_3D) root.WILDKIN_3D.setTargetBeacon(0, 0, false);
+    } else if (dragSteer.active && dragSteer.moved) {
+      dirX = dragSteer.vx;
+      dirY = dragSteer.vy;
+    } else if (playerMotion.targetX !== null && playerMotion.targetY !== null) {
+      const dx = playerMotion.targetX - playerMotion.x;
+      const dy = playerMotion.targetY - playerMotion.y;
+      const dist = Math.hypot(dx, dy);
+      const stopRadius = playerMotion.targetNpc ? 1.05 : 0.16;
+
+      if (dist <= stopRadius) {
+        const arrivedNpc = playerMotion.targetNpc;
+        playerMotion.targetX = null;
+        playerMotion.targetY = null;
+        playerMotion.targetNpc = null;
+        if (root.WILDKIN_3D) root.WILDKIN_3D.setTargetBeacon(0, 0, false);
+        if (arrivedNpc) {
+          interactWithNpc(arrivedNpc);
+        }
+        playerMotion.speed = 0;
+        return;
+      }
+      dirX = dx / dist;
+      dirY = dy / dist;
+    }
+
+    const mag = Math.hypot(dirX, dirY);
+    if (mag < 0.02) {
+      playerMotion.vx = 0;
+      playerMotion.vy = 0;
+      playerMotion.speed = 0;
+      return;
+    }
+
+    const moveSpeed = 5.4;
+    const stepX = dirX * moveSpeed * dtSec;
+    const stepY = dirY * moveSpeed * dtSec;
+
+    playerMotion.vx = dirX;
+    playerMotion.vy = dirY;
+    playerMotion.speed = mag * moveSpeed;
+    playerMotion.angle = Math.atan2(dirX, dirY);
+
+    if (Math.abs(dirX) > Math.abs(dirY)) {
+      state.pos.dir = dirX > 0 ? "right" : "left";
+    } else {
+      state.pos.dir = dirY > 0 ? "down" : "up";
+    }
+
+    const nextX = playerMotion.x + stepX;
+    const nextY = playerMotion.y + stepY;
+    let movedDist = 0;
+
+    if (isTilePassableFloat(nextX, playerMotion.y)) {
+      playerMotion.x = nextX;
+      movedDist += Math.abs(stepX);
+    }
+    if (isTilePassableFloat(playerMotion.x, nextY)) {
+      playerMotion.y = nextY;
+      movedDist += Math.abs(stepY);
+    }
+
+    if (movedDist < 0.0005 && playerMotion.targetX !== null) {
+      if (playerMotion.targetNpc && Math.hypot(playerMotion.x - playerMotion.targetNpc.x, playerMotion.y - playerMotion.targetNpc.y) < 1.65) {
+        const npcToAct = playerMotion.targetNpc;
+        playerMotion.targetX = null;
+        playerMotion.targetY = null;
+        playerMotion.targetNpc = null;
+        if (root.WILDKIN_3D) root.WILDKIN_3D.setTargetBeacon(0, 0, false);
+        interactWithNpc(npcToAct);
+      } else {
+        playerMotion.targetX = null;
+        playerMotion.targetY = null;
+        playerMotion.targetNpc = null;
+        if (root.WILDKIN_3D) root.WILDKIN_3D.setTargetBeacon(0, 0, false);
+      }
+      return;
+    }
+
+    const prevGridX = state.pos.x;
+    const prevGridY = state.pos.y;
+    const curGridX = Math.max(0, Math.min(15, Math.round(playerMotion.x)));
+    const curGridY = Math.max(0, Math.min(11, Math.round(playerMotion.y)));
+
+    if (curGridX !== prevGridX || curGridY !== prevGridY) {
+      state.pos.x = curGridX;
+      state.pos.y = curGridY;
+      state.stats.stepsTaken = (state.stats.stepsTaken || 0) + 1;
+
+      const portalNpc = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getNpcAt(state.zone, curGridX, curGridY) : null;
+      if (portalNpc && portalNpc.type === "portal") {
+        travelToZone(portalNpc.targetZone);
+        return;
+      }
+
+      const tileCode = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getTileAt(state.zone, curGridX, curGridY) : ".";
+      const isWildTile = tileCode === "G" || tileCode === "W" || tileCode === "~";
+      if (root.WILDKIN_AUDIO) {
+        root.WILDKIN_AUDIO.playStep(isWildTile);
+      }
+      updateHud();
+    } else {
+      updateInteractPrompt();
+    }
+
+    const curTile = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getTileAt(state.zone, curGridX, curGridY) : ".";
+    if (curTile === "G" || curTile === "W" || curTile === "~") {
+      playerMotion.grassDist += movedDist;
+      if (playerMotion.grassDist >= 1.45) {
+        playerMotion.grassDist = 0;
+        if (Math.random() < 0.32) {
+          playerMotion.targetX = null;
+          playerMotion.targetY = null;
+          playerMotion.targetNpc = null;
+          if (root.WILDKIN_3D) root.WILDKIN_3D.setTargetBeacon(0, 0, false);
+          startWildEncounter();
+        }
+      }
+    }
+  }
+
   function initGame() {
-    if (typeof document === 'undefined') return;
+    if (typeof document === "undefined") return;
+    syncMotionFromState();
     renderStarterSelection();
     bindEvents();
     updateHud();
 
-    function loop() {
+    if (root.WILDKIN_3D) {
+      root.WILDKIN_3D.initOverworld($("screenViewport"));
+    }
+
+    function loop(nowMs) {
+      const tNow = nowMs || performance.now();
+      const dtSec = Math.min(0.05, Math.max(0.001, (tNow - lastFrameTime) * 0.001));
+      lastFrameTime = tNow;
+
+      updateContinuous3DMovement(dtSec);
       renderOverworld();
-      if (typeof requestAnimationFrame === 'function') {
+
+      if (root.WILDKIN_3D && root.WILDKIN_MAPS) {
+        const zoneMap = root.WILDKIN_MAPS.ZONE_MAPS[state.zone] || root.WILDKIN_MAPS.ZONE_MAPS.meadow;
+        if (playerMotion.syncedZone !== state.zone) {
+          root.WILDKIN_3D.syncZone(zoneMap, Object.keys(state.defeatedTamers || {}));
+          playerMotion.syncedZone = state.zone;
+        }
+        const lead = state.squad[0];
+        const leadSpec = lead && DATA ? DATA.getSpeciesById(lead.speciesId) : null;
+        root.WILDKIN_3D.syncCompanionKin(leadSpec, lead ? lead.isRadiant : false);
+        root.WILDKIN_3D.renderOverworldFrame(playerMotion, tNow);
+
+        if (battleState) {
+          root.WILDKIN_3D.renderBattleFrame(tNow);
+        }
+      }
+
+      if (typeof requestAnimationFrame === "function") {
         requestAnimationFrame(loop);
       }
     }
-    loop();
+    loop(performance.now());
   }
 
   if (typeof document !== 'undefined') {
