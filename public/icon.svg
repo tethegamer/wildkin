@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+    <linearGradient id="prismGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#facc15" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bgGrad)" stroke="#38bdf8" stroke-width="4" />
+  <circle cx="64" cy="64" r="46" fill="none" stroke="#38bdf8" stroke-opacity="0.25" stroke-width="2" stroke-dasharray="6 4" />
+  <!-- Octagonal Crystalline Aether Prism -->
+  <polygon points="64,14 106,64 64,114 22,64" fill="#0f172a" stroke="#facc15" stroke-width="4" />
+  <polygon points="64,22 98,64 64,106 30,64" fill="url(#prismGrad)" />
+  <polygon points="64,22 98,64 64,64" fill="#ffffff" fill-opacity="0.22" />
+  <polygon points="64,106 30,64 64,64" fill="#000000" fill-opacity="0.24" />
+  <rect x="52" y="52" width="24" height="24" transform="rotate(45 64 64)" fill="#ffffff" stroke="#0f172a" stroke-width="3" />
+  <circle cx="64" cy="64" r="5" fill="#38bdf8" />
+</svg>

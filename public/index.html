@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Wildkin" />
+  <meta name="theme-color" content="#090d18" />
+  <title>Wildkin: Aether Bound — Handheld Creature-Catching RPG</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <!-- Top Handheld Telemetry Bar -->
+    <header class="hud-topbar">
+      <div class="brand-cluster">
+        <span class="power-led" id="powerLed" title="Aether Core Online"></span>
+        <div>
+          <div class="brand-title">WILDKIN <span class="brand-sub">AETHER BOUND</span></div>
+          <div class="zone-pill" id="hudZoneName">Sunleaf Meadow</div>
+        </div>
+      </div>
+
+      <div class="hud-metrics">
+        <div class="metric-chip" title="Aether Shards (Currency)">
+          <span>💎</span>
+          <strong id="hudShards">250</strong>
+        </div>
+        <div class="metric-chip" title="Warden Crests Earned">
+          <span>👑</span>
+          <strong id="hudCrests">0/4</strong>
+        </div>
+        <div class="metric-chip" title="KinDex Bound Species">
+          <span>💠</span>
+          <strong id="hudBound">0/27</strong>
+        </div>
+        <button class="icon-btn" id="btnBgm" title="Toggle Chiptune Music" aria-label="Toggle Music">🎵</button>
+        <button class="icon-btn" id="btnMute" title="Toggle Sound Effects" aria-label="Toggle Audio">🔊</button>
+      </div>
+    </header>
+
+    <!-- Handheld Screen Frame -->
+    <main class="screen-bezel">
+      <div class="screen-viewport" id="screenViewport">
+        <!-- Overworld 2D Canvas -->
+        <canvas id="gameCanvas" width="480" height="360"></canvas>
+
+        <!-- Overworld Floating Zone & Coordinate Banner -->
+        <div class="overworld-hud" id="overworldHud">
+          <div class="lead-kin-mini" id="leadKinMini" title="Tap to manage Squad"></div>
+          <div class="zone-hint" id="zoneHint">Walk in tall grass (🌿) to bind Wildkin!</div>
+        </div>
+
+        <!-- Contextual Interactive Prompt Banner -->
+        <button class="interact-banner hidden" id="interactBanner" type="button">
+          <span class="interact-icon" id="interactIcon">✨</span>
+          <span class="interact-text" id="interactText">Press A or Tap to Interact</span>
+        </button>
+
+        <!-- Toast Notification Overlay -->
+        <div class="toast-banner hidden" id="toastBanner"></div>
+
+        <!-- Title & Starter Selection Overlay -->
+        <section class="overlay-screen" id="starterOverlay">
+          <div class="starter-card-shell">
+            <div class="title-badge">100% ORIGINAL HANDHELD RPG</div>
+            <h1 class="game-logo">WILDKIN<span>AETHER BOUND</span></h1>
+            <p class="elder-dialogue" id="elderDialogue">
+              “Welcome to the Aether Realm, young Tamer! I am <strong>Elder Rowan</strong>. Choose your first bonded Partner Kin to begin your journey across the four Sanctuaries!”
+            </p>
+
+            <div class="starter-grid" id="starterGrid"></div>
+
+            <div class="starter-preview-panel" id="starterPreviewPanel"></div>
+
+            <div class="starter-actions">
+              <button class="primary-cta" id="btnConfirmStarter" type="button">
+                💠 Bind Partner &amp; Enter Sunleaf Meadow
+              </button>
+              <div class="secondary-cta-row">
+                <button class="ghost-btn hidden" id="btnContinueSave" type="button">
+                  ▶ Continue Saved Journey
+                </button>
+                <button class="ghost-btn" id="btnOpenCloudRestore" type="button">
+                  ☁️ Load Cloud Code
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Turn-Based Battle Engine Overlay -->
+        <section class="overlay-screen battle-screen hidden" id="battleOverlay">
+          <div class="battle-stage" id="battleStage">
+            <!-- Enemy Combatant Row (Top-Right) -->
+            <div class="combatant-row enemy-row">
+              <div class="status-plate enemy-plate">
+                <div class="plate-header">
+                  <span class="kin-name" id="enemyName">Sparkcheep</span>
+                  <span class="radiant-tag hidden" id="enemyRadiantTag">✨ RADIANT</span>
+                  <span class="bound-tag hidden" id="enemyBoundTag" title="Already Bound in KinDex">💠</span>
+                  <span class="kin-lvl" id="enemyLevel">Lv.3</span>
+                </div>
+                <div class="plate-sub">
+                  <span class="affinity-badge" id="enemyAffinityBadge">⚡ Volt</span>
+                  <span class="status-pill hidden" id="enemyStatusPill">BURN</span>
+                </div>
+                <div class="hp-bar-outer">
+                  <div class="hp-bar-fill" id="enemyHpFill" style="width: 100%"></div>
+                </div>
+                <div class="hp-numeric-row">
+                  <span id="enemyHpText">HP 100%</span>
+                  <span id="battleModeBadge" class="battle-mode-badge">WILD ENCOUNTER</span>
+                </div>
+              </div>
+
+              <div class="sprite-pedestal enemy-pedestal">
+                <div class="pedestal-ring"></div>
+                <div class="sprite-holder" id="enemySpriteHolder"></div>
+                <canvas class="prism-anim-canvas hidden" id="prismAnimCanvas" width="120" height="120"></canvas>
+              </div>
+            </div>
+
+            <!-- Player Combatant Row (Bottom-Left) -->
+            <div class="combatant-row player-row">
+              <div class="sprite-pedestal player-pedestal">
+                <div class="pedestal-ring"></div>
+                <div class="sprite-holder" id="playerSpriteHolder"></div>
+              </div>
+
+              <div class="status-plate player-plate">
+                <div class="plate-header">
+                  <span class="kin-name" id="playerName">Cinderkit</span>
+                  <span class="radiant-tag hidden" id="playerRadiantTag">✨</span>
+                  <span class="kin-lvl" id="playerLevel">Lv.5</span>
+                </div>
+                <div class="plate-sub">
+                  <span class="affinity-badge" id="playerAffinityBadge">🔥 Pyre</span>
+                  <span class="status-pill hidden" id="playerStatusPill">BURN</span>
+                </div>
+                <div class="hp-bar-outer">
+                  <div class="hp-bar-fill" id="playerHpFill" style="width: 100%"></div>
+                </div>
+                <div class="hp-numeric-row">
+                  <span id="playerHpText">24 / 24 HP</span>
+                  <span id="playerXpText">XP 0/45</span>
+                </div>
+                <div class="xp-bar-outer">
+                  <div class="xp-bar-fill" id="playerXpFill" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Battle Message Box & Tactical Deck -->
+          <div class="battle-console">
+            <div class="battle-log" id="battleLog">A wild Kin appeared from the swaying grass!</div>
+
+            <div class="battle-tabs">
+              <button class="btab active" data-btab="moves" id="btabMoves" type="button">⚔️ FIGHT</button>
+              <button class="btab" data-btab="pack" id="btabPack" type="button">💠 PACK</button>
+              <button class="btab" data-btab="squad" id="btabSquad" type="button">🐾 SQUAD</button>
+              <button class="btab" data-btab="flee" id="btabFlee" type="button">🏃 FLEE</button>
+            </div>
+
+            <div class="battle-deck-content" id="battleDeckContent"></div>
+          </div>
+        </section>
+
+        <!-- 3-Stage Evolution Cutscene Overlay -->
+        <section class="overlay-screen evo-screen hidden" id="evolutionOverlay">
+          <div class="evo-card">
+            <div class="evo-stage-badge" id="evoStageBadge">AETHER METAMORPHOSIS • STAGE 1/3</div>
+            <h2 class="evo-title" id="evoTitle">What?! Your Kin is resonating!</h2>
+            <div class="evo-stage-visual" id="evoVisual"></div>
+            <p class="evo-desc" id="evoDesc">Pure Aether light surrounds your partner...</p>
+            <button class="primary-cta" id="btnEvoNext" type="button">✨ Complete Metamorphosis</button>
+          </div>
+        </section>
+      </div>
+      <div class="bezel-caption">
+        <span>AETHER PRISM CONSOLE</span>
+        <span class="caption-dot">•</span>
+        <span>TAP MAP OR USE D-PAD / WASD</span>
+      </div>
+    </main>
+
+    <!-- Quick-Tap Utility Dock -->
+    <nav class="quick-dock" aria-label="Game Menus">
+      <button class="dock-btn" id="btnDockSquad" type="button">
+        <span class="dock-ico">🐾</span>
+        <span>Squad</span>
+      </button>
+      <button class="dock-btn" id="btnDockKindex" type="button">
+        <span class="dock-ico">📖</span>
+        <span>KinDex</span>
+      </button>
+      <button class="dock-btn" id="btnDockArena" type="button">
+        <span class="dock-ico">👑</span>
+        <span>Wardens/PvP</span>
+      </button>
+      <button class="dock-btn" id="btnDockShop" type="button">
+        <span class="dock-ico">🛒</span>
+        <span>Shop</span>
+      </button>
+      <button class="dock-btn" id="btnDockHeal" type="button">
+        <span class="dock-ico">⛲</span>
+        <span>Shrine</span>
+      </button>
+      <button class="dock-btn" id="btnDockZones" type="button">
+        <span class="dock-ico">🗺️</span>
+        <span>Zones</span>
+      </button>
+    </nav>
+
+    <!-- Tactile Handheld Controls (D-Pad + A/B + START/SELECT) -->
+    <section class="controller-deck" aria-label="Handheld Controller">
+      <div class="dpad-cluster">
+        <button class="dpad-btn dpad-up" data-dir="up" aria-label="Move Up" type="button">▲</button>
+        <button class="dpad-btn dpad-left" data-dir="left" aria-label="Move Left" type="button">◀</button>
+        <div class="dpad-center"></div>
+        <button class="dpad-btn dpad-right" data-dir="right" aria-label="Move Right" type="button">▶</button>
+        <button class="dpad-btn dpad-down" data-dir="down" aria-label="Move Down" type="button">▼</button>
+      </div>
+
+      <div class="center-pills">
+        <button class="pill-btn" id="btnSelect" type="button" title="Open KinDex (SELECT)">
+          <span class="pill-cap"></span>
+          <span class="pill-lbl">SELECT</span>
+        </button>
+        <button class="pill-btn" id="btnStart" type="button" title="Save & Cloud Sync (START)">
+          <span class="pill-cap"></span>
+          <span class="pill-lbl">START</span>
+        </button>
+      </div>
+
+      <div class="ab-cluster">
+        <button class="action-round-btn btn-b" id="btnPadB" type="button" aria-label="B Button">
+          <span class="ab-letter">B</span>
+          <span class="ab-sub">BACK / SEARCH</span>
+        </button>
+        <button class="action-round-btn btn-a" id="btnPadA" type="button" aria-label="A Button">
+          <span class="ab-letter">A</span>
+          <span class="ab-sub">ACT / BATTLE</span>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Universal Modal Drawer (Squad, KinDex, Wardens & PvP, Shop, Zones, Cloud Save) -->
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal-sheet" id="modalSheet">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Menu</h2>
+        <button class="modal-close" id="btnCloseModal" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="/js/data.js"></script>
+  <script src="/js/sprites.js"></script>
+  <script src="/js/audio.js"></script>
+  <script src="/js/maps.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+</html>

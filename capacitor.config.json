@@ -1,0 +1,11 @@
+{
+  "appId": "com.wildkin.aetherbound",
+  "appName": "Wildkin",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "ios": {
+    "contentInset": "always",
+    "preferredContentMode": "mobile",
+    "backgroundColor": "#0b1020"
+  }
+}
