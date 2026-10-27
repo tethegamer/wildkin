@@ -1172,6 +1172,35 @@
     return ROAMER_LAND_TILES.has(ch);
   }
 
+  function isTallGrassTile(zoneId, x, y) {
+    const rx = Math.round(Number(x));
+    const ry = Math.round(Number(y));
+    if (isNaN(rx) || isNaN(ry)) return false;
+    if (rx < 1 || ry < 1 || rx >= MAP_WIDTH - 1 || ry >= MAP_HEIGHT - 1) return false;
+    return getTileAt(zoneId, rx, ry) === "G";
+  }
+
+  function snapToTallGrassTile(zoneId, x, y) {
+    const startX = Math.max(1, Math.min(MAP_WIDTH - 2, Math.round(Number(x) || 13)));
+    const startY = Math.max(1, Math.min(MAP_HEIGHT - 2, Math.round(Number(y) || 11)));
+    if (isTallGrassTile(zoneId, startX, startY)) {
+      return { x: startX, y: startY, tile: "G" };
+    }
+    for (let r = 1; r < Math.max(MAP_WIDTH, MAP_HEIGHT); r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+          const nx = startX + dx;
+          const ny = startY + dy;
+          if (isTallGrassTile(zoneId, nx, ny)) {
+            return { x: nx, y: ny, tile: "G" };
+          }
+        }
+      }
+    }
+    return snapToWalkableLand(zoneId, startX, startY);
+  }
+
   function snapToWalkableLand(zoneId, x, y) {
     const startX = Math.max(1, Math.min(MAP_WIDTH - 2, Math.round(Number(x) || 13)));
     const startY = Math.max(1, Math.min(MAP_HEIGHT - 2, Math.round(Number(y) || 11)));
@@ -1290,6 +1319,8 @@
     getTileInfo,
     isWalkableTile,
     isWalkableLandForRoamer,
+    isTallGrassTile,
+    snapToTallGrassTile,
     snapToWalkableLand,
     isNearWater,
     findNearestWaterSpot

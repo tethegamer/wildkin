@@ -644,7 +644,7 @@ describe('4. public/js/renderer3d.js & Turn-by-Turn 3D Combat / Procedural Surfa
     // Spawn roaming 3D wild Kin across zones
     for (const zoneId of ['meadow', 'tidecove', 'stormspire', 'frostveil', 'embervault', 'sanctum']) {
       const spawns = WildkinGame.ensureZoneWildSpawns(zoneId);
-      assert.equal(spawns.length, 10, `Zone ${zoneId} must spawn 10 visible roaming 3D wild Kin across the 36x28 map`);
+      assert.equal(spawns.length, 6, `Zone ${zoneId} must spawn 6 concealed tall-grass ambush wild Kin across the 36x28 map`);
       for (const ws of spawns) {
         assert.equal(ws.zone, zoneId);
         assert.ok(ws.speciesId >= 1 && ws.speciesId <= 41);
@@ -1046,5 +1046,32 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     const chatData = await chatPost.json();
     assert.equal(chatData.ok, true);
     assert.ok(chatData.messages.some((m) => (m.text || m.message || '').includes('Krakenlord')));
+  });
+
+  it('verifies Lower Wild Encounter Frequency (8% rate + 7-step & 6.5s grace), Tall-Grass Concealment (hiddenInGrass on G tiles, none floating), and Procedural Terrain/Grass Clumps', () => {
+    assert.equal(WildkinGame.WILD_GRASS_ENCOUNTER_RATE, 0.08);
+    assert.equal(WildkinGame.MIN_ENCOUNTER_STEP_COOLDOWN, 7);
+    assert.equal(WildkinGame.ENCOUNTER_GRACE_DURATION_MS, 6500);
+    assert.equal(WildkinGame.WILD_SPAWN_COUNT_PER_ZONE, 6);
+
+    assert.equal(typeof WildkinMaps.isTallGrassTile, 'function');
+    assert.equal(typeof WildkinMaps.snapToTallGrassTile, 'function');
+    assert.equal(typeof Wildkin3D.createProceduralTerrainTextures, 'function');
+    assert.equal(typeof Wildkin3D.buildTallGrassClump3D, 'function');
+
+    const texBundle = Wildkin3D.createProceduralTerrainTextures();
+    assert.ok(texBundle && typeof texBundle === 'object');
+    assert.ok('grassA' in texBundle && 'tallGrassGround' in texBundle && 'stone' in texBundle && 'water' in texBundle);
+
+    for (const zoneId of ['meadow', 'tidecove', 'stormspire', 'cinderpeak', 'frostveil', 'sanctum']) {
+      const spawns = WildkinGame.ensureZoneWildSpawns(zoneId);
+      assert.equal(spawns.length, 6);
+      for (const ws of spawns) {
+        assert.equal(ws.hiddenInGrass, true, `Wild spawn in ${zoneId} must default to hiddenInGrass: true`);
+        assert.equal(ws.floating, false, `Wild spawn in ${zoneId} must never float around in circles`);
+        assert.equal(ws.posture, 'hidden');
+        assert.equal(WildkinMaps.getTileAt(zoneId, ws.x, ws.y), 'G', `Wild spawn at (${ws.x},${ws.y}) in ${zoneId} must be strictly on a Tall Grass (G) tile`);
+      }
+    }
   });
 });

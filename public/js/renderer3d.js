@@ -156,14 +156,14 @@
     if (_texCache[key]) return _texCache[key];
 
     const canvas = document.createElement("canvas");
-    canvas.width = 128;
-    canvas.height = 128;
+    canvas.width = 256;
+    canvas.height = 256;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
     const toCss = (h) => "#" + Number(h).toString(16).padStart(6, "0");
     ctx.fillStyle = toCss(baseHex);
-    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillRect(0, 0, 256, 256);
 
     // Deterministic pseudo-random grain so textures look natural and organic
     let seed = (Number(baseHex) ^ Number(detailHex) ^ 0x9e3779b9) >>> 0;
@@ -172,30 +172,84 @@
       return seed / 4294967296;
     };
 
-    if (kind === "grass") {
-      for (let i = 0; i < 420; i++) {
-        const x = rand() * 128;
-        const y = rand() * 128;
-        ctx.fillStyle = i % 3 === 0 ? toCss(detailHex) : "rgba(255,255,255,0.08)";
-        ctx.fillRect(x, y, 2, 5);
+    if (kind === "grass" || kind === "tall_grass_ground") {
+      // Layered organic soil patches & moss dappling
+      for (let p = 0; p < 36; p++) {
+        const px = rand() * 256;
+        const py = rand() * 256;
+        const pr = 12 + rand() * 26;
+        ctx.fillStyle = p % 2 === 0 ? "rgba(10, 28, 16, 0.18)" : "rgba(134, 239, 172, 0.09)";
+        ctx.beginPath();
+        ctx.arc(px, py, pr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // 950 directional curved grass-blade strokes in 4 organic shades
+      const bladeCount = kind === "tall_grass_ground" ? 1200 : 900;
+      ctx.lineWidth = 1.6;
+      for (let i = 0; i < bladeCount; i++) {
+        const x = rand() * 256;
+        const y = rand() * 256;
+        const h = 5 + rand() * (kind === "tall_grass_ground" ? 11 : 8);
+        const bend = (rand() - 0.5) * 4.5;
+        if (i % 4 === 0) ctx.strokeStyle = toCss(detailHex);
+        else if (i % 4 === 1) ctx.strokeStyle = "rgba(15, 45, 22, 0.36)";
+        else if (i % 4 === 2) ctx.strokeStyle = "rgba(187, 247, 208, 0.18)";
+        else ctx.strokeStyle = "rgba(255, 255, 255, 0.09)";
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + bend * 0.5, y - h * 0.5, x + bend, y - h);
+        ctx.stroke();
+      }
+      // Subtle clover & wildflower dew speckles
+      for (let c = 0; c < 45; c++) {
+        ctx.fillStyle = c % 5 === 0 ? "rgba(250, 204, 21, 0.22)" : "rgba(74, 222, 128, 0.25)";
+        ctx.fillRect(rand() * 256, rand() * 256, 2.5, 2.5);
       }
     } else if (kind === "stone") {
-      ctx.strokeStyle = "rgba(15,23,42,0.28)";
-      ctx.lineWidth = 2;
-      for (let r = 0; r < 4; r++) {
-        for (let c = 0; c < 4; c++) {
-          const bx = c * 32 + (r % 2) * 12;
-          const by = r * 32;
-          ctx.fillStyle = (r + c) % 2 === 0 ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
-          ctx.fillRect(bx + 2, by + 2, 28, 28);
-          ctx.strokeRect(bx + 1, by + 1, 30, 30);
+      // Weathered cobblestone / flagstone masonry with mortar seams & mossy edges
+      ctx.strokeStyle = "rgba(15, 23, 42, 0.34)";
+      ctx.lineWidth = 2.4;
+      for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < 6; c++) {
+          const bx = (c * 42 + (r % 2) * 18) % 256;
+          const by = r * 42;
+          ctx.fillStyle = (r + c) % 2 === 0 ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.09)";
+          ctx.fillRect(bx + 2, by + 2, 38, 38);
+          ctx.strokeRect(bx + 1, by + 1, 40, 40);
+          // Mossy crevice speck
+          if ((r + c) % 3 === 0) {
+            ctx.fillStyle = "rgba(34, 197, 94, 0.16)";
+            ctx.fillRect(bx + 3, by + 34, 12, 4);
+          }
         }
+      }
+      for (let g = 0; g < 260; g++) {
+        ctx.fillStyle = g % 2 === 0 ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.08)";
+        ctx.fillRect(rand() * 256, rand() * 256, 2, 2);
+      }
+    } else if (kind === "water") {
+      // Shimmering lagoon caustics & ripple bands
+      for (let w = 0; w < 64; w++) {
+        const wy = (w * 4 + rand() * 4) % 256;
+        ctx.strokeStyle = w % 2 === 0 ? "rgba(186, 230, 253, 0.24)" : "rgba(12, 74, 110, 0.22)";
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(0, wy);
+        ctx.bezierCurveTo(85, wy + (rand() - 0.5) * 10, 170, wy + (rand() - 0.5) * 10, 256, wy);
+        ctx.stroke();
+      }
+    } else if (kind === "foliage") {
+      for (let f = 0; f < 340; f++) {
+        ctx.fillStyle = f % 3 === 0 ? toCss(detailHex) : f % 3 === 1 ? "rgba(187, 247, 208, 0.18)" : "rgba(10, 32, 16, 0.24)";
+        ctx.beginPath();
+        ctx.arc(rand() * 256, rand() * 256, 4 + rand() * 7, 0, Math.PI * 2);
+        ctx.fill();
       }
     } else if (kind === "scales") {
       ctx.strokeStyle = "rgba(0,0,0,0.22)";
       ctx.lineWidth = 1.4;
-      for (let y = 0; y < 128; y += 16) {
-        for (let x = 0; x < 128; x += 16) {
+      for (let y = 0; y < 256; y += 16) {
+        for (let x = 0; x < 256; x += 16) {
           const ox = x + ((y / 16) % 2) * 8;
           ctx.beginPath();
           ctx.arc(ox, y, 8, 0, Math.PI);
@@ -205,9 +259,9 @@
         }
       }
     } else if (kind === "bark") {
-      for (let i = 0; i < 90; i++) {
-        ctx.fillStyle = i % 2 === 0 ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.06)";
-        ctx.fillRect(rand() * 128, 0, 2 + rand() * 3, 128);
+      for (let i = 0; i < 160; i++) {
+        ctx.fillStyle = i % 2 === 0 ? "rgba(0,0,0,0.24)" : "rgba(255,255,255,0.07)";
+        ctx.fillRect(rand() * 256, 0, 2 + rand() * 3, 256);
       }
     }
 
@@ -216,6 +270,72 @@
     tex.wrapT = THREE.RepeatWrapping;
     _texCache[key] = tex;
     return tex;
+  }
+
+  function createProceduralTerrainTextures(palette = {}) {
+    const pal = Object.assign(
+      {
+        ground: 0x1e4d2b,
+        groundAlt: 0x255c34,
+        tallGrass: 0x16a34a,
+        grassTip: 0x86efac,
+        path: 0xd4a373,
+        water: 0x0ea5e9,
+        treeTrunk: 0x5c3a21,
+        treeCrown: 0x22c55e
+      },
+      palette || {}
+    );
+    return {
+      grassA: getProceduralTexture("grass", pal.ground, pal.tallGrass),
+      grassB: getProceduralTexture("grass", pal.groundAlt, pal.tallGrass),
+      tallGrassGround: getProceduralTexture("tall_grass_ground", pal.tallGrass, pal.ground),
+      stone: getProceduralTexture("stone", pal.path, pal.ground),
+      water: getProceduralTexture("water", pal.water, 0x38bdf8),
+      bark: getProceduralTexture("bark", pal.treeTrunk, 0x29170b),
+      foliage: getProceduralTexture("foliage", pal.treeCrown, pal.grassTip)
+    };
+  }
+
+  function buildTallGrassClump3D(THREE, grassMat, tipMat, seed = 0) {
+    if (!THREE) return null;
+    const cluster = new THREE.Group();
+    const bladeCount = 9;
+    const blades = [];
+    for (let b = 0; b < bladeCount; b++) {
+      const ringIdx = b === 0 ? 0 : b <= 4 ? 1 : 2;
+      const angle = (b / bladeCount) * Math.PI * 2 + ((seed * 1.37 + b * 0.71) % 0.55);
+      const dist = ringIdx === 0 ? 0.04 : ringIdx === 1 ? 0.28 : 0.48;
+      const h = 0.58 + ((seed * 3 + b * 7) % 5) * 0.09;
+      const rBase = 0.11 + (b % 3) * 0.025;
+
+      const bladePivot = new THREE.Group();
+      bladePivot.position.set(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+      bladePivot.rotation.y = angle;
+
+      // Lower stem + curved upper tip for realistic organic silhouette
+      const lowerStem = new THREE.Mesh(
+        new THREE.ConeGeometry(rBase, h * 0.65, 7),
+        b % 3 === 0 && tipMat ? tipMat : grassMat
+      );
+      lowerStem.position.y = h * 0.32;
+      const leanOut = ringIdx === 0 ? 0.06 : ringIdx === 1 ? 0.16 : 0.26;
+      lowerStem.rotation.x = leanOut;
+      lowerStem.castShadow = true;
+
+      const upperTip = new THREE.Mesh(
+        new THREE.ConeGeometry(rBase * 0.62, h * 0.52, 6),
+        tipMat || grassMat
+      );
+      upperTip.position.set(0, h * 0.68, Math.sin(leanOut) * 0.08);
+      upperTip.rotation.x = leanOut * 1.45;
+      bladePivot.add(lowerStem, upperTip);
+      bladePivot.userData = { baseLean: leanOut, angle, phaseOffset: b * 0.65 };
+      cluster.add(bladePivot);
+      blades.push(bladePivot);
+    }
+    cluster.userData.blades = blades;
+    return cluster;
   }
 
 
@@ -644,40 +764,44 @@
     if (!mesh || !mesh.userData || !mesh.userData.rig) return;
     const { rig, archetype } = mesh.userData;
 
-    const bobSpeed = isMoving ? 9.5 : 2.8;
-    const bobAmp = isMoving ? 0.11 : 0.055;
-    const breath = Math.sin(timeSec * bobSpeed);
-    rig.body.position.y = breath * bobAmp + (lungePhase > 0 ? Math.sin(lungePhase * Math.PI) * 0.55 : 0);
+    const strideFreq = isMoving ? 9.8 : 2.4;
+    const phase = timeSec * strideFreq;
+    // Grounded contact stride bounce (never dips below ground plane, no weightless floating!)
+    const groundedStep = isMoving ? Math.abs(Math.sin(phase)) * 0.075 : (Math.sin(phase) * 0.5 + 0.5) * 0.028;
+    rig.body.position.y = groundedStep + (lungePhase > 0 ? Math.sin(lungePhase * Math.PI) * 0.52 : 0);
+    rig.body.rotation.x = isMoving ? Math.cos(phase * 2) * 0.045 : 0;
+    rig.body.rotation.z = isMoving ? Math.sin(phase) * 0.035 : 0;
 
-    // Subtle organic breathing squash-and-stretch so models never look stiff
-    const squash = 1 + breath * (isMoving ? 0.045 : 0.025);
+    // Subtle organic breathing squash-and-stretch
+    const breath = Math.sin(phase);
+    const squash = 1 + breath * (isMoving ? 0.032 : 0.018);
     rig.body.scale.set(1 / Math.sqrt(squash), squash, 1 / Math.sqrt(squash));
 
     if (rig.head) {
-      rig.head.rotation.x = Math.sin(timeSec * 2.4) * 0.09 + (lungePhase > 0 ? -0.22 : 0);
-      rig.head.rotation.y = Math.cos(timeSec * 1.6) * 0.14;
-      rig.head.rotation.z = Math.sin(timeSec * 1.9) * 0.05;
+      rig.head.rotation.x = (isMoving ? 0.06 + Math.sin(phase * 2) * 0.06 : Math.sin(timeSec * 2.1) * 0.06) + (lungePhase > 0 ? -0.22 : 0);
+      rig.head.rotation.y = isMoving ? Math.sin(phase) * 0.05 : Math.cos(timeSec * 1.4) * 0.12;
+      rig.head.rotation.z = Math.sin(timeSec * 1.7) * 0.04;
     }
 
     if (archetype === 'winged' && rig.wings.length === 2) {
-      const flap = Math.sin(timeSec * 8.5) * 0.48;
+      const flap = Math.sin(timeSec * 6.8) * 0.36;
       rig.wings[0].rotation.z = -flap;
       rig.wings[1].rotation.z = flap;
-      rig.body.position.y += 0.20;
+      rig.body.position.y += 0.06;
     }
 
     if (rig.limbs.length > 0) {
-      const swingSpeed = isMoving ? 11 : 2.6;
-      const swingAmp = isMoving ? 0.46 : 0.10;
+      const swingAmp = isMoving ? 0.52 : 0.04;
       rig.limbs.forEach((limb, idx) => {
-        const sign = idx % 2 === 0 ? 1 : -1;
-        limb.rotation.x = Math.sin(timeSec * swingSpeed + idx * 1.2) * swingAmp * sign;
+        // Diagonal quadruped gait: FL(0) & BR(3) in phase, FR(1) & BL(2) opposite phase
+        const diagPhase = (idx === 0 || idx === 3) ? phase : phase + Math.PI;
+        limb.rotation.x = Math.sin(diagPhase) * swingAmp;
       });
     }
 
     if (rig.tail) {
-      rig.tail.rotation.y = Math.sin(timeSec * 4.2) * 0.34;
-      rig.tail.rotation.x = Math.cos(timeSec * 2.8) * 0.10;
+      rig.tail.rotation.y = Math.sin(timeSec * (isMoving ? 6.5 : 3.2)) * (isMoving ? 0.38 : 0.24);
+      rig.tail.rotation.x = Math.cos(timeSec * 2.6) * 0.08;
     }
 
     rig.auraRings.forEach((ring, i) => {
@@ -857,18 +981,24 @@
     if (!mesh || !mesh.userData) return;
     const u = mesh.userData;
     const isMoving = speed > 0.02;
-    const walkFreq = isMoving ? 12.5 : 2.4;
-    const swing = isMoving ? Math.min(0.72, speed * 0.52) : 0.07;
+    const normSpeed = isMoving ? Math.min(1.35, Math.max(0.35, speed * 0.85)) : 0;
+    const walkFreq = isMoving ? 9.5 + normSpeed * 2.2 : 2.2;
+    const stridePhase = timeSec * walkFreq;
+    const swing = isMoving ? Math.min(0.68, normSpeed * 0.56) : 0.035;
 
-    u.armL.rotation.x = Math.sin(timeSec * walkFreq) * swing;
-    u.armR.rotation.x = -Math.sin(timeSec * walkFreq) * swing;
-    u.legL.rotation.x = -Math.sin(timeSec * walkFreq) * swing;
-    u.legR.rotation.x = Math.sin(timeSec * walkFreq) * swing;
-    u.bodyGroup.position.y = isMoving ? Math.abs(Math.sin(timeSec * walkFreq)) * 0.09 : Math.sin(timeSec * 2.4) * 0.03;
+    u.armL.rotation.x = Math.sin(stridePhase) * swing;
+    u.armR.rotation.x = -Math.sin(stridePhase) * swing;
+    u.legL.rotation.x = -Math.sin(stridePhase) * swing;
+    u.legR.rotation.x = Math.sin(stridePhase) * swing;
+    // Grounded double-step contact bounce + forward lean + hip weight shift
+    u.bodyGroup.position.y = isMoving ? Math.abs(Math.sin(stridePhase)) * 0.065 : (Math.sin(stridePhase) * 0.5 + 0.5) * 0.02;
+    u.bodyGroup.rotation.x = isMoving ? 0.075 * normSpeed : 0;
+    u.bodyGroup.rotation.z = isMoving ? Math.cos(stridePhase) * 0.032 : 0;
     if (u.headGroup) {
-      u.headGroup.rotation.y = isMoving ? 0 : Math.sin(timeSec * 1.4) * 0.10;
+      u.headGroup.rotation.y = isMoving ? Math.sin(stridePhase) * 0.04 : Math.sin(timeSec * 1.4) * 0.09;
+      u.headGroup.rotation.x = isMoving ? -0.04 * normSpeed : 0;
     }
-    u.cape.rotation.x = 0.22 + (isMoving ? 0.32 + Math.sin(timeSec * walkFreq * 2) * 0.1 : Math.sin(timeSec * 2.8) * 0.05);
+    u.cape.rotation.x = 0.20 + (isMoving ? 0.28 * normSpeed + Math.sin(stridePhase * 2) * 0.08 : Math.sin(timeSec * 2.4) * 0.04);
     u.footRing.rotation.z = timeSec * 1.4;
   }
 
@@ -1187,37 +1317,58 @@
       overworld.zoneGroup.add(baseBed);
 
       const groundGeo = new THREE.BoxGeometry(TILE_SIZE * 0.98, 0.36, TILE_SIZE * 0.98);
-      const grassTexA = getProceduralTexture("grass", pal.ground, pal.tallGrass);
-      const grassTexB = getProceduralTexture("grass", pal.groundAlt, pal.tallGrass);
-      const stoneTex = getProceduralTexture("stone", pal.path, pal.ground);
-      const groundMatA = new THREE.MeshStandardMaterial({ color: pal.ground, map: grassTexA, bumpMap: grassTexA, bumpScale: 0.03, roughness: 0.78 });
-      const groundMatB = new THREE.MeshStandardMaterial({ color: pal.groundAlt, map: grassTexB, bumpMap: grassTexB, bumpScale: 0.03, roughness: 0.78 });
-      const pathMat = new THREE.MeshStandardMaterial({ color: pal.path, map: stoneTex, bumpMap: stoneTex, bumpScale: 0.04, roughness: 0.62 });
+      const terrainTex = createProceduralTerrainTextures(pal);
+      const grassTexA = terrainTex.grassA;
+      const grassTexB = terrainTex.grassB;
+      const tallGrassGroundTex = terrainTex.tallGrassGround;
+      const stoneTex = terrainTex.stone;
+      const waterTex = terrainTex.water;
+      const barkTexMain = terrainTex.bark;
+      const foliageTex = terrainTex.foliage;
+      const groundMatA = new THREE.MeshStandardMaterial({ color: pal.ground, map: grassTexA, bumpMap: grassTexA, bumpScale: 0.045, roughness: 0.82 });
+      const groundMatB = new THREE.MeshStandardMaterial({ color: pal.groundAlt, map: grassTexB, bumpMap: grassTexB, bumpScale: 0.045, roughness: 0.82 });
+      const tallGrassGroundMat = new THREE.MeshStandardMaterial({ color: pal.ground, map: tallGrassGroundTex, bumpMap: tallGrassGroundTex, bumpScale: 0.06, roughness: 0.86 });
+      const pathMat = new THREE.MeshStandardMaterial({ color: pal.path, map: stoneTex, bumpMap: stoneTex, bumpScale: 0.05, roughness: 0.64 });
       const waterMat = new THREE.MeshStandardMaterial({
         color: pal.water,
-        roughness: 0.15,
-        metalness: 0.35,
+        map: waterTex,
+        bumpMap: waterTex,
+        bumpScale: 0.025,
+        roughness: 0.14,
+        metalness: 0.38,
         emissive: pal.water,
         emissiveIntensity: zone.id === 'cinderpeak' ? 0.65 : 0.22
       });
-      const trunkMat = new THREE.MeshStandardMaterial({ color: pal.treeTrunk, roughness: 0.75 });
+      const trunkMat = new THREE.MeshStandardMaterial({ color: pal.treeTrunk, map: barkTexMain, bumpMap: barkTexMain, bumpScale: 0.04, roughness: 0.78 });
       const crownMatA = new THREE.MeshStandardMaterial({
         color: pal.treeCrown,
-        roughness: 0.45,
+        map: foliageTex,
+        bumpMap: foliageTex,
+        bumpScale: 0.035,
+        roughness: 0.48,
         emissive: pal.treeCrown,
-        emissiveIntensity: zone.id === 'sanctum' ? 0.3 : 0.08
+        emissiveIntensity: zone.id === 'sanctum' ? 0.3 : 0.06
       });
       const crownMatB = new THREE.MeshStandardMaterial({
         color: pal.treeCrownAlt,
-        roughness: 0.4,
+        map: foliageTex,
+        bumpMap: foliageTex,
+        bumpScale: 0.035,
+        roughness: 0.44,
         emissive: pal.treeCrownAlt,
-        emissiveIntensity: 0.18
+        emissiveIntensity: 0.12
       });
       const grassMat = new THREE.MeshStandardMaterial({
         color: pal.tallGrass,
-        roughness: 0.4,
+        roughness: 0.46,
+        emissive: pal.tallGrass,
+        emissiveIntensity: 0.08
+      });
+      const grassTipMat = new THREE.MeshStandardMaterial({
+        color: pal.grassTip,
+        roughness: 0.38,
         emissive: pal.grassTip,
-        emissiveIntensity: 0.15
+        emissiveIntensity: 0.16
       });
 
       const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.65, metalness: 0.1 });
@@ -1270,7 +1421,7 @@
           }
 
           const isPath = ch === "." || ch === "P" || ch === "S" || ch === "H" || ch === "C" || ch === "M" || ch === "W" || ch === "R" || ch === "K" || ch === "N" || ch === "O" || ch === "I" || ch === "F" || ch === "V";
-          const tileMat = isPath ? pathMat : (c + r) % 2 === 0 ? groundMatA : groundMatB;
+          const tileMat = isPath ? pathMat : ch === "G" ? tallGrassGroundMat : (c + r) % 2 === 0 ? groundMatA : groundMatB;
           const blockH = Math.max(0.36, 0.76 + elev);
           const tileGeo = elev > 0.04 ? new THREE.BoxGeometry(TILE_SIZE * 0.98, blockH, TILE_SIZE * 0.98) : groundGeo;
           const tileMesh = new THREE.Mesh(tileGeo, tileMat);
@@ -1312,17 +1463,9 @@
             }
             overworld.zoneGroup.add(treeGroup);
           } else if (ch === "G") {
-            const cluster = new THREE.Group();
+            const cluster = buildTallGrassClump3D(THREE, grassMat, grassTipMat, c * 17 + r * 31);
             cluster.position.set(wx, elev, wz);
-            for (let b = 0; b < 5; b++) {
-              const angle = (b / 5) * Math.PI * 2;
-              const dist = b === 0 ? 0 : 0.44;
-              const blade = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.78, 12), grassMat);
-              blade.position.set(Math.cos(angle) * dist, 0.38, Math.sin(angle) * dist);
-              blade.rotation.y = angle;
-              cluster.add(blade);
-            }
-            cluster.userData = { wx, wz, elev, phase: c * 0.5 + r * 0.7 };
+            cluster.userData = Object.assign(cluster.userData || {}, { wx, wz, tileX: c, tileY: r, elev, phase: c * 0.45 + r * 0.35 });
             overworld.zoneGroup.add(cluster);
             overworld.grassBlades.push(cluster);
           } else if (ch === "R") {
@@ -1588,38 +1731,86 @@
     overworld.wildMeshes = new Map();
     if (!Array.isArray(wildSpawns)) return;
 
+    const pal = BIOME_PALETTES[overworld.currentZoneId] || BIOME_PALETTES.meadow;
+    const coverGrassMat = new THREE.MeshStandardMaterial({
+      color: pal.tallGrass,
+      roughness: 0.42,
+      emissive: pal.tallGrass,
+      emissiveIntensity: 0.12
+    });
+    const coverTipMat = new THREE.MeshStandardMaterial({
+      color: pal.grassTip,
+      roughness: 0.35,
+      emissive: pal.grassTip,
+      emissiveIntensity: 0.22
+    });
+
     wildSpawns.forEach((sp, idx) => {
       if (!sp || sp.caught || sp.defeated) return;
       const species = typeof getSpeciesFn === "function" ? getSpeciesFn(sp.speciesId) : (sp.species || { id: sp.speciesId, name: "Wild Kin", affinity: "Grove" });
       const wrapper = new THREE.Group();
+
+      // 1. Dense Rustling Tall-Grass Cover Clump that conceals the wild creature
+      const grassCover = buildTallGrassClump3D(THREE, coverGrassMat, coverTipMat, idx * 29 + 11);
+      if (grassCover) {
+        grassCover.scale.setScalar(1.22);
+        wrapper.add(grassCover);
+      }
+
+      // 2. Peeking Glowing Eyes & Rustling Leaf Particles (visible when player approaches within 2.25 tiles)
+      const peekingEyes = new THREE.Group();
+      const eyeColor = sp.isRadiant ? 0xfacc15 : 0xfbbf24;
+      const eyeMat = new THREE.MeshBasicMaterial({ color: eyeColor });
+      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 8), eyeMat);
+      eyeL.position.set(-0.14, 0.42, 0.28);
+      const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 8), eyeMat);
+      eyeR.position.set(0.14, 0.42, 0.28);
+      peekingEyes.add(eyeL, eyeR);
+      peekingEyes.visible = false;
+      wrapper.add(peekingEyes);
+
+      // 3. Swaying Rustle Leaf Motes
+      const leafPuffs = new THREE.Group();
+      for (let lf = 0; lf < 4; lf++) {
+        const leaf = new THREE.Mesh(
+          new THREE.ConeGeometry(0.06, 0.18, 5),
+          new THREE.MeshBasicMaterial({ color: sp.isRadiant ? 0xfacc15 : pal.grassTip })
+        );
+        const la = (lf / 4) * Math.PI * 2;
+        leaf.position.set(Math.cos(la) * 0.35, 0.55 + lf * 0.08, Math.sin(la) * 0.35);
+        leaf.rotation.z = 0.6;
+        leafPuffs.add(leaf);
+      }
+      wrapper.add(leafPuffs);
+
+      // 4. Grounded 3D Creature Mesh (concealed inside grass until player steps right next to the patch!)
       const kinMesh = buildKin3DMesh(species, Boolean(sp.isRadiant));
       if (kinMesh) {
-        kinMesh.scale.setScalar(0.62);
-        kinMesh.userData.baseScale = 0.62;
+        kinMesh.scale.setScalar(0.58);
+        kinMesh.userData.baseScale = 0.58;
+        kinMesh.visible = sp.hiddenInGrass === false;
         wrapper.add(kinMesh);
       }
-      const ringColor = sp.isRadiant ? 0xfacc15 : 0x4ade80;
+
+      const ringColor = sp.isRadiant ? 0xfacc15 : 0x22c55e;
       const wildRing = new THREE.Mesh(
-        new THREE.RingGeometry(0.45, 0.62, 24),
+        new THREE.RingGeometry(0.38, 0.52, 24),
         new THREE.MeshBasicMaterial({
           color: ringColor,
           side: THREE.DoubleSide,
           transparent: true,
-          opacity: 0.72
+          opacity: 0.28
         })
       );
       wildRing.rotation.x = Math.PI / 2;
-      wildRing.position.y = 0.05;
+      wildRing.position.y = 0.04;
       wrapper.add(wildRing);
 
-      const wildGem = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.14, 0),
-        new THREE.MeshBasicMaterial({ color: sp.isRadiant ? 0xfacc15 : 0xf43f5e })
-      );
-      wildGem.position.y = 1.45;
-      wrapper.add(wildGem);
-
-      if (root.WILDKIN_MAPS && typeof root.WILDKIN_MAPS.isWalkableLandForRoamer === "function") {
+      if (root.WILDKIN_MAPS && typeof root.WILDKIN_MAPS.snapToTallGrassTile === "function") {
+        const snapped = root.WILDKIN_MAPS.snapToTallGrassTile(overworld.currentZoneId, sp.x, sp.y);
+        sp.x = snapped.x;
+        sp.y = snapped.y;
+      } else if (root.WILDKIN_MAPS && typeof root.WILDKIN_MAPS.isWalkableLandForRoamer === "function") {
         if (!root.WILDKIN_MAPS.isWalkableLandForRoamer(overworld.currentZoneId, sp.x, sp.y)) {
           const snapped = root.WILDKIN_MAPS.snapToWalkableLand(overworld.currentZoneId, sp.x, sp.y);
           sp.x = snapped.x;
@@ -1628,7 +1819,17 @@
       }
       const spElev = getWorldElevation(overworld.currentZoneId, sp.x || 4, sp.y || 4);
       wrapper.position.set((sp.x || 4) * TILE_SIZE, spElev, (sp.y || 4) * TILE_SIZE);
-      wrapper.userData = { kinMesh, wildRing, wildGem, spawnId: sp.id || ("w_" + idx), phase: idx * 1.1 };
+      wrapper.userData = {
+        kinMesh,
+        grassCover,
+        peekingEyes,
+        leafPuffs,
+        wildRing,
+        hiddenInGrass: sp.hiddenInGrass !== false,
+        posture: sp.posture || "hidden",
+        spawnId: sp.id || ("w_" + idx),
+        phase: idx * 1.3
+      };
       overworld.wildGroup.add(wrapper);
       overworld.wildMeshes.set(wrapper.userData.spawnId, wrapper);
     });
@@ -1939,18 +2140,27 @@
       animateKinMesh(overworld.companionMesh, timeSec, speed > 0.02, 0);
     }
 
-    // Animate 3D Grass Clusters (bend away when player runs through!)
+    // Animate 3D Multi-Blade Grass Clusters (realistic traveling wind wave + parting when stepped through!)
     overworld.grassBlades.forEach((cluster) => {
       const dx = cluster.userData.wx - px;
       const dz = cluster.userData.wz - pz;
       const distSq = dx * dx + dz * dz;
-      if (distSq < 2.2) {
-        const push = (1 - Math.sqrt(distSq) / 1.5) * 0.55;
-        cluster.rotation.x = dz * push;
-        cluster.rotation.z = -dx * push;
+      const windX = Math.sin(timeSec * 2.2 + cluster.userData.wx * 0.45 + cluster.userData.wz * 0.35) * 0.14;
+      const windZ = Math.cos(timeSec * 1.8 + cluster.userData.wx * 0.35 - cluster.userData.wz * 0.45) * 0.10;
+      if (distSq < 2.6) {
+        const push = (1 - Math.sqrt(distSq) / 1.62) * 0.58;
+        const rustle = speed > 0.04 ? Math.sin(timeSec * 18 + cluster.userData.phase) * 0.08 : 0;
+        cluster.rotation.x = dz * push + rustle;
+        cluster.rotation.z = -dx * push + rustle;
       } else {
-        cluster.rotation.x = Math.sin(timeSec * 2.4 + cluster.userData.phase) * 0.1;
-        cluster.rotation.z = Math.cos(timeSec * 1.9 + cluster.userData.phase) * 0.08;
+        cluster.rotation.x = windX;
+        cluster.rotation.z = windZ;
+      }
+      if (Array.isArray(cluster.userData.blades)) {
+        cluster.userData.blades.forEach((bladePivot) => {
+          const bp = bladePivot.userData || {};
+          bladePivot.rotation.z = Math.sin(timeSec * 2.8 + (bp.phaseOffset || 0) + cluster.userData.phase) * 0.07;
+        });
       }
     });
 
@@ -1975,51 +2185,57 @@
       animateHumanoid3D(npcMesh, timeSec + idx * 0.7, 0);
     });
 
+    // Animate Concealed Tall-Grass Ambush Patches (rustling grass -> peeking eyes -> leaping out when close!)
     if (overworld.wildGroup && overworld.wildGroup.children.length > 0) {
       const spawnsList = Array.isArray(playerState.wildSpawns) ? playerState.wildSpawns : [];
       overworld.wildGroup.children.forEach((wrapper, idx) => {
         const u = wrapper.userData || {};
         const match = spawnsList.find((s) => s.id === u.spawnId) || spawnsList[idx];
+        const phase = u.phase || idx * 1.3;
         if (match) {
-          if (root.WILDKIN_MAPS && typeof root.WILDKIN_MAPS.isWalkableLandForRoamer === "function") {
-            if (!root.WILDKIN_MAPS.isWalkableLandForRoamer(overworld.currentZoneId, match.x, match.y)) {
-              const snapped = root.WILDKIN_MAPS.snapToWalkableLand(overworld.currentZoneId, match.x, match.y);
-              match.x = snapped.x;
-              match.y = snapped.y;
-            }
-          }
-          const tx = (match.x || 0) * TILE_SIZE;
-          const tz = (match.y || 0) * TILE_SIZE;
-          const nextX = wrapper.position.x + (tx - wrapper.position.x) * 0.18;
-          const nextZ = wrapper.position.z + (tz - wrapper.position.z) * 0.18;
-          const nextTile = root.WILDKIN_MAPS && root.WILDKIN_MAPS.getTileAt
-            ? root.WILDKIN_MAPS.getTileAt(overworld.currentZoneId, Math.round(nextX / TILE_SIZE), Math.round(nextZ / TILE_SIZE))
-            : ".";
-          if (nextTile === "~") {
-            wrapper.position.x = tx;
-            wrapper.position.z = tz;
-          } else {
-            wrapper.position.x = nextX;
-            wrapper.position.z = nextZ;
-          }
+          const tx = (match.homeX ?? match.x ?? 4) * TILE_SIZE;
+          const tz = (match.homeY ?? match.y ?? 4) * TILE_SIZE;
+          wrapper.position.x = tx;
+          wrapper.position.z = tz;
           wrapper.position.y = Math.max(
             0,
-            getWorldElevation(
-              overworld.currentZoneId,
-              wrapper.position.x / TILE_SIZE,
-              wrapper.position.z / TILE_SIZE
-            )
+            getWorldElevation(overworld.currentZoneId, tx / TILE_SIZE, tz / TILE_SIZE)
           );
           if (typeof match.angle === "number") {
             wrapper.rotation.y = match.angle;
           }
+          u.posture = match.posture || "hidden";
+          u.hiddenInGrass = match.hiddenInGrass !== false;
+        }
+
+        const isLeaping = u.posture === "leaping" || u.hiddenInGrass === false;
+        const isPeeking = u.posture === "peeking";
+        const rustleFreq = isLeaping ? 18 : isPeeking ? 13 : 5.5;
+        const rustleAmp = isLeaping ? 0.24 : isPeeking ? 0.16 : 0.065 * Math.max(0, Math.sin(timeSec * 1.6 + phase));
+
+        if (u.grassCover) {
+          u.grassCover.rotation.x = Math.sin(timeSec * rustleFreq + phase) * rustleAmp;
+          u.grassCover.rotation.z = Math.cos(timeSec * (rustleFreq * 0.85) + phase) * rustleAmp;
+        }
+        if (u.peekingEyes) {
+          u.peekingEyes.visible = isPeeking;
+          u.peekingEyes.position.y = Math.sin(timeSec * 6 + phase) * 0.04;
+        }
+        if (u.leafPuffs) {
+          u.leafPuffs.visible = isPeeking || isLeaping || rustleAmp > 0.03;
+          u.leafPuffs.rotation.y = timeSec * (isPeeking || isLeaping ? 3.8 : 1.5);
+          u.leafPuffs.position.y = ((timeSec * 0.9 + phase) % 0.45);
+        }
+        if (u.wildRing) {
+          u.wildRing.material.opacity = isLeaping ? 0.65 : isPeeking ? 0.38 : 0.14;
         }
         if (u.kinMesh) {
-          animateKinMesh(u.kinMesh, timeSec + (u.phase || 0), true, 0);
-        }
-        if (u.wildGem) {
-          u.wildGem.rotation.y = timeSec * 3.2;
-          u.wildGem.position.y = 1.42 + Math.sin(timeSec * 4 + (u.phase || 0)) * 0.1;
+          u.kinMesh.visible = isLeaping;
+          if (isLeaping) {
+            // Grounded ambush hop inside the grass patch (never floating in circles!)
+            animateKinMesh(u.kinMesh, timeSec + phase, true, 0);
+            u.kinMesh.position.y = Math.abs(Math.sin(timeSec * 7.5 + phase)) * 0.14;
+          }
         }
       });
     }
@@ -3065,6 +3281,8 @@
     playSnareTrapCapture3D: playPrismCapture3D,
     renderBattleFrame,
     buildKin3DMesh,
+    createProceduralTerrainTextures,
+    buildTallGrassClump3D,
     BATTLE_ANIM_ARCHETYPES,
     resolveBattleAnimArchetype
   };

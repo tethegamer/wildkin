@@ -357,6 +357,11 @@
   let lastFrameTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   const heldDirs = { up: false, down: false, left: false, right: false };
   const dragSteer = { active: false, startX: 0, startY: 0, vx: 0, vy: 0, pointerId: null, moved: false };
+  const WILD_GRASS_ENCOUNTER_RATE = 0.08;
+  const MIN_ENCOUNTER_STEP_COOLDOWN = 7;
+  const ENCOUNTER_GRACE_DURATION_MS = 6500;
+  const WILD_SPAWN_COUNT_PER_ZONE = 6;
+
   const playerMotion = {
     x: 13,
     y: 11,
@@ -368,13 +373,15 @@
     targetY: null,
     targetNpc: null,
     grassDist: 0,
+    stepsSinceLastEncounter: 8,
     encounterGraceUntil: 0,
     syncedZone: null
   };
 
-  function grantEncounterGrace(durationMs = 4500) {
+  function grantEncounterGrace(durationMs = ENCOUNTER_GRACE_DURATION_MS) {
     playerMotion.encounterGraceUntil = Date.now() + durationMs;
     playerMotion.grassDist = 0;
+    playerMotion.stepsSinceLastEncounter = 0;
     playerMotion.vx = 0;
     playerMotion.vy = 0;
     playerMotion.speed = 0;
@@ -396,27 +403,35 @@
     ws.speciesId = rolled.speciesId;
     ws.level = rolled.level;
     ws.isRadiant = Math.random() < 0.08;
-    ws.cooldownUntil = Date.now() + 6500;
-    let bestTile = { x: ws.homeX === 3 ? 12 : 3, y: ws.homeY === 3 ? 8 : 4 };
+    ws.cooldownUntil = Date.now() + 8500;
+    ws.hiddenInGrass = true;
+    ws.floating = false;
+    ws.posture = "hidden";
+    let bestTile = { x: ws.homeX === 4 ? 22 : 4, y: ws.homeY === 9 ? 18 : 9 };
     let bestDist = -1;
     if (root.WILDKIN_MAPS) {
       for (let y = 1; y < root.WILDKIN_MAPS.MAP_HEIGHT - 1; y++) {
         for (let x = 1; x < root.WILDKIN_MAPS.MAP_WIDTH - 1; x++) {
           const ch = root.WILDKIN_MAPS.getTileAt(zoneId, x, y);
-          if (ch === "G" || ch === "F") {
+          if (ch === "G") {
             const d = Math.hypot(x - playerMotion.x, y - playerMotion.y);
-            if (d > bestDist) {
+            const occupied = (state.wildSpawns || []).some((other) => other !== ws && Math.hypot((other.homeX || other.x) - x, (other.homeY || other.y) - y) < 2.2);
+            if (!occupied && d > bestDist) {
               bestDist = d;
               bestTile = { x, y };
             }
           }
         }
       }
+      if (root.WILDKIN_MAPS.snapToTallGrassTile) {
+        bestTile = root.WILDKIN_MAPS.snapToTallGrassTile(zoneId, bestTile.x, bestTile.y);
+      }
     }
     ws.homeX = bestTile.x;
     ws.homeY = bestTile.y;
     ws.x = bestTile.x;
     ws.y = bestTile.y;
+    ws.tile = "G";
     if (root.WILDKIN_3D && typeof root.WILDKIN_3D.syncWildSpawns === "function" && DATA) {
       root.WILDKIN_3D.syncWildSpawns(state.wildSpawns, DATA.getSpeciesById);
     }
@@ -911,13 +926,13 @@
     for (let y = 1; y < root.WILDKIN_MAPS.MAP_HEIGHT - 1; y++) {
       for (let x = 1; x < root.WILDKIN_MAPS.MAP_WIDTH - 1; x++) {
         const ch = root.WILDKIN_MAPS.getTileAt(zoneId, x, y);
-        if (ch === "G" || ch === "F") {
+        if (ch === "G") {
           grassTiles.push({ x, y });
         }
       }
     }
     if (grassTiles.length === 0) {
-      grassTiles.push({ x: 3, y: 3 }, { x: 11, y: 4 }, { x: 4, y: 8 }, { x: 11, y: 8 });
+      grassTiles.push({ x: 4, y: 9 }, { x: 22, y: 9 }, { x: 4, y: 15 }, { x: 23, y: 15 }, { x: 9, y: 18 }, { x: 18, y: 18 });
     }
     const preferredSpots = [
       { x: 4, y: 15 },
@@ -925,19 +940,19 @@
       { x: 5, y: 9 },
       { x: 22, y: 9 },
       { x: 9, y: 18 },
-      { x: 18, y: 18 },
-      { x: 9, y: 4 },
-      { x: 19, y: 4 },
-      { x: 30, y: 12 },
-      { x: 20, y: 24 }
+      { x: 29, y: 12 }
     ];
     const spawns = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < WILD_SPAWN_COUNT_PER_ZONE; i++) {
       const spot = preferredSpots[i];
-      const rawTile = (spot && grassTiles.find((gt) => Math.hypot(gt.x - spot.x, gt.y - spot.y) <= 3.5)) || grassTiles[(i * 13 + 5) % grassTiles.length];
-      const pickTile = root.WILDKIN_MAPS.snapToWalkableLand
-        ? root.WILDKIN_MAPS.snapToWalkableLand(zoneId, rawTile.x, rawTile.y)
-        : rawTile;
+      const rawTile =
+        (spot && grassTiles.find((gt) => Math.hypot(gt.x - spot.x, gt.y - spot.y) <= 4.0 && !spawns.some((s) => Math.hypot(s.x - gt.x, s.y - gt.y) < 2.0))) ||
+        grassTiles[(i * 11 + 3) % grassTiles.length];
+      const pickTile = root.WILDKIN_MAPS.snapToTallGrassTile
+        ? root.WILDKIN_MAPS.snapToTallGrassTile(zoneId, rawTile.x, rawTile.y)
+        : root.WILDKIN_MAPS.snapToWalkableLand
+          ? root.WILDKIN_MAPS.snapToWalkableLand(zoneId, rawTile.x, rawTile.y)
+          : rawTile;
       const rolled = rollWildSpeciesForZone(zoneId);
       spawns.push({
         id: `wild_${zoneId}_${i}_${Date.now()}`,
@@ -945,13 +960,18 @@
         speciesId: rolled.speciesId,
         level: rolled.level,
         geneticTier: rolled.geneticTier || "B",
-        isRadiant: (i === 7 && Math.random() < 0.25) || Math.random() < 0.04,
+        isRadiant: (i === 5 && Math.random() < 0.25) || Math.random() < 0.04,
         x: pickTile.x,
         y: pickTile.y,
         homeX: pickTile.x,
         homeY: pickTile.y,
-        angle: (i * Math.PI) / 4,
-        timer: i * 1.1
+        tile: "G",
+        hiddenInGrass: true,
+        floating: false,
+        posture: "hidden",
+        rustleIntensity: 0.25,
+        angle: (i * Math.PI) / 3,
+        timer: i * 1.35
       });
     }
     state.wildSpawns = spawns;
@@ -2803,15 +2823,31 @@
     syncMotionFromState();
     state.stats.stepsTaken = (state.stats.stepsTaken || 0) + 1;
 
-    const isEncounterTile = targetTile === 'G' || targetTile === 'W' || targetTile === '~';
+    playerMotion.stepsSinceLastEncounter = (playerMotion.stepsSinceLastEncounter || 0) + 1;
+    const isEncounterTile = targetTile === 'G';
     if (root.WILDKIN_AUDIO) {
       root.WILDKIN_AUDIO.playStep(isEncounterTile);
     }
 
     updateHud();
 
-    // 22% chance to trigger a Wild Encounter in tall grass or water
-    if (isEncounterTile && Math.random() < 0.22) {
+    const steppedOnHiddenGrassKin =
+      isEncounterTile &&
+      Date.now() > (playerMotion.encounterGraceUntil || 0) &&
+      (state.wildSpawns || []).find((ws) => Math.hypot((ws.homeX ?? ws.x) - nx, (ws.homeY ?? ws.y) - ny) < 0.55 && Date.now() > (ws.cooldownUntil || 0));
+
+    if (steppedOnHiddenGrassKin) {
+      const hitSp = steppedOnHiddenGrassKin.speciesId;
+      const hitLv = steppedOnHiddenGrassKin.level;
+      const hitRad = steppedOnHiddenGrassKin.isRadiant;
+      relocateAndRerollRoamer(steppedOnHiddenGrassKin, state.zone);
+      startWildEncounter(hitSp, hitLv, hitRad);
+    } else if (
+      isEncounterTile &&
+      Date.now() > (playerMotion.encounterGraceUntil || 0) &&
+      (playerMotion.stepsSinceLastEncounter || 0) >= MIN_ENCOUNTER_STEP_COOLDOWN &&
+      Math.random() < WILD_GRASS_ENCOUNTER_RATE
+    ) {
       startWildEncounter();
     } else {
       saveGame();
@@ -2861,7 +2897,7 @@
 
   function startWildEncounter(forceSpeciesId = null, forceLevel = null, forceRadiant = undefined) {
     if (!DATA) return;
-    grantEncounterGrace(4500);
+    grantEncounterGrace(ENCOUNTER_GRACE_DURATION_MS);
     let healthyIdx = getFirstHealthySquadIndex();
     if (healthyIdx === -1) {
       healSquadAtShrine(true);
@@ -5928,8 +5964,10 @@
               castFishingLine(Math.round(tx), Math.round(ty), true);
               return;
             }
-            const tappedWild = (state.wildSpawns || []).find((ws) => Math.hypot(ws.x - tx, ws.y - ty) <= 1.15);
-            if (tappedWild) {
+            const tappedWild = (state.wildSpawns || []).find(
+              (ws) => Math.hypot(ws.x - tx, ws.y - ty) <= 0.85 && Math.hypot(playerMotion.x - ws.x, playerMotion.y - ws.y) <= 1.35
+            );
+            if (tappedWild && Date.now() > (playerMotion.encounterGraceUntil || 0)) {
               const hitSp = tappedWild.speciesId;
               const hitLv = tappedWild.level;
               const hitRad = tappedWild.isRadiant;
@@ -6120,8 +6158,9 @@
         return;
       }
 
+      playerMotion.stepsSinceLastEncounter = (playerMotion.stepsSinceLastEncounter || 0) + 1;
       const tileCode = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getTileAt(state.zone, curGridX, curGridY) : ".";
-      const isWildTile = tileCode === "G" || tileCode === "W" || tileCode === "~";
+      const isWildTile = tileCode === "G";
       if (root.WILDKIN_AUDIO) {
         root.WILDKIN_AUDIO.playStep(isWildTile);
       }
@@ -6131,11 +6170,15 @@
     }
 
     const curTile = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getTileAt(state.zone, curGridX, curGridY) : ".";
-    if ((curTile === "G" || curTile === "W" || curTile === "~") && Date.now() > (playerMotion.encounterGraceUntil || 0)) {
+    if (
+      curTile === "G" &&
+      Date.now() > (playerMotion.encounterGraceUntil || 0) &&
+      (playerMotion.stepsSinceLastEncounter || 0) >= MIN_ENCOUNTER_STEP_COOLDOWN
+    ) {
       playerMotion.grassDist += movedDist;
-      if (playerMotion.grassDist >= 2.6) {
+      if (playerMotion.grassDist >= 4.2) {
         playerMotion.grassDist = 0;
-        if (Math.random() < 0.26) {
+        if (Math.random() < WILD_GRASS_ENCOUNTER_RATE) {
           playerMotion.targetX = null;
           playerMotion.targetY = null;
           playerMotion.targetNpc = null;
@@ -6202,23 +6245,34 @@
         } else if (state.started && !battleState && !activeEvo) {
           state.wildSpawns.forEach((ws, idx) => {
             ws.timer = (ws.timer || 0) + dtSec;
-            const r = 0.55;
-            const candX = ws.homeX + Math.cos(ws.timer * 0.7 + idx) * r;
-            const candY = ws.homeY + Math.sin(ws.timer * 0.7 + idx) * r;
-            if (!root.WILDKIN_MAPS.isWalkableLandForRoamer || root.WILDKIN_MAPS.isWalkableLandForRoamer(state.zone, candX, candY)) {
-              ws.x = candX;
-              ws.y = candY;
+            // Wild creatures stay concealed inside their Tall Grass ("G") patch instead of floating around in circles
+            ws.x = ws.homeX;
+            ws.y = ws.homeY;
+            ws.floating = false;
+            const distToPlayer = Math.hypot(playerMotion.x - ws.homeX, playerMotion.y - ws.homeY);
+            if (distToPlayer <= 1.35) {
+              ws.posture = "leaping";
+              ws.hiddenInGrass = false;
+              ws.rustleIntensity = 1.0;
+              ws.angle = Math.atan2(playerMotion.x - ws.homeX, playerMotion.y - ws.homeY);
+            } else if (distToPlayer <= 2.25) {
+              ws.posture = "peeking";
+              ws.hiddenInGrass = true;
+              ws.rustleIntensity = 0.72;
+              ws.angle = Math.atan2(playerMotion.x - ws.homeX, playerMotion.y - ws.homeY);
             } else {
-              ws.x = ws.homeX;
-              ws.y = ws.homeY;
+              ws.posture = "hidden";
+              ws.hiddenInGrass = true;
+              ws.rustleIntensity = 0.25 + Math.max(0, Math.sin(ws.timer * 1.8 + idx)) * 0.25;
             }
-            ws.angle = Math.atan2(-Math.sin(ws.timer * 0.7 + idx), Math.cos(ws.timer * 0.7 + idx));
             const nowLoop = Date.now();
+            const playerTile = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getTileAt(state.zone, Math.round(playerMotion.x), Math.round(playerMotion.y)) : ".";
             if (
+              playerTile === "G" &&
               playerMotion.speed > 0.08 &&
               nowLoop > (playerMotion.encounterGraceUntil || 0) &&
               nowLoop > (ws.cooldownUntil || 0) &&
-              Math.hypot(playerMotion.x - ws.x, playerMotion.y - ws.y) < 0.72
+              distToPlayer < 0.52
             ) {
               const hitSp = ws.speciesId;
               const hitLv = ws.level;
@@ -6289,6 +6343,10 @@
     claimSideQuest,
     claimTamerTask,
     claimNpcQuest,
+    WILD_GRASS_ENCOUNTER_RATE,
+    MIN_ENCOUNTER_STEP_COOLDOWN,
+    ENCOUNTER_GRACE_DURATION_MS,
+    WILD_SPAWN_COUNT_PER_ZONE,
     grantEncounterGrace,
     ensureZoneWildSpawns,
     syncWildRoamers: ensureZoneWildSpawns,
