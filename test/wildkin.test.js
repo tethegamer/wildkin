@@ -216,63 +216,74 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities, 6 Worlds, 6
   });
 });
 
-describe('2. public/js/maps.js — 6 World Grids, Portals, Wardens & Grandpa Rowan Homestead', () => {
-  it('verifies all 6 world maps are strictly 16x12 grids with Wellspring Shrines, Wardens, and connected portals', () => {
-    assert.equal(WildkinMaps.MAP_WIDTH, 16);
-    assert.equal(WildkinMaps.MAP_HEIGHT, 12);
+describe('2. public/js/maps.js — 6 Expansive 28x22 World Grids, 3D Elevation, Portals, Wardens & Grandpa Rowan Homestead', () => {
+  it('verifies all 6 world maps are strictly 28x22 grids with 3D elevation, Hospitals, Shopping Centers, Wardens, and connected portals', () => {
+    assert.equal(WildkinMaps.MAP_WIDTH, 28);
+    assert.equal(WildkinMaps.MAP_HEIGHT, 22);
+    assert.equal(typeof WildkinMaps.getElevationAt, 'function');
     const expectedWorlds = [
-      { zoneId: 'meadow',     wardenId: 'kael',    wx: 11, wy: 0,  tile: 'W' },
-      { zoneId: 'tidecove',   wardenId: 'nerissa', wx: 11, wy: 0,  tile: 'W' },
-      { zoneId: 'stormspire', wardenId: 'orin',    wx: 11, wy: 0,  tile: 'W' },
-      { zoneId: 'cinderpeak', wardenId: 'ignis',   wx: 11, wy: 0,  tile: 'W' },
-      { zoneId: 'frostveil',  wardenId: 'freya',   wx: 11, wy: 0,  tile: 'W' },
-      { zoneId: 'sanctum',    wardenId: 'vesper',  wx: 11, wy: 0,  tile: 'W' }
+      { zoneId: 'meadow',     wardenId: 'kael',    wx: 17, wy: 0,  tile: 'W' },
+      { zoneId: 'tidecove',   wardenId: 'nerissa', wx: 17, wy: 0,  tile: 'W' },
+      { zoneId: 'stormspire', wardenId: 'orin',    wx: 17, wy: 0,  tile: 'W' },
+      { zoneId: 'cinderpeak', wardenId: 'ignis',   wx: 17, wy: 0,  tile: 'W' },
+      { zoneId: 'frostveil',  wardenId: 'freya',   wx: 17, wy: 0,  tile: 'W' },
+      { zoneId: 'sanctum',    wardenId: 'vesper',  wx: 17, wy: 0,  tile: 'W' }
     ];
 
     for (const w of expectedWorlds) {
       const map = WildkinMaps.ZONE_MAPS[w.zoneId];
       assert.ok(map, `Missing map for ${w.zoneId}`);
-      assert.equal(map.grid.length, 12, `Map ${w.zoneId} must have 12 rows`);
+      assert.equal(map.grid.length, 22, `Map ${w.zoneId} must have 22 rows`);
       for (const row of map.grid) {
-        assert.equal(row.length, 16, `Map ${w.zoneId} row "${row}" must be 16 chars`);
+        assert.equal(row.length, 28, `Map ${w.zoneId} row "${row}" must be 28 chars`);
       }
 
-      // Every world has a Kin Care Hospital at 12,2 ('H') and Aether Shopping Center at 3,2 ('C')
-      assert.equal(WildkinMaps.getTileAt(w.zoneId, 12, 2), 'H', `Expected Hospital at 12,2 in ${w.zoneId}`);
-      const hospNpc = WildkinMaps.getNpcAt(w.zoneId, 12, 2);
-      assert.ok(hospNpc && hospNpc.type === 'hospital', `Expected hospital NPC at 12,2 in ${w.zoneId}`);
+      // Every world has a Kin Care Hospital at 21,3 ('H') and Aether Shopping Center at 6,3 ('C')
+      assert.equal(WildkinMaps.getTileAt(w.zoneId, 21, 3), 'H', `Expected Hospital at 21,3 in ${w.zoneId}`);
+      const hospNpc = WildkinMaps.getNpcAt(w.zoneId, 21, 3);
+      assert.ok(hospNpc && hospNpc.type === 'hospital', `Expected hospital NPC at 21,3 in ${w.zoneId}`);
 
-      assert.equal(WildkinMaps.getTileAt(w.zoneId, 3, 2), 'C', `Expected Shopping Center at 3,2 in ${w.zoneId}`);
-      const shopNpc = WildkinMaps.getNpcAt(w.zoneId, 3, 2);
-      assert.ok(shopNpc && shopNpc.type === 'shopping_center', `Expected shopping_center NPC at 3,2 in ${w.zoneId}`);
+      assert.equal(WildkinMaps.getTileAt(w.zoneId, 6, 3), 'C', `Expected Shopping Center at 6,3 in ${w.zoneId}`);
+      const shopNpc = WildkinMaps.getNpcAt(w.zoneId, 6, 3);
+      assert.ok(shopNpc && shopNpc.type === 'shopping_center', `Expected shopping_center NPC at 6,3 in ${w.zoneId}`);
 
-      // Every world has its Warden NPC and tile at expected coordinates
+      // Every world has its Warden NPC and tile at expected coordinates (17,0)
       assert.equal(WildkinMaps.getTileAt(w.zoneId, w.wx, w.wy), w.tile, `Expected Warden tile ${w.tile} in ${w.zoneId}`);
       const wardenNpc = WildkinMaps.getNpcAt(w.zoneId, w.wx, w.wy);
       assert.ok(wardenNpc && wardenNpc.wardenId === w.wardenId, `Expected Warden ${w.wardenId} in ${w.zoneId}`);
+
+      // Verify 3D terrain elevation varies across the map (Northern Sanctum plateau is elevated)
+      const sanctumElev = WildkinMaps.getElevationAt(w.zoneId, 13, 1);
+      assert.ok(sanctumElev >= 0.4, `Expected elevated Northern Sanctum height in ${w.zoneId}, got ${sanctumElev}`);
     }
   });
 
-  it('verifies Grandpa Rowan Homestead NPC at meadow (6,5), portals, and walkable tiles', () => {
-    const grandpaRowan = WildkinMaps.getNpcAt('meadow', 6, 5);
-    assert.ok(grandpaRowan, 'Expected Grandpa Rowan NPC at meadow 6,5');
+  it('verifies Grandpa Rowan Homestead NPC at meadow (13,10 & compatibility 6,5), portals, bridges, and walkable tiles', () => {
+    const grandpaRowan = WildkinMaps.getNpcAt('meadow', 13, 10);
+    assert.ok(grandpaRowan, 'Expected Grandpa Rowan NPC at meadow 13,10');
     assert.equal(grandpaRowan.id, 'rowan');
     assert.equal(grandpaRowan.isGrandpa, true);
 
-    assert.equal(WildkinMaps.getTileAt('meadow', 7, 0), 'P');
-    assert.equal(WildkinMaps.getTileAt('meadow', 8, 0), 'P');
+    const grandpaAlias = WildkinMaps.getNpcAt('meadow', 6, 5);
+    assert.ok(grandpaAlias && grandpaAlias.id === 'rowan', 'Expected Grandpa Rowan compatibility lookup at meadow 6,5');
+
+    assert.equal(WildkinMaps.getTileAt('meadow', 13, 0), 'P');
+    assert.equal(WildkinMaps.getTileAt('meadow', 14, 0), 'P');
 
     // Check portal chain from meadow -> tidecove -> stormspire -> cinderpeak -> frostveil -> sanctum
-    assert.equal(WildkinMaps.getTileInfo('meadow', 7, 0).portal.targetZone, 'tidecove');
-    assert.equal(WildkinMaps.getTileInfo('tidecove', 7, 0).portal.targetZone, 'stormspire');
-    assert.equal(WildkinMaps.getTileInfo('stormspire', 7, 0).portal.targetZone, 'cinderpeak');
-    assert.equal(WildkinMaps.getTileInfo('cinderpeak', 7, 0).portal.targetZone, 'frostveil');
-    assert.equal(WildkinMaps.getTileInfo('frostveil', 7, 0).portal.targetZone, 'sanctum');
-    assert.equal(WildkinMaps.getTileInfo('sanctum', 7, 11).portal.targetZone, 'frostveil');
+    assert.equal(WildkinMaps.getTileInfo('meadow', 13, 0).portal.targetZone, 'tidecove');
+    assert.equal(WildkinMaps.getTileInfo('tidecove', 13, 0).portal.targetZone, 'stormspire');
+    assert.equal(WildkinMaps.getTileInfo('stormspire', 13, 0).portal.targetZone, 'cinderpeak');
+    assert.equal(WildkinMaps.getTileInfo('cinderpeak', 13, 0).portal.targetZone, 'frostveil');
+    assert.equal(WildkinMaps.getTileInfo('frostveil', 13, 0).portal.targetZone, 'sanctum');
+    assert.equal(WildkinMaps.getTileInfo('sanctum', 13, 21).portal.targetZone, 'frostveil');
 
     if (typeof WildkinMaps.isWalkableTile === 'function') {
       assert.equal(WildkinMaps.isWalkableTile('.'), true);
+      assert.equal(WildkinMaps.isWalkableTile('B'), true);
+      assert.equal(WildkinMaps.isWalkableTile('F'), true);
       assert.equal(WildkinMaps.isWalkableTile('#'), false);
+      assert.equal(WildkinMaps.isWalkableTile('R'), false);
     }
   });
 });
@@ -633,7 +644,7 @@ describe('4. public/js/renderer3d.js & Turn-by-Turn 3D Combat / Procedural Surfa
     // Spawn roaming 3D wild Kin across zones
     for (const zoneId of ['meadow', 'tidecove', 'stormspire', 'frostveil', 'embervault', 'sanctum']) {
       const spawns = WildkinGame.ensureZoneWildSpawns(zoneId);
-      assert.equal(spawns.length, 4, `Zone ${zoneId} must spawn 4 visible roaming 3D wild Kin`);
+      assert.equal(spawns.length, 8, `Zone ${zoneId} must spawn 8 visible roaming 3D wild Kin across the 28x22 map`);
       for (const ws of spawns) {
         assert.equal(ws.zone, zoneId);
         assert.ok(ws.speciesId >= 1 && ws.speciesId <= 27);
@@ -649,6 +660,31 @@ describe('4. public/js/renderer3d.js & Turn-by-Turn 3D Combat / Procedural Surfa
       trapDone = true;
     });
     assert.equal(trapDone, true, 'playSnareTrapCapture3D should invoke completion callback cleanly');
+
+    // Verify World Level Locks (unlockLevel), canAccessZone, and Stronger Tiered Creature Scaling (statScale)
+    const testSt = WildkinGame.createInitialState(1); // Starter Lv.5
+    assert.equal(WildkinGame.getHighestKinLevel(testSt), 5);
+    assert.equal(WildkinGame.canAccessZone('meadow', testSt).allowed, true);
+    const tideAccess = WildkinGame.canAccessZone('tidecove', testSt);
+    assert.equal(tideAccess.allowed, false, 'World 2 (tidecove, unlockLevel 6) should be locked for a Lv.5 starter with 0 crests');
+    assert.equal(tideAccess.requiredLevel, 6);
+
+    testSt.squad[0].level = 6;
+    assert.equal(WildkinGame.canAccessZone('tidecove', testSt).allowed, true, 'World 2 unlocks once player has a Lv.6+ Kin');
+    assert.equal(WildkinGame.canAccessZone('stormspire', testSt).allowed, false, 'World 3 (unlockLevel 14) remains locked at Lv.6');
+
+    testSt.unlockedZones = { stormspire: true };
+    assert.equal(WildkinGame.canAccessZone('stormspire', testSt).allowed, true, 'Daredevil override / unlockedZones unlocks target world');
+
+    const worldStatScales = WildkinData.ZONES.map((z) => z.statScale);
+    assert.deepEqual(worldStatScales, [1.0, 1.15, 1.32, 1.52, 1.75, 2.05]);
+
+    const sanctumEnemy = WildkinData.createKinInstance(20, 50, { geneticTier: 'B', isRadiant: false });
+    const baseHp = sanctumEnemy.maxHp;
+    const baseAtk = sanctumEnemy.atk;
+    WildkinGame.applyWorldStatScaling(sanctumEnemy, 'sanctum');
+    assert.ok(sanctumEnemy.maxHp > Math.round(baseHp * 1.9), 'World 6 Sanctum enemy should have 2.05x scaled HP');
+    assert.ok(sanctumEnemy.atk > Math.round(baseAtk * 1.9), 'World 6 Sanctum enemy should have 2.05x scaled ATK');
 
     // Verify transparent battle-stage / battle-arena-bg and hidden HUD rules in styles.css
     const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'styles.css'), 'utf8');

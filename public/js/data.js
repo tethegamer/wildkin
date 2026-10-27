@@ -994,17 +994,21 @@
     }
   ];
 
-  // 6 Explorable Worlds (24+ Hour Multi-World Progression)
+  // 6 Explorable Worlds (24+ Hour Multi-World Progression with Level Locks & Tiered Creature Scaling)
   const ZONES = [
     {
-      id: 'meadow',
-      name: 'Sunleaf Meadow',
+      id: "meadow",
+      name: "Sunleaf Meadow",
       worldNumber: 1,
-      subtitle: 'World 1 • Lv 2–8 • Heartwood Homestead & Sanctuary',
+      subtitle: "World 1 • Lv 2–8 • Heartwood Homestead & Sanctuary",
+      unlockLevel: 1,
       levelRange: [2, 8],
       recommendedLevel: 2,
-      themeColor: '#22c55e',
-      bgGradient: ['#132a1c', '#1e3f29'],
+      statScale: 1.0,
+      dangerTier: 1,
+      difficultyLabel: "★☆☆☆☆☆ • Beginner Sanctuary",
+      themeColor: "#22c55e",
+      bgGradient: ["#132a1c", "#1e3f29"],
       wildPool: [
         { id: 10, weight: 28 }, // Sparkcheep
         { id: 13, weight: 30 }, // Bramblepuff
@@ -1012,18 +1016,22 @@
         { id: 17, weight: 14 }, // Dewdrop
         { id: 7,  weight: 8 }   // Wild Mossling
       ],
-      wardenId: 'kael',
-      desc: 'Home to Grandpa Rowan’s Heartwood Homestead & Breeding Ranch, the Wellspring Shrine, and swaying emerald meadows.'
+      wardenId: "kael",
+      desc: "Home to Grandpa Rowan’s Heartwood Homestead & Breeding Ranch, the Kin Care Hospital, and rolling emerald hills."
     },
     {
-      id: 'tidecove',
-      name: 'Whispering Tidecove',
+      id: "tidecove",
+      name: "Whispering Tidecove",
       worldNumber: 2,
-      subtitle: 'World 2 • Lv 8–15 • Bioluminescent Archipelago',
-      levelRange: [8, 15],
+      subtitle: "World 2 • Lv 8–16 • Bioluminescent Archipelago",
+      unlockLevel: 6,
+      levelRange: [8, 16],
       recommendedLevel: 8,
-      themeColor: '#38bdf8',
-      bgGradient: ['#0c2238', '#123556'],
+      statScale: 1.15,
+      dangerTier: 2,
+      difficultyLabel: "★★☆☆☆☆ • Coastal Wilds (+15% Enemy Power)",
+      themeColor: "#38bdf8",
+      bgGradient: ["#0c2238", "#123556"],
       wildPool: [
         { id: 17, weight: 26 }, // Dewdrop
         { id: 15, weight: 22 }, // Pebblecrab
@@ -1032,18 +1040,22 @@
         { id: 11, weight: 12 }, // Galecrest
         { id: 18, weight: 10 }  // Mistserpent
       ],
-      wardenId: 'nerissa',
-      desc: 'Crystal tidepools, coral boardwalks, and misty sea arches teeming with Tide and Volt Kin.'
+      wardenId: "nerissa",
+      desc: "Crystal tidepools, coral boardwalks, and misty sea cliffs teeming with stronger Tide and Volt Kin."
     },
     {
-      id: 'stormspire',
-      name: 'Stormspire Canopy',
+      id: "stormspire",
+      name: "Stormspire Canopy",
       worldNumber: 3,
-      subtitle: 'World 3 • Lv 14–22 • Ancient Tempest Highland',
-      levelRange: [14, 22],
-      recommendedLevel: 14,
-      themeColor: '#eab308',
-      bgGradient: ['#1f2410', '#313816'],
+      subtitle: "World 3 • Lv 16–26 • Ancient Tempest Highland",
+      unlockLevel: 14,
+      levelRange: [16, 26],
+      recommendedLevel: 16,
+      statScale: 1.32,
+      dangerTier: 3,
+      difficultyLabel: "★★★☆☆☆ • High-Voltage Highlands (+32% Enemy Power)",
+      themeColor: "#eab308",
+      bgGradient: ["#1f2410", "#313816"],
       wildPool: [
         { id: 11, weight: 24 }, // Galecrest
         { id: 21, weight: 22 }, // Voltmouse
@@ -1052,18 +1064,22 @@
         { id: 22, weight: 12 }, // Arcfox
         { id: 12, weight: 8 }   // Thunderhawk
       ],
-      wardenId: 'orin',
-      desc: 'Giant redwood sky-bridges and lightning-charged monoliths where Grandpa Rowan trained in his youth.'
+      wardenId: "orin",
+      desc: "Giant redwood sky-bridges and lightning-charged monoliths where fierce evolved Stage 2 & 3 Kin patrol."
     },
     {
-      id: 'cinderpeak',
-      name: 'Cinderpeak Cavern',
+      id: "cinderpeak",
+      name: "Cinderpeak Cavern",
       worldNumber: 4,
-      subtitle: 'World 4 • Lv 20–30 • Geothermal Caldera',
-      levelRange: [20, 30],
-      recommendedLevel: 20,
-      themeColor: '#f97316',
-      bgGradient: ['#2d120b', '#471c10'],
+      subtitle: "World 4 • Lv 26–38 • Geothermal Caldera",
+      unlockLevel: 24,
+      levelRange: [26, 38],
+      recommendedLevel: 26,
+      statScale: 1.52,
+      dangerTier: 4,
+      difficultyLabel: "★★★★☆☆ • Volcanic Crucible (+52% Enemy Power)",
+      themeColor: "#f97316",
+      bgGradient: ["#2d120b", "#471c10"],
       wildPool: [
         { id: 23, weight: 28 }, // Magmapup
         { id: 16, weight: 18 }, // Basaltitan
@@ -1072,18 +1088,22 @@
         { id: 22, weight: 12 }, // Arcfox
         { id: 25, weight: 12 }  // Craggolem
       ],
-      wardenId: 'ignis',
-      desc: 'Basalt bridges over glowing magma rivers where Pyre and Terra Kin forge their strength.'
+      wardenId: "ignis",
+      desc: "Basalt bridges over glowing magma rivers where aggressive high-level Pyre and Terra Kin forge their strength."
     },
     {
-      id: 'frostveil',
-      name: 'Frostveil Glacier',
+      id: "frostveil",
+      name: "Frostveil Glacier",
       worldNumber: 5,
-      subtitle: 'World 5 • Lv 28–40 • Aurora Crystal Peaks',
-      levelRange: [28, 40],
-      recommendedLevel: 28,
-      themeColor: '#67e8f9',
-      bgGradient: ['#0b2536', '#153e59'],
+      subtitle: "World 5 • Lv 38–52 • Aurora Crystal Peaks",
+      unlockLevel: 35,
+      levelRange: [38, 52],
+      recommendedLevel: 38,
+      statScale: 1.75,
+      dangerTier: 5,
+      difficultyLabel: "★★★★★☆ • Sub-Zero Apex Tundra (+75% Enemy Power)",
+      themeColor: "#67e8f9",
+      bgGradient: ["#0b2536", "#153e59"],
       wildPool: [
         { id: 18, weight: 24 }, // Mistserpent
         { id: 5,  weight: 20 }, // Torrentjaw
@@ -1092,18 +1112,22 @@
         { id: 6,  weight: 12 }, // Abyssalking
         { id: 12, weight: 10 }  // Thunderhawk
       ],
-      wardenId: 'freya',
-      desc: 'Shoring ice spires under shimmering northern auroras, home to ancient Tide, Umbra, and Terra apex Kin.'
+      wardenId: "freya",
+      desc: "Towering ice spires under shimmering northern auroras, home to elite S-Rank Tide, Umbra, and Terra apex Kin."
     },
     {
-      id: 'sanctum',
-      name: 'Astral Ruin Sanctum',
+      id: "sanctum",
+      name: "Astral Ruin Sanctum",
       worldNumber: 6,
-      subtitle: 'World 6 • Lv 38–55 • Mythic Starlight Citadel & Spire',
-      levelRange: [38, 55],
-      recommendedLevel: 38,
-      themeColor: '#c084fc',
-      bgGradient: ['#1a1033', '#2d1b54'],
+      subtitle: "World 6 • Lv 52–70 • Mythic Starlight Citadel & Spire",
+      unlockLevel: 48,
+      levelRange: [52, 70],
+      recommendedLevel: 52,
+      statScale: 2.05,
+      dangerTier: 6,
+      difficultyLabel: "★★★★★★ • Sovereign Endgame Realm (+105% Enemy Power)",
+      themeColor: "#c084fc",
+      bgGradient: ["#1a1033", "#2d1b54"],
       wildPool: [
         { id: 20, weight: 24 }, // Lunawraith
         { id: 24, weight: 20 }, // Obsidianox
@@ -1112,114 +1136,114 @@
         { id: 26, weight: 13 }, // Astralwyrm (Mythic)
         { id: 27, weight: 9 }   // Aetherion (Mythic)
       ],
-      wardenId: 'vesper',
-      desc: 'Floating star-obelisks and the 100-Floor Aether Spire where Mythic Kin and Grand Warden Vesper await.'
+      wardenId: "vesper",
+      desc: "Floating star-obelisks and the 100-Floor Aether Spire where Mythic SS-Rank Kin and Grand Warden Vesper await."
     }
   ];
 
   // 6 Realm Wardens (World Bosses across all 6 Worlds)
   const WARDENS = [
     {
-      id: 'kael',
-      name: 'Warden Kael',
-      title: 'Keeper of the Verdant Crest (World 1)',
-      zoneId: 'meadow',
-      crestName: 'Verdant Crest',
-      crestIcon: '🌿',
-      affinity: 'Grove',
-      rewardShards: 250,
-      quoteIntro: 'Grandpa Rowan told me about you! Let us see the bond between you and your Kin!',
-      quoteDefeat: 'Splendid harmony! Take the Verdant Crest—Grandpa Rowan will be proud, and Tidecove awaits!',
+      id: "kael",
+      name: "Warden Kael",
+      title: "Keeper of the Verdant Crest (World 1)",
+      zoneId: "meadow",
+      crestName: "Verdant Crest",
+      crestIcon: "🌿",
+      affinity: "Grove",
+      rewardShards: 280,
+      quoteIntro: "Grandpa Rowan told me about you! Let us see the bond between you and your Kin!",
+      quoteDefeat: "Splendid harmony! Take the Verdant Crest—Grandpa Rowan will be proud, and Tidecove awaits!",
       squad: [
         { speciesId: 13, level: 6 },
         { speciesId: 8, level: 8 }
       ]
     },
     {
-      id: 'nerissa',
-      name: 'Warden Nerissa',
-      title: 'Mistress of the Abyssal Crest (World 2)',
-      zoneId: 'tidecove',
-      crestName: 'Abyssal Crest',
-      crestIcon: '🌊',
-      affinity: 'Tide',
-      rewardShards: 420,
-      quoteIntro: 'Calm waters hide crashing currents. Can your raised Kin weather the high tide?',
-      quoteDefeat: 'Like a lighthouse in the storm! The Abyssal Crest belongs to you. Stormspire Canopy is now open!',
+      id: "nerissa",
+      name: "Warden Nerissa",
+      title: "Mistress of the Abyssal Crest (World 2)",
+      zoneId: "tidecove",
+      crestName: "Abyssal Crest",
+      crestIcon: "🌊",
+      affinity: "Tide",
+      rewardShards: 480,
+      quoteIntro: "Calm waters hide crashing currents. Can your raised Kin weather the high tide?",
+      quoteDefeat: "Like a lighthouse in the storm! The Abyssal Crest belongs to you. Stormspire Canopy is now open!",
       squad: [
-        { speciesId: 17, level: 12 },
-        { speciesId: 18, level: 13 },
-        { speciesId: 5, level: 15 }
+        { speciesId: 17, level: 13 },
+        { speciesId: 18, level: 15 },
+        { speciesId: 5, level: 16 }
       ]
     },
     {
-      id: 'orin',
-      name: 'Warden Orin',
-      title: 'Sky-Caller of the Tempest Crest (World 3)',
-      zoneId: 'stormspire',
-      crestName: 'Tempest Crest',
-      crestIcon: '⚡',
-      affinity: 'Volt',
-      rewardShards: 620,
-      quoteIntro: 'Your grandfather Rowan and I once sparred atop these thunder ridges! Show me what he taught you!',
-      quoteDefeat: 'Thunderous precision! Claim the Tempest Crest and descend into Cinderpeak Cavern!',
+      id: "orin",
+      name: "Warden Orin",
+      title: "Sky-Caller of the Tempest Crest (World 3)",
+      zoneId: "stormspire",
+      crestName: "Tempest Crest",
+      crestIcon: "⚡",
+      affinity: "Volt",
+      rewardShards: 780,
+      quoteIntro: "Your grandfather Rowan and I once sparred atop these thunder ridges! Show me what he taught you!",
+      quoteDefeat: "Thunderous precision! Claim the Tempest Crest and descend into Cinderpeak Cavern!",
       squad: [
-        { speciesId: 11, level: 17 },
-        { speciesId: 22, level: 19 },
-        { speciesId: 12, level: 21 }
+        { speciesId: 11, level: 21 },
+        { speciesId: 22, level: 23 },
+        { speciesId: 12, level: 26 }
       ]
     },
     {
-      id: 'ignis',
-      name: 'Warden Ignis',
-      title: 'Forgemaster of the Solar Crest (World 4)',
-      zoneId: 'cinderpeak',
-      crestName: 'Solar Crest',
-      crestIcon: '🔥',
-      affinity: 'Pyre',
-      rewardShards: 850,
-      quoteIntro: 'Only diamond-hard resolve and well-bred Kin survive Cinderpeak’s crucible! Ignite your spirit!',
-      quoteDefeat: 'Blazing brilliance! Take the Solar Crest—the frozen peaks of Frostveil Glacier await!',
-      squad: [
-        { speciesId: 16, level: 24 },
-        { speciesId: 24, level: 26 },
-        { speciesId: 3, level: 28 }
-      ]
-    },
-    {
-      id: 'freya',
-      name: 'Warden Freya',
-      title: 'Empress of the Frostveil Crest (World 5)',
-      zoneId: 'frostveil',
-      crestName: 'Frostveil Crest',
-      crestIcon: '❄️',
-      affinity: 'Tide',
+      id: "ignis",
+      name: "Warden Ignis",
+      title: "Forgemaster of the Solar Crest (World 4)",
+      zoneId: "cinderpeak",
+      crestName: "Solar Crest",
+      crestIcon: "🔥",
+      affinity: "Pyre",
       rewardShards: 1150,
-      quoteIntro: 'Here beneath the aurora, only Tamers whose hearts beat as one with their Kin endure the frost!',
-      quoteDefeat: 'Your warmth melts even glacier ice! Take the Frostveil Crest and ascend to the Astral Ruin Sanctum!',
+      quoteIntro: "Only diamond-hard resolve and well-bred Kin survive Cinderpeak’s crucible! Ignite your spirit!",
+      quoteDefeat: "Blazing brilliance! Take the Solar Crest—the frozen peaks of Frostveil Glacier await!",
       squad: [
-        { speciesId: 18, level: 32 },
-        { speciesId: 25, level: 34 },
-        { speciesId: 9, level: 35 },
-        { speciesId: 6, level: 37 }
+        { speciesId: 16, level: 32 },
+        { speciesId: 24, level: 35 },
+        { speciesId: 3, level: 38 }
       ]
     },
     {
-      id: 'vesper',
-      name: 'Grand Warden Vesper',
-      title: 'Sovereign of the Astral Crest (World 6)',
-      zoneId: 'sanctum',
-      crestName: 'Astral Crest',
-      crestIcon: '👑',
-      affinity: 'Umbra',
-      rewardShards: 1800,
-      quoteIntro: 'Fifty years ago, Elder Rowan stood where you stand now. Prove your bloodline and claim the Astral Throne!',
-      quoteDefeat: 'Unbelievable! All six World Crests resonate as one—the 100-Floor Aether Spire is yours to conquer!',
+      id: "freya",
+      name: "Warden Freya",
+      title: "Empress of the Frostveil Crest (World 5)",
+      zoneId: "frostveil",
+      crestName: "Frostveil Crest",
+      crestIcon: "❄️",
+      affinity: "Tide",
+      rewardShards: 1650,
+      quoteIntro: "Here beneath the aurora, only Tamers whose hearts beat as one with their Kin endure the frost!",
+      quoteDefeat: "Your warmth melts even glacier ice! Take the Frostveil Crest and ascend to the Astral Ruin Sanctum!",
       squad: [
-        { speciesId: 20, level: 40 },
-        { speciesId: 12, level: 42 },
-        { speciesId: 26, level: 44 },
-        { speciesId: 27, level: 46 }
+        { speciesId: 18, level: 44 },
+        { speciesId: 25, level: 47 },
+        { speciesId: 9, level: 49 },
+        { speciesId: 6, level: 52 }
+      ]
+    },
+    {
+      id: "vesper",
+      name: "Grand Warden Vesper",
+      title: "Sovereign of the Astral Crest (World 6)",
+      zoneId: "sanctum",
+      crestName: "Astral Crest",
+      crestIcon: "👑",
+      affinity: "Umbra",
+      rewardShards: 2600,
+      quoteIntro: "Fifty years ago, Elder Rowan stood where you stand now. Prove your bloodline and claim the Astral Throne!",
+      quoteDefeat: "Unbelievable! All six World Crests resonate as one—the 100-Floor Aether Spire is yours to conquer!",
+      squad: [
+        { speciesId: 20, level: 58 },
+        { speciesId: 12, level: 61 },
+        { speciesId: 26, level: 64 },
+        { speciesId: 27, level: 68 }
       ]
     }
   ];

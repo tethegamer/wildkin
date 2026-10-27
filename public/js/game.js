@@ -154,7 +154,8 @@
       trainerName: 'Rowan’s Apprentice',
       selectedStarterId: starterSpeciesId || 1,
       zone: 'meadow',
-      pos: { x: 7, y: 6, dir: 'down' },
+      pos: { x: 13, y: 11, dir: 'down' },
+      unlockedZones: { meadow: true },
       shards: 250,
       gems: 50,
       shrineCooldownUntil: 0,
@@ -255,8 +256,8 @@
   const heldDirs = { up: false, down: false, left: false, right: false };
   const dragSteer = { active: false, startX: 0, startY: 0, vx: 0, vy: 0, pointerId: null, moved: false };
   const playerMotion = {
-    x: 7,
-    y: 6,
+    x: 13,
+    y: 11,
     vx: 0,
     vy: 0,
     angle: 0,
@@ -339,7 +340,7 @@
     const ty = Math.round(fy);
     if (tx < 0 || tx >= root.WILDKIN_MAPS.MAP_WIDTH || ty < 0 || ty >= root.WILDKIN_MAPS.MAP_HEIGHT) return false;
     const ch = root.WILDKIN_MAPS.getTileAt(state.zone, tx, ty);
-    return ch !== "T" && ch !== "#" && ch !== "~";
+    return ch !== "T" && ch !== "#" && ch !== "~" && ch !== "R";
   }
 
   function findNearbyNpcFloat(fx, fy, maxRadius = 1.35) {
@@ -816,22 +817,34 @@
     if (grassTiles.length === 0) {
       grassTiles.push({ x: 3, y: 3 }, { x: 11, y: 4 }, { x: 4, y: 8 }, { x: 11, y: 8 });
     }
+    const preferredSpots = [
+      { x: 4, y: 15 },
+      { x: 23, y: 15 },
+      { x: 5, y: 9 },
+      { x: 22, y: 9 },
+      { x: 9, y: 18 },
+      { x: 18, y: 18 },
+      { x: 9, y: 4 },
+      { x: 19, y: 4 }
+    ];
     const spawns = [];
-    for (let i = 0; i < 4; i++) {
-      const pickTile = grassTiles[(i * 7 + 3) % grassTiles.length];
+    for (let i = 0; i < 8; i++) {
+      const spot = preferredSpots[i];
+      const pickTile = (spot && grassTiles.find((gt) => Math.hypot(gt.x - spot.x, gt.y - spot.y) <= 3.5)) || grassTiles[(i * 13 + 5) % grassTiles.length];
       const rolled = rollWildSpeciesForZone(zoneId);
       spawns.push({
         id: `wild_${zoneId}_${i}_${Date.now()}`,
         zone: zoneId,
         speciesId: rolled.speciesId,
         level: rolled.level,
-        isRadiant: i === 3 && Math.random() < 0.18,
+        geneticTier: rolled.geneticTier || "B",
+        isRadiant: (i === 7 && Math.random() < 0.25) || Math.random() < 0.04,
         x: pickTile.x,
         y: pickTile.y,
         homeX: pickTile.x,
         homeY: pickTile.y,
-        angle: (i * Math.PI) / 2,
-        timer: i * 1.4
+        angle: (i * Math.PI) / 4,
+        timer: i * 1.1
       });
     }
     state.wildSpawns = spawns;
@@ -1302,8 +1315,55 @@
   }
 
   function getZoneObj(zoneId) {
-    if (!DATA || !DATA.ZONES) return { id: 'meadow', name: 'Sunleaf Meadow', levelRange: [2, 7], wildPool: [{ id: 10, weight: 50 }] };
+    if (!DATA || !DATA.ZONES) return { id: "meadow", name: "Sunleaf Meadow", unlockLevel: 1, statScale: 1.0, levelRange: [2, 8], wildPool: [{ id: 10, weight: 50 }] };
     return DATA.ZONES.find((z) => z.id === zoneId) || DATA.ZONES[0];
+  }
+
+  function getHighestKinLevel(st = state) {
+    if (!st) return 1;
+    const all = (st.squad || []).concat(st.vault || []);
+    return all.reduce((maxLv, k) => Math.max(maxLv, Number((k && k.level) || 1)), 1);
+  }
+
+  function canAccessZone(targetZoneId, st = state) {
+    const zoneObj = getZoneObj(targetZoneId);
+    const zonesList = (DATA && DATA.ZONES) || [];
+    const zoneIndex = Math.max(0, zonesList.findIndex((z) => z.id === targetZoneId));
+    const requiredLevel = Number((zoneObj && zoneObj.unlockLevel) || 1);
+    const currentMaxLevel = getHighestKinLevel(st);
+    const requiredCrests = zoneIndex;
+    const currentCrests = Array.isArray(st && st.crests) ? st.crests.length : 0;
+    const explicitlyUnlocked = Boolean(st && st.unlockedZones && st.unlockedZones[targetZoneId]);
+    const allowed =
+      targetZoneId === "meadow" ||
+      currentMaxLevel >= requiredLevel ||
+      currentCrests >= requiredCrests ||
+      explicitlyUnlocked;
+    return {
+      allowed,
+      requiredLevel,
+      currentMaxLevel,
+      requiredCrests,
+      currentCrests,
+      zoneObj,
+      zoneIndex
+    };
+  }
+
+  function applyWorldStatScaling(kinInstance, zoneId) {
+    if (!kinInstance) return kinInstance;
+    const z = getZoneObj(zoneId || state.zone);
+    const scale = Number((z && z.statScale) || 1.0);
+    kinInstance.worldStatScale = scale;
+    kinInstance.originZone = z ? z.id : zoneId;
+    if (scale > 1.0) {
+      kinInstance.maxHp = Math.max(10, Math.round(kinInstance.maxHp * scale));
+      kinInstance.currentHp = kinInstance.maxHp;
+      kinInstance.atk = Math.max(5, Math.round(kinInstance.atk * scale));
+      kinInstance.def = Math.max(5, Math.round(kinInstance.def * scale));
+      kinInstance.spd = Math.max(5, Math.round(kinInstance.spd * scale));
+    }
+    return kinInstance;
   }
 
   function updateHud() {
@@ -1676,8 +1736,8 @@
       const sp = DATA.getSpeciesById(lead.speciesId);
       const backOffsets = { up: [0, 1], down: [0, -1], left: [1, 0], right: [-1, 0] };
       const [bx, by] = backOffsets[state.pos.dir] || [0, -1];
-      const fx = Math.max(1, Math.min(14, state.pos.x + bx));
-      const fy = Math.max(1, Math.min(10, state.pos.y + by));
+      const fx = Math.max(1, Math.min((root.WILDKIN_MAPS.MAP_WIDTH || 28) - 2, state.pos.x + bx));
+      const fy = Math.max(1, Math.min((root.WILDKIN_MAPS.MAP_HEIGHT || 22) - 2, state.pos.y + by));
       if (root.WILDKIN_MAPS.getTileAt(state.zone, fx, fy) !== 'T') {
         root.WILDKIN_SPRITES.drawKinSprite(ctx, sp, fx * tileW + 3, fy * tileH + 3, size - 6, {
           isRadiant: lead.isRadiant,
@@ -1734,23 +1794,43 @@
     return true;
   }
 
-  function travelToZone(targetZoneId, customX = null, customY = null) {
+  function travelToZone(targetZoneId, customX = null, customY = null, forceUnlock = false) {
     const map = root.WILDKIN_MAPS && root.WILDKIN_MAPS.ZONE_MAPS[targetZoneId];
-    if (!map) return;
+    if (!map) return false;
+    const access = canAccessZone(targetZoneId, state);
+    const zInfo = getZoneObj(targetZoneId);
+    if (!access.allowed && !forceUnlock) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(220, 0.14);
+      const mapH = (root.WILDKIN_MAPS && root.WILDKIN_MAPS.MAP_HEIGHT) || 22;
+      if (state.pos.y <= 1) state.pos.y = 2;
+      else if (state.pos.y >= mapH - 2) state.pos.y = mapH - 3;
+      syncMotionFromState();
+      showToast(
+        `🔒 ${zInfo.name} requires a Lv.${access.requiredLevel}+ Kin (yours is Lv.${access.currentMaxLevel}) or ${access.requiredCrests} Warden Crest${access.requiredCrests === 1 ? "" : "s"}! Train first or use Daredevil Override in 🗺️ 6 Worlds!`,
+        4200
+      );
+      return false;
+    }
+    if (forceUnlock) {
+      state.unlockedZones = state.unlockedZones || {};
+      state.unlockedZones[targetZoneId] = true;
+    }
     state.zone = targetZoneId;
-    state.pos.x = typeof customX === 'number' ? customX : map.spawn.x;
-    state.pos.y = typeof customY === 'number' ? customY : map.spawn.y;
-    state.pos.dir = customY !== null && customY <= 2 ? 'down' : 'up';
+    state.pos.x = typeof customX === "number" ? customX : map.spawn.x;
+    state.pos.y = typeof customY === "number" ? customY : map.spawn.y;
+    state.pos.dir = customY !== null && customY <= 2 ? "down" : "up";
     syncMotionFromState();
     grantEncounterGrace(3500);
-    const zInfo = getZoneObj(targetZoneId);
-    const hint = $('zoneHint');
+    const hint = $("zoneHint");
     if (hint) hint.textContent = `${zInfo.name} (${zInfo.subtitle})`;
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(740, 0.08);
     ensureZoneWildSpawns(targetZoneId);
     saveGame();
     updateHud();
-    showToast(`🗺️ Entered ${zInfo.name}! Visit 🏥 Hospital (East) or 🏬 Shopping Center (West)!`, 3400);
+    const powerPct = Math.round(((zInfo.statScale || 1) - 1) * 100);
+    const powerNote = powerPct > 0 ? ` • ⚠️ +${powerPct}% Stronger Wild Kin!` : "";
+    showToast(`🗺️ Entered ${zInfo.name} (Lv.${zInfo.levelRange[0]}–${zInfo.levelRange[1]}${powerNote})!`, 3600);
+    return true;
   }
 
   function rollWildSpeciesForZone(zoneId) {
@@ -1766,9 +1846,33 @@
         break;
       }
     }
-    const [minLv, maxLv] = z.levelRange || [2, 6];
+    const [minLv, maxLv] = z.levelRange || [2, 8];
     const level = Math.floor(minLv + Math.random() * (maxLv - minLv + 1));
-    return { speciesId: chosenId, level };
+
+    // Auto-evolve wild species in higher worlds when level meets evolution thresholds
+    if (DATA && typeof DATA.getSpeciesById === "function") {
+      let sp = DATA.getSpeciesById(chosenId);
+      if (sp && sp.evolvesTo && level >= (sp.evolvesTo.level || 16)) {
+        chosenId = sp.evolvesTo.id;
+        sp = DATA.getSpeciesById(chosenId);
+        if (sp && sp.evolvesTo && level >= (sp.evolvesTo.level || 32)) {
+          chosenId = sp.evolvesTo.id;
+        }
+      }
+    }
+
+    const tierNum = Number(z.dangerTier || 1);
+    let geneticTier = "B";
+    const gRoll = Math.random();
+    if (tierNum >= 6) {
+      geneticTier = gRoll < 0.35 ? "SS" : gRoll < 0.78 ? "S" : "A";
+    } else if (tierNum >= 4) {
+      geneticTier = gRoll < 0.14 ? "SS" : gRoll < 0.52 ? "S" : gRoll < 0.85 ? "A" : "B";
+    } else if (tierNum >= 2) {
+      geneticTier = gRoll < 0.18 ? "S" : gRoll < 0.55 ? "A" : "B";
+    }
+
+    return { speciesId: chosenId, level, geneticTier, statScale: z.statScale || 1.0 };
   }
 
   function movePlayer(dir) {
@@ -1794,7 +1898,7 @@
     }
 
     // Impassable tiles: 'T' (Tree/Wall), or Building/NPC tiles ('S','H','C','M','K','N') triggers interaction
-    if (targetTile === 'T') {
+    if (targetTile === 'T' || targetTile === '#' || targetTile === '~' || targetTile === 'R') {
       updateInteractPrompt();
       return false;
     }
@@ -1874,22 +1978,25 @@
       healthyIdx = 0;
     }
 
+    const zObj = getZoneObj(state.zone);
     const rolled = rollWildSpeciesForZone(state.zone);
     const speciesId = forceSpeciesId || rolled.speciesId;
     const level = forceLevel || rolled.level;
     const enemyKin = DATA.createKinInstance(speciesId, level, {
       isRadiant: forceRadiant,
-      caughtZone: getZoneObj(state.zone).name
+      geneticTier: rolled.geneticTier,
+      caughtZone: zObj.name
     });
+    applyWorldStatScaling(enemyKin, state.zone);
 
     markSeen(enemyKin.speciesId);
 
     battleState = {
-      mode: 'wild',
-      title: 'WILD ENCOUNTER',
+      mode: "wild",
+      title: `WILD • ${zObj.name.toUpperCase()}`,
       trainerName: null,
       wardenId: null,
-      rewardShards: 18 + level * 6,
+      rewardShards: Math.round((18 + level * 6) * (zObj.statScale || 1)),
       enemySquad: [enemyKin],
       enemyIndex: 0,
       playerIndex: healthyIdx,
@@ -1912,7 +2019,7 @@
     }
 
     const enemySquad = (tamerNpc.squad || tamerNpc.team || [{ speciesId: 10, level: 4 }]).map((s) =>
-      DATA.createKinInstance(s.speciesId, s.level, { isRadiant: false })
+      applyWorldStatScaling(DATA.createKinInstance(s.speciesId, s.level, { isRadiant: false }), state.zone)
     );
     enemySquad.forEach((k) => markSeen(k.speciesId));
 
@@ -2822,7 +2929,8 @@
   function handleEnemyDefeated() {
     if (!battleState || !DATA) return;
     const defeated = battleState.enemySquad[battleState.enemyIndex];
-    const xpGain = 26 + defeated.level * 14;
+    const zoneScale = (getZoneObj(state.zone) && getZoneObj(state.zone).statScale) || 1.0;
+    const xpGain = Math.round((26 + defeated.level * 14) * zoneScale);
     const lvlRes = grantXpToActiveKin(xpGain);
 
     // Check if enemy trainer has more Kin
@@ -3418,42 +3526,69 @@
           openModal('shop');
         });
       }
-    } else if (tab === 'zones') {
-      titleEl.textContent = '🗺️ Aether Realm Sanctuaries (Fast Travel)';
+    } else if (tab === "zones") {
+      const maxLv = getHighestKinLevel(state);
+      titleEl.textContent = `🗺️ 6 Expansive 3D Worlds (Your Highest Kin: Lv.${maxLv})`;
       bodyEl.innerHTML = `
+        <div style="font-size:0.68rem;color:#cbd5e1;margin-bottom:6px">
+          Each world spans a <strong>28×22 multi-elevation 3D region</strong> with rolling hills, highland plateaus, bridges, and 8 roaming wild Kin. Higher worlds require a strong Partner Kin (or Warden Crests) and feature tougher evolved creatures with boosted combat stats!
+        </div>
         <div style="display:flex;flex-direction:column;gap:8px">
           ${DATA.ZONES.map((z) => {
             const isCurrent = state.zone === z.id;
+            const access = canAccessZone(z.id, state);
+            const powerPct = Math.round((z.statScale || 1) * 100);
+            const statusBadge = access.allowed
+              ? `<span style="font-size:0.64rem;padding:2px 6px;border-radius:999px;background:rgba(34,197,94,0.18);color:#4ade80;border:1px solid #4ade80">🔓 UNLOCKED</span>`
+              : `<span style="font-size:0.64rem;padding:2px 6px;border-radius:999px;background:rgba(244,63,94,0.2);color:#fda4af;border:1px solid #f43f5e">🔒 Req Lv.${access.requiredLevel}+ Kin or ${access.requiredCrests} Crest${access.requiredCrests === 1 ? "" : "s"}</span>`;
             return `
-              <div class="warden-card" style="border-color:${isCurrent ? z.themeColor : 'rgba(148,163,184,0.25)'}">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <strong style="color:${z.themeColor};font-size:0.84rem">${z.name}</strong>
-                  <span style="font-size:0.68rem;color:#facc15">${z.subtitle}</span>
+              <div class="warden-card" style="border-color:${isCurrent ? z.themeColor : access.allowed ? "rgba(148,163,184,0.32)" : "rgba(244,63,94,0.35)"};opacity:${access.allowed ? "1" : "0.92"}">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+                  <strong style="color:${z.themeColor};font-size:0.84rem">World ${z.worldNumber || 1}: ${z.name}</strong>
+                  ${statusBadge}
                 </div>
-                <div style="font-size:0.68rem;color:#cbd5e1">${z.desc}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.66rem;color:#fde047;margin:2px 0">
+                  <span>${z.difficultyLabel || z.subtitle}</span>
+                  <span>Wild Lv.${z.levelRange[0]}–${z.levelRange[1]} • ${powerPct}% Power</span>
+                </div>
+                <div style="font-size:0.67rem;color:#cbd5e1">${z.desc}</div>
                 <div class="mini-btn-row">
-                  <button class="mini-btn" data-travel-zone="${z.id}">${isCurrent ? '📍 Current Zone' : '🌀 Travel Here'}</button>
-                  <button class="mini-btn secondary" data-wild-zone="${z.id}">🌿 Scout Wild Kin</button>
+                  <button class="mini-btn" data-travel-zone="${z.id}">
+                    ${isCurrent ? "📍 Current World" : access.allowed ? "🌀 Travel Here" : `🔒 Need Lv.${access.requiredLevel}+ Kin`}
+                  </button>
+                  ${
+                    access.allowed
+                      ? `<button class="mini-btn secondary" data-wild-zone="${z.id}">🌿 Scout Wild Kin</button>`
+                      : `<button class="mini-btn secondary" data-force-zone="${z.id}" style="border-color:#f59e0b;color:#fde047">⚠️ Daredevil Enter</button>`
+                  }
                 </div>
               </div>
             `;
-          }).join('')}
+          }).join("")}
         </div>
       `;
-      bodyEl.querySelectorAll('[data-travel-zone]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const zId = btn.getAttribute('data-travel-zone');
-          closeModal();
-          travelToZone(zId);
+      bodyEl.querySelectorAll("[data-travel-zone]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const zId = btn.getAttribute("data-travel-zone");
+          if (travelToZone(zId)) {
+            closeModal();
+          }
         });
       });
-      bodyEl.querySelectorAll('[data-wild-zone]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const zId = btn.getAttribute('data-wild-zone');
-          state.zone = zId;
+      bodyEl.querySelectorAll("[data-force-zone]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const zId = btn.getAttribute("data-force-zone");
           closeModal();
-          updateHud();
-          startWildEncounter();
+          travelToZone(zId, null, null, true);
+        });
+      });
+      bodyEl.querySelectorAll("[data-wild-zone]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const zId = btn.getAttribute("data-wild-zone");
+          if (travelToZone(zId)) {
+            closeModal();
+            startWildEncounter();
+          }
         });
       });
     } else if (tab === 'arena') {
@@ -4691,8 +4826,10 @@
             };
           }
           if (targetTile) {
-            const tx = Math.max(0.0, Math.min(15.0, targetTile.x));
-            const ty = Math.max(0.0, Math.min(11.0, targetTile.y));
+            const maxTileX = ((root.WILDKIN_MAPS && root.WILDKIN_MAPS.MAP_WIDTH) || 28) - 1;
+            const maxTileY = ((root.WILDKIN_MAPS && root.WILDKIN_MAPS.MAP_HEIGHT) || 22) - 1;
+            const tx = Math.max(0.0, Math.min(maxTileX, targetTile.x));
+            const ty = Math.max(0.0, Math.min(maxTileY, targetTile.y));
             const tappedWild = (state.wildSpawns || []).find((ws) => Math.hypot(ws.x - tx, ws.y - ty) <= 1.15);
             if (tappedWild) {
               const hitSp = tappedWild.speciesId;
@@ -4822,7 +4959,7 @@
       return;
     }
 
-    const moveSpeed = 5.4;
+    const moveSpeed = 5.2;
     const stepX = dirX * moveSpeed * dtSec;
     const stepY = dirY * moveSpeed * dtSec;
 
@@ -4869,8 +5006,10 @@
 
     const prevGridX = state.pos.x;
     const prevGridY = state.pos.y;
-    const curGridX = Math.max(0, Math.min(15, Math.round(playerMotion.x)));
-    const curGridY = Math.max(0, Math.min(11, Math.round(playerMotion.y)));
+    const maxGridX = ((root.WILDKIN_MAPS && root.WILDKIN_MAPS.MAP_WIDTH) || 28) - 1;
+    const maxGridY = ((root.WILDKIN_MAPS && root.WILDKIN_MAPS.MAP_HEIGHT) || 22) - 1;
+    const curGridX = Math.max(0, Math.min(maxGridX, Math.round(playerMotion.x)));
+    const curGridY = Math.max(0, Math.min(maxGridY, Math.round(playerMotion.y)));
 
     if (curGridX !== prevGridX || curGridY !== prevGridY) {
       state.pos.x = curGridX;
@@ -4896,9 +5035,9 @@
     const curTile = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getTileAt(state.zone, curGridX, curGridY) : ".";
     if ((curTile === "G" || curTile === "W" || curTile === "~") && Date.now() > (playerMotion.encounterGraceUntil || 0)) {
       playerMotion.grassDist += movedDist;
-      if (playerMotion.grassDist >= 1.45) {
+      if (playerMotion.grassDist >= 2.6) {
         playerMotion.grassDist = 0;
-        if (Math.random() < 0.32) {
+        if (Math.random() < 0.26) {
           playerMotion.targetX = null;
           playerMotion.targetY = null;
           playerMotion.targetNpc = null;
@@ -5006,6 +5145,11 @@
     calculateCatchChance,
     createInitialState,
     getState: () => state,
+    getHighestKinLevel,
+    canAccessZone,
+    travelToZone,
+    rollWildSpeciesForZone,
+    applyWorldStatScaling,
     getMaxSquadSize,
     getMaxVaultSize,
     upgradeKinBag,

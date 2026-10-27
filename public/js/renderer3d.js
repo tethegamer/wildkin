@@ -930,7 +930,7 @@
 
     overworld.scene = new THREE.Scene();
     overworld.scene.background = new THREE.Color(0x0b1d3a);
-    overworld.scene.fog = new THREE.FogExp2(0x0f2942, 0.022);
+    overworld.scene.fog = new THREE.FogExp2(0x0f2942, 0.014);
 
     overworld.camera = new THREE.PerspectiveCamera(48, w / h, 0.5, 140);
     overworld.raycaster = new THREE.Raycaster();
@@ -949,7 +949,7 @@
     dirLight.shadow.mapSize.height = 1024;
     dirLight.shadow.camera.near = 2;
     dirLight.shadow.camera.far = 90;
-    const d = 24;
+    const d = 38;
     dirLight.shadow.camera.left = -d;
     dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d;
@@ -1036,6 +1036,13 @@
    * Builds the full 3D environment for a Zone (terrain tiles, swaying 3D grass,
    * 3D trees/crystals, Aether Wellspring Shrine, Merchant Pavilion, 3D Portals, NPCs)
    */
+  function getWorldElevation(zoneId, tileX, tileY) {
+    if (root.WILDKIN_MAPS && typeof root.WILDKIN_MAPS.getElevationAt === "function") {
+      return root.WILDKIN_MAPS.getElevationAt(zoneId || overworld.currentZoneId || "meadow", tileX, tileY);
+    }
+    return 0;
+  }
+
   function syncZone(zone, defeatedTrainerIds = []) {
     const THREE = getThree();
     if (!THREE || !overworld.initialized || !zone) return;
@@ -1103,37 +1110,69 @@
         emissiveIntensity: 0.15
       });
 
+      const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.65, metalness: 0.1 });
+      const ruinMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.45, metalness: 0.3 });
+      const runeGlowMat = new THREE.MeshBasicMaterial({ color: pal.particle || 0x38bdf8 });
+
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const ch = mapRows[r][c];
           const wx = c * TILE_SIZE;
           const wz = r * TILE_SIZE;
+          const elev = getWorldElevation(zone.id, c, r);
 
-          if (ch === 'W' || ch === '~') {
+          if (ch === "~") {
             const waterTile = new THREE.Mesh(
               new THREE.BoxGeometry(TILE_SIZE, 0.28, TILE_SIZE),
               waterMat
             );
-            waterTile.position.set(wx, -0.18, wz);
+            waterTile.position.set(wx, -0.22, wz);
             waterTile.userData = { baseX: wx, baseZ: wz, phase: (c + r) * 0.6 };
             overworld.zoneGroup.add(waterTile);
             overworld.waterMeshes.push(waterTile);
             continue;
           }
 
-          const isPath = ch === '.' || ch === 'P' || ch === 'S' || ch === 'H' || ch === 'C' || ch === 'M' || ch === 'B' || ch === 'K' || ch === 'N' || ch === 'O' || ch === 'I' || ch === 'F' || ch === 'V';
+          if (ch === "B") {
+            // Recessed water/lava beneath the bridge + elevated 3D arched bridge deck & rails
+            const underWater = new THREE.Mesh(
+              new THREE.BoxGeometry(TILE_SIZE, 0.28, TILE_SIZE),
+              waterMat
+            );
+            underWater.position.set(wx, -0.22, wz);
+            underWater.userData = { baseX: wx, baseZ: wz, phase: (c + r) * 0.6 };
+            overworld.zoneGroup.add(underWater);
+            overworld.waterMeshes.push(underWater);
+
+            const bridgeGroup = new THREE.Group();
+            bridgeGroup.position.set(wx, elev, wz);
+            const deck = new THREE.Mesh(new THREE.BoxGeometry(TILE_SIZE * 0.98, 0.18, TILE_SIZE * 0.98), bridgeMat);
+            deck.position.y = -0.09;
+            deck.receiveShadow = true;
+            deck.castShadow = true;
+            const railL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.36, TILE_SIZE * 0.96), bridgeMat);
+            railL.position.set(-TILE_SIZE * 0.42, 0.18, 0);
+            const railR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.36, TILE_SIZE * 0.96), bridgeMat);
+            railR.position.set(TILE_SIZE * 0.42, 0.18, 0);
+            bridgeGroup.add(deck, railL, railR);
+            overworld.zoneGroup.add(bridgeGroup);
+            continue;
+          }
+
+          const isPath = ch === "." || ch === "P" || ch === "S" || ch === "H" || ch === "C" || ch === "M" || ch === "W" || ch === "R" || ch === "K" || ch === "N" || ch === "O" || ch === "I" || ch === "F" || ch === "V";
           const tileMat = isPath ? pathMat : (c + r) % 2 === 0 ? groundMatA : groundMatB;
-          const tileMesh = new THREE.Mesh(groundGeo, tileMat);
-          tileMesh.position.set(wx, -0.16, wz);
+          const blockH = Math.max(0.36, 0.76 + elev);
+          const tileGeo = elev > 0.04 ? new THREE.BoxGeometry(TILE_SIZE * 0.98, blockH, TILE_SIZE * 0.98) : groundGeo;
+          const tileMesh = new THREE.Mesh(tileGeo, tileMat);
+          tileMesh.position.set(wx, elev - (elev > 0.04 ? blockH * 0.5 : 0.18), wz);
           tileMesh.receiveShadow = true;
           overworld.zoneGroup.add(tileMesh);
 
-          if (ch === 'T' || ch === '#') {
-            // Smooth 3DS/Switch Biome Trees / Coral Spires / Crystal Pillars
+          if (ch === "T" || ch === "#") {
             const treeGroup = new THREE.Group();
-            treeGroup.position.set(wx, 0, wz);
+            treeGroup.position.set(wx, elev, wz);
 
-            if (zone.id === 'cinderpeak' || zone.id === 'sanctum') {
+            if (zone.id === "cinderpeak" || zone.id === "sanctum") {
               const spire = new THREE.Mesh(
                 new THREE.ConeGeometry(0.76, 2.35 + ((c * 7 + r * 3) % 3) * 0.3, 16),
                 trunkMat
@@ -1162,10 +1201,9 @@
               treeGroup.add(trunk, tier1, tier2);
             }
             overworld.zoneGroup.add(treeGroup);
-          } else if (ch === 'G') {
-            // Smooth Rounded Tall Grass Tufts (bends when player runs through!)
+          } else if (ch === "G") {
             const cluster = new THREE.Group();
-            cluster.position.set(wx, 0, wz);
+            cluster.position.set(wx, elev, wz);
             for (let b = 0; b < 5; b++) {
               const angle = (b / 5) * Math.PI * 2;
               const dist = b === 0 ? 0 : 0.44;
@@ -1174,13 +1212,37 @@
               blade.rotation.y = angle;
               cluster.add(blade);
             }
-            cluster.userData = { wx, wz, phase: c * 0.5 + r * 0.7 };
+            cluster.userData = { wx, wz, elev, phase: c * 0.5 + r * 0.7 };
             overworld.zoneGroup.add(cluster);
             overworld.grassBlades.push(cluster);
-          } else if (ch === 'S' || ch === 'H') {
-            // 3D KIN CARE HOSPITAL (Pokémon Center style rounded dome roof + glowing red/white medical cross + glass doors!)
+          } else if (ch === "R") {
+            // 3D Ancient Aether Ruin Obelisk / Watchtower Pillar Landmark
+            const ruinGroup = new THREE.Group();
+            ruinGroup.position.set(wx, elev, wz);
+            const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.74, 0.38, 8), ruinMat);
+            plinth.position.y = 0.19;
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.46, 1.85, 8), ruinMat);
+            pillar.position.y = 1.1;
+            pillar.castShadow = true;
+            const runeOrb = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), runeGlowMat);
+            runeOrb.position.y = 2.35;
+            ruinGroup.add(plinth, pillar, runeOrb);
+            overworld.zoneGroup.add(ruinGroup);
+          } else if (ch === "W") {
+            // 3D Warden Sanctum Dais & Elemental Crest Altar
+            const altarGroup = new THREE.Group();
+            altarGroup.position.set(wx, elev, wz);
+            const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, 0.32, 16), ruinMat);
+            dais.position.y = 0.16;
+            const haloRing = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.06, 12, 28), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+            haloRing.rotation.x = Math.PI / 2;
+            haloRing.position.y = 0.34;
+            altarGroup.add(dais, haloRing);
+            overworld.zoneGroup.add(altarGroup);
+          } else if (ch === "S" || ch === "H") {
+            // 3D KIN CARE HOSPITAL (Rounded Aether Sanctuary Dome + Glowing Medical Cross + Glass Doors!)
             const hospGroup = new THREE.Group();
-            hospGroup.position.set(wx, 0, wz);
+            hospGroup.position.set(wx, elev, wz);
             const wallMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35, metalness: 0.1 });
             const roofMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.32, metalness: 0.18, emissive: 0xdc2626, emissiveIntensity: 0.18 });
             const glassMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
@@ -1196,7 +1258,6 @@
             trimRing.rotation.x = Math.PI / 2;
             trimRing.position.y = 1.32;
 
-            // Entrance & Glowing Medical Cross Emblem
             const door = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.85, 16, 1, false, -0.5, 1.0), glassMat);
             door.position.set(0, 0.44, 0.82);
             const signDisc = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.08, 20), roofMat);
@@ -1221,10 +1282,10 @@
             hospGroup.add(baseCyl, domeRoof, trimRing, door, signDisc, crossV, crossH, crystal, halo);
             overworld.zoneGroup.add(hospGroup);
             overworld.shrineCrystal = { crystal, halo };
-          } else if (ch === 'C' || ch === 'M') {
-            // 3D AETHER SHOPPING CENTER (Poké Mart / Department Mall with blue/gold domed roof, awning & display windows!)
+          } else if (ch === "C" || ch === "M") {
+            // 3D AETHER SHOPPING CENTER (Grand Department Rotunda with Blue/Gold Domed Roof & Awning!)
             const mallGroup = new THREE.Group();
-            mallGroup.position.set(wx, 0, wz);
+            mallGroup.position.set(wx, elev, wz);
             const wallMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.38, metalness: 0.1 });
             const roofMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.22, emissive: 0x0369a1, emissiveIntensity: 0.2 });
             const awningMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35, emissive: 0xd97706, emissiveIntensity: 0.22 });
@@ -1245,9 +1306,9 @@
 
             mallGroup.add(mainHall, mallRoof, awning, shopOrb, shopDoor);
             overworld.zoneGroup.add(mallGroup);
-          } else if (ch === 'F') {
+          } else if (ch === "F") {
             const flowerGroup = new THREE.Group();
-            flowerGroup.position.set(wx, 0, wz);
+            flowerGroup.position.set(wx, elev, wz);
             for (let f = 0; f < 3; f++) {
               const blossom = new THREE.Mesh(
                 new THREE.SphereGeometry(0.15, 12, 10),
@@ -1257,10 +1318,9 @@
               flowerGroup.add(blossom);
             }
             overworld.zoneGroup.add(flowerGroup);
-          } else if (ch === 'P') {
-            // Spinning 3D World Gate Stargate Portal Ring (North & South World Gates)
+          } else if (ch === "P") {
             const portalGroup = new THREE.Group();
-            portalGroup.position.set(wx, 0, wz);
+            portalGroup.position.set(wx, elev, wz);
             const ring = new THREE.Mesh(
               new THREE.TorusGeometry(0.82, 0.11, 14, 32),
               new THREE.MeshStandardMaterial({
@@ -1287,10 +1347,10 @@
         }
       }
 
-      // If in World 1 (Sunleaf Meadow), build Grandpa Rowan’s 3D Heartwood Homestead Cabin & Breeding Corral!
       if (zone.id === "meadow") {
         const cabinGroup = new THREE.Group();
-        cabinGroup.position.set(5.2 * TILE_SIZE, 0, 4.2 * TILE_SIZE);
+        const cabElev = getWorldElevation("meadow", 11.2, 8.8);
+        cabinGroup.position.set(11.2 * TILE_SIZE, cabElev, 8.8 * TILE_SIZE);
         const barkTex = getProceduralTexture("bark", 0x78350f, 0x451a03);
         const wallMat = new THREE.MeshStandardMaterial({ color: 0x92400e, map: barkTex, roughness: 0.7 });
         const roofMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.5 });
@@ -1311,16 +1371,15 @@
         overworld.zoneGroup.add(cabinGroup);
       }
 
-      // Floating 3D Biome Particles (Fireflies / Embers / Astral Spores)
-      const pCount = 85;
+      const pCount = 130;
       const pGeo = new THREE.BufferGeometry();
       const positions = new Float32Array(pCount * 3);
       for (let i = 0; i < pCount; i++) {
         positions[i * 3] = Math.random() * cols * TILE_SIZE;
-        positions[i * 3 + 1] = 0.5 + Math.random() * 4.5;
+        positions[i * 3 + 1] = 0.6 + Math.random() * 5.2;
         positions[i * 3 + 2] = Math.random() * rows * TILE_SIZE;
       }
-      pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      pGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       const pMat = new THREE.PointsMaterial({
         color: pal.particle,
         size: 0.22,
@@ -1346,7 +1405,7 @@
 
     npcEntries.forEach((npc) => {
       const role = npc.type || npc.role;
-      if (role === "shrine" || role === "portal" || role === "hospital" || role === "shopping_center") return;
+      if (role === "shrine" || role === "portal" || role === "hospital" || role === "shopping_center" || npc.id === "rowan") return;
       const isWarden = Boolean(npc.wardenId || role === "warden");
       const isGrandpa = Boolean(npc.isGrandpa || npc.id === "rowan");
       const isShop = role === "merchant" || role === "shop";
@@ -1359,7 +1418,8 @@
         isWarden,
         isGrandpa
       });
-      npcMesh.position.set(npc.x * TILE_SIZE, 0, npc.y * TILE_SIZE);
+      const npcElev = getWorldElevation(zone.id, npc.x, npc.y);
+      npcMesh.position.set(npc.x * TILE_SIZE, npcElev, npc.y * TILE_SIZE);
       npcMesh.userData.npcData = npc;
       overworld.npcGroup.add(npcMesh);
     });
@@ -1449,7 +1509,8 @@
       wildGem.position.y = 1.45;
       wrapper.add(wildGem);
 
-      wrapper.position.set((sp.x || 4) * TILE_SIZE, 0, (sp.y || 4) * TILE_SIZE);
+      const spElev = getWorldElevation(overworld.currentZoneId, sp.x || 4, sp.y || 4);
+      wrapper.position.set((sp.x || 4) * TILE_SIZE, spElev, (sp.y || 4) * TILE_SIZE);
       wrapper.userData = { kinMesh, wildRing, wildGem, spawnId: sp.id || ("w_" + idx), phase: idx * 1.1 };
       overworld.wildGroup.add(wrapper);
       overworld.wildMeshes.set(wrapper.userData.spawnId, wrapper);
@@ -1480,7 +1541,8 @@
     if (!overworld.targetBeacon) return;
     overworld.targetBeacon.visible = Boolean(visible);
     if (visible) {
-      overworld.targetBeacon.position.set(tileX * TILE_SIZE, 0, tileY * TILE_SIZE);
+      const bElev = getWorldElevation(overworld.currentZoneId, tileX, tileY);
+      overworld.targetBeacon.position.set(tileX * TILE_SIZE, bElev, tileY * TILE_SIZE);
       const colorHex = isInteractTarget ? 0xfacc15 : 0x38bdf8;
       overworld.targetBeacon.userData.outerRing.material.color.setHex(colorHex);
       overworld.targetBeacon.userData.innerBeam.material.color.setHex(colorHex);
@@ -1496,10 +1558,15 @@
 
     const px = (playerState.x || 0) * TILE_SIZE;
     const pz = (playerState.y || 0) * TILE_SIZE;
+    const playerElev = getWorldElevation(overworld.currentZoneId, playerState.x || 0, playerState.y || 0);
     const speed = playerState.speed || 0;
 
+    if (overworld.groundPlane) {
+      overworld.groundPlane.constant = -playerElev;
+    }
+
     if (overworld.playerMesh) {
-      overworld.playerMesh.position.set(px, 0, pz);
+      overworld.playerMesh.position.set(px, playerElev, pz);
       if (typeof playerState.angle === 'number') {
         overworld.playerMesh.rotation.y = playerState.angle;
       }
@@ -1513,6 +1580,11 @@
       const targetCz = pz + Math.cos(behindAngle) * 1.65;
       overworld.companionMesh.position.x += (targetCx - overworld.companionMesh.position.x) * 0.14;
       overworld.companionMesh.position.z += (targetCz - overworld.companionMesh.position.z) * 0.14;
+      overworld.companionMesh.position.y = getWorldElevation(
+        overworld.currentZoneId,
+        overworld.companionMesh.position.x / TILE_SIZE,
+        overworld.companionMesh.position.z / TILE_SIZE
+      );
       const dx = px - overworld.companionMesh.position.x;
       const dz = pz - overworld.companionMesh.position.z;
       if (dx * dx + dz * dz > 0.01) {
@@ -1567,6 +1639,11 @@
           const tz = (match.y || 0) * TILE_SIZE;
           wrapper.position.x += (tx - wrapper.position.x) * 0.18;
           wrapper.position.z += (tz - wrapper.position.z) * 0.18;
+          wrapper.position.y = getWorldElevation(
+            overworld.currentZoneId,
+            wrapper.position.x / TILE_SIZE,
+            wrapper.position.z / TILE_SIZE
+          );
           if (typeof match.angle === "number") {
             wrapper.rotation.y = match.angle;
           }
@@ -1607,7 +1684,7 @@
     const lookAheadZ = (playerState.vy || 0) * 1.8;
 
     const desiredCamX = px + lookAheadX * 0.6;
-    const desiredCamY = offsetY;
+    const desiredCamY = offsetY + playerElev * 0.85;
     const desiredCamZ = pz + offsetZ + lookAheadZ * 0.5;
 
     overworld.camPos.x += (desiredCamX - overworld.camPos.x) * 0.12;
@@ -1615,7 +1692,7 @@
     overworld.camPos.z += (desiredCamZ - overworld.camPos.z) * 0.12;
 
     overworld.camLook.x += (px + lookAheadX - overworld.camLook.x) * 0.16;
-    overworld.camLook.y = 0.65;
+    overworld.camLook.y = 0.65 + playerElev * 0.85;
     overworld.camLook.z += (pz + lookAheadZ - overworld.camLook.z) * 0.16;
 
     overworld.camera.position.set(overworld.camPos.x, overworld.camPos.y, overworld.camPos.z);
