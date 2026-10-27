@@ -221,12 +221,12 @@ describe('2. public/js/maps.js — 6 World Grids, Portals, Wardens & Grandpa Row
     assert.equal(WildkinMaps.MAP_WIDTH, 16);
     assert.equal(WildkinMaps.MAP_HEIGHT, 12);
     const expectedWorlds = [
-      { zoneId: 'meadow',     wardenId: 'kael',    wx: 9,  wy: 9,  tile: 'K' },
-      { zoneId: 'tidecove',   wardenId: 'nerissa', wx: 12, wy: 7,  tile: 'N' },
-      { zoneId: 'stormspire', wardenId: 'orin',    wx: 12, wy: 7,  tile: 'O' },
-      { zoneId: 'cinderpeak', wardenId: 'ignis',   wx: 12, wy: 7,  tile: 'I' },
-      { zoneId: 'frostveil',  wardenId: 'freya',   wx: 12, wy: 7,  tile: 'F' },
-      { zoneId: 'sanctum',    wardenId: 'vesper',  wx: 7,  wy: 1,  tile: 'V' }
+      { zoneId: 'meadow',     wardenId: 'kael',    wx: 11, wy: 0,  tile: 'W' },
+      { zoneId: 'tidecove',   wardenId: 'nerissa', wx: 11, wy: 0,  tile: 'W' },
+      { zoneId: 'stormspire', wardenId: 'orin',    wx: 11, wy: 0,  tile: 'W' },
+      { zoneId: 'cinderpeak', wardenId: 'ignis',   wx: 11, wy: 0,  tile: 'W' },
+      { zoneId: 'frostveil',  wardenId: 'freya',   wx: 11, wy: 0,  tile: 'W' },
+      { zoneId: 'sanctum',    wardenId: 'vesper',  wx: 11, wy: 0,  tile: 'W' }
     ];
 
     for (const w of expectedWorlds) {
@@ -237,10 +237,14 @@ describe('2. public/js/maps.js — 6 World Grids, Portals, Wardens & Grandpa Row
         assert.equal(row.length, 16, `Map ${w.zoneId} row "${row}" must be 16 chars`);
       }
 
-      // Every world has a Wellspring Shrine at 12,1 ('S')
-      assert.equal(WildkinMaps.getTileAt(w.zoneId, 12, 1), 'S', `Expected Shrine at 12,1 in ${w.zoneId}`);
-      const shrineNpc = WildkinMaps.getNpcAt(w.zoneId, 12, 1);
-      assert.ok(shrineNpc && shrineNpc.type === 'shrine');
+      // Every world has a Kin Care Hospital at 12,2 ('H') and Aether Shopping Center at 3,2 ('C')
+      assert.equal(WildkinMaps.getTileAt(w.zoneId, 12, 2), 'H', `Expected Hospital at 12,2 in ${w.zoneId}`);
+      const hospNpc = WildkinMaps.getNpcAt(w.zoneId, 12, 2);
+      assert.ok(hospNpc && hospNpc.type === 'hospital', `Expected hospital NPC at 12,2 in ${w.zoneId}`);
+
+      assert.equal(WildkinMaps.getTileAt(w.zoneId, 3, 2), 'C', `Expected Shopping Center at 3,2 in ${w.zoneId}`);
+      const shopNpc = WildkinMaps.getNpcAt(w.zoneId, 3, 2);
+      assert.ok(shopNpc && shopNpc.type === 'shopping_center', `Expected shopping_center NPC at 3,2 in ${w.zoneId}`);
 
       // Every world has its Warden NPC and tile at expected coordinates
       assert.equal(WildkinMaps.getTileAt(w.zoneId, w.wx, w.wy), w.tile, `Expected Warden tile ${w.tile} in ${w.zoneId}`);

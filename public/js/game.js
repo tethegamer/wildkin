@@ -265,8 +265,59 @@
     targetY: null,
     targetNpc: null,
     grassDist: 0,
+    encounterGraceUntil: 0,
     syncedZone: null
   };
+
+  function grantEncounterGrace(durationMs = 4500) {
+    playerMotion.encounterGraceUntil = Date.now() + durationMs;
+    playerMotion.grassDist = 0;
+    playerMotion.vx = 0;
+    playerMotion.vy = 0;
+    playerMotion.speed = 0;
+    playerMotion.targetX = null;
+    playerMotion.targetY = null;
+    playerMotion.targetNpc = null;
+    heldDirs.up = false;
+    heldDirs.down = false;
+    heldDirs.left = false;
+    heldDirs.right = false;
+    dragSteer.active = false;
+    dragSteer.moved = false;
+    if (root.WILDKIN_3D) root.WILDKIN_3D.setTargetBeacon(0, 0, false);
+  }
+
+  function relocateAndRerollRoamer(ws, zoneId = state.zone) {
+    if (!ws) return;
+    const rolled = rollWildSpeciesForZone(zoneId);
+    ws.speciesId = rolled.speciesId;
+    ws.level = rolled.level;
+    ws.isRadiant = Math.random() < 0.08;
+    ws.cooldownUntil = Date.now() + 6500;
+    let bestTile = { x: ws.homeX === 3 ? 12 : 3, y: ws.homeY === 3 ? 8 : 4 };
+    let bestDist = -1;
+    if (root.WILDKIN_MAPS) {
+      for (let y = 1; y < root.WILDKIN_MAPS.MAP_HEIGHT - 1; y++) {
+        for (let x = 1; x < root.WILDKIN_MAPS.MAP_WIDTH - 1; x++) {
+          const ch = root.WILDKIN_MAPS.getTileAt(zoneId, x, y);
+          if (ch === "G" || ch === "F") {
+            const d = Math.hypot(x - playerMotion.x, y - playerMotion.y);
+            if (d > bestDist) {
+              bestDist = d;
+              bestTile = { x, y };
+            }
+          }
+        }
+      }
+    }
+    ws.homeX = bestTile.x;
+    ws.homeY = bestTile.y;
+    ws.x = bestTile.x;
+    ws.y = bestTile.y;
+    if (root.WILDKIN_3D && typeof root.WILDKIN_3D.syncWildSpawns === "function" && DATA) {
+      root.WILDKIN_3D.syncWildSpawns(state.wildSpawns, DATA.getSpeciesById);
+    }
+  }
 
   function syncMotionFromState() {
     playerMotion.x = state.pos.x;
@@ -294,15 +345,34 @@
   function findNearbyNpcFloat(fx, fy, maxRadius = 1.35) {
     if (!root.WILDKIN_MAPS) return null;
     const mapObj = root.WILDKIN_MAPS.ZONE_MAPS[state.zone];
-    if (!mapObj || !mapObj.npcs) return null;
+    if (!mapObj) return null;
     let best = null;
     let bestDist = maxRadius;
-    Object.entries(mapObj.npcs).forEach(([coord, npc]) => {
+    Object.entries(mapObj.npcs || {}).forEach(([coord, npc]) => {
       const [nx, ny] = coord.split(",").map(Number);
       const d = Math.hypot(fx - nx, fy - ny);
       if (d <= bestDist) {
         bestDist = d;
         best = Object.assign({ x: nx, y: ny }, npc);
+      }
+    });
+    Object.entries(mapObj.portals || {}).forEach(([coord, p]) => {
+      const [px, py] = coord.split(",").map(Number);
+      const d = Math.hypot(fx - px, fy - py);
+      if (d <= bestDist) {
+        bestDist = d;
+        best = {
+          id: `portal_${state.zone}_${px}_${py}`,
+          name: p.label || `Portal → ${p.targetZone}`,
+          type: 'portal',
+          icon: '🌀',
+          targetZone: p.targetZone,
+          targetX: p.targetX,
+          targetY: p.targetY,
+          label: p.label,
+          x: px,
+          y: py
+        };
       }
     });
     return best;
@@ -705,6 +775,31 @@
     return { ok: true, task };
   }
 
+  function claimNpcQuest(questObj, st = state) {
+    if (!st || !questObj || !questObj.id) return { ok: false, reason: "no_quest" };
+    if (!st.claimedNpcQuests) st.claimedNpcQuests = {};
+    if (st.claimedNpcQuests[questObj.id]) return { ok: false, reason: "already_claimed" };
+    const progress = evaluateQuestMetric(questObj.stat || questObj.metric, st);
+    const target = Number(questObj.target || 1);
+    if (progress < target) return { ok: false, reason: "incomplete", progress, target };
+
+    st.claimedNpcQuests[questObj.id] = true;
+    const items = {};
+    if (questObj.rewardItem) {
+      items[questObj.rewardItem] = Number(questObj.rewardQty || 1);
+    }
+    grantRewardBundle({ shards: questObj.rewardShards || 200, gems: questObj.rewardGems || 20, items }, st);
+    addBattlePassXp(70, st);
+
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      showToast(`🎁 Mission Complete: ${questObj.title}! +${questObj.rewardShards || 200}🪙 +${questObj.rewardGems || 20}💎!`, 3600);
+    }
+    return { ok: true, quest: questObj };
+  }
+
   function ensureZoneWildSpawns(zoneId = state.zone) {
     if (!DATA || !root.WILDKIN_MAPS) return [];
     const mapObj = root.WILDKIN_MAPS.ZONE_MAPS[zoneId] || root.WILDKIN_MAPS.ZONE_MAPS.meadow;
@@ -791,7 +886,7 @@
       ctx.fillRect(px + 7, py + 7, 4, 4);
       ctx.fillStyle = '#f472b6';
       ctx.fillRect(px + 18, py + 16, 4, 4);
-    } else if (code === 'S') {
+    } else if (code === 'S' || code === 'H') {
       // Wellspring Shrine crystal
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(px + 3, py + 16, size - 6, 10);
@@ -802,7 +897,7 @@
       ctx.lineTo(px + 6, py + 16);
       ctx.closePath();
       ctx.fill();
-    } else if (code === 'M') {
+    } else if (code === 'M' || code === 'C') {
       // Merchant stall
       ctx.fillStyle = '#78350f';
       ctx.fillRect(px + 4, py + 10, size - 8, size - 12);
@@ -1394,24 +1489,27 @@
     const textEl = $('interactText');
     let icon = '✨';
     let label = npc.name || 'Interact';
-    if (npc.type === 'shrine') {
-      icon = '⛲';
-      label = `${npc.name}: Heal Squad (A)`;
-    } else if (npc.type === 'merchant') {
-      icon = '🛒';
-      label = `${npc.name}: Open Shop (A)`;
+    if (npc.type === 'shrine' || npc.type === 'hospital') {
+      icon = '🏥';
+      label = `${npc.name}: Medical Checkup & Tonics`;
+    } else if (npc.type === 'merchant' || npc.type === 'shopping_center') {
+      icon = '🏬';
+      label = `${npc.name}: Fruits, Meals & Traps`;
     } else if (npc.type === 'tamer') {
       icon = '⚔️';
-      label = `Battle ${npc.name} (A)`;
+      label = `Talk / Battle ${npc.name}`;
     } else if (npc.type === 'warden') {
       icon = '👑';
-      label = `Challenge ${npc.name} (A)`;
+      label = `Talk / Challenge ${npc.name}`;
     } else if (npc.type === 'ranch' || npc.isGrandpa) {
-      icon = '🧬';
-      label = `${npc.name}: Homestead Ranch & Story (A)`;
+      icon = '👴';
+      label = `Talk to ${npc.name} (Mission & Ranch)`;
+    } else if (npc.type === 'guide') {
+      icon = npc.icon || '💬';
+      label = `Talk to ${npc.name} (Mission)`;
     } else if (npc.type === 'portal') {
       icon = '🌀';
-      label = npc.label || 'Travel to Next Zone';
+      label = npc.label || 'Travel to Next World';
     }
     if (iconEl) iconEl.textContent = icon;
     if (textEl) textEl.textContent = label;
@@ -1636,14 +1734,15 @@
     return true;
   }
 
-  function travelToZone(targetZoneId) {
+  function travelToZone(targetZoneId, customX = null, customY = null) {
     const map = root.WILDKIN_MAPS && root.WILDKIN_MAPS.ZONE_MAPS[targetZoneId];
     if (!map) return;
     state.zone = targetZoneId;
-    state.pos.x = map.spawn.x;
-    state.pos.y = map.spawn.y;
-    state.pos.dir = 'down';
+    state.pos.x = typeof customX === 'number' ? customX : map.spawn.x;
+    state.pos.y = typeof customY === 'number' ? customY : map.spawn.y;
+    state.pos.dir = customY !== null && customY <= 2 ? 'down' : 'up';
     syncMotionFromState();
+    grantEncounterGrace(3500);
     const zInfo = getZoneObj(targetZoneId);
     const hint = $('zoneHint');
     if (hint) hint.textContent = `${zInfo.name} (${zInfo.subtitle})`;
@@ -1651,7 +1750,7 @@
     ensureZoneWildSpawns(targetZoneId);
     saveGame();
     updateHud();
-    showToast(`🗺️ Entered ${zInfo.name}! Wild Kin are roaming nearby!`);
+    showToast(`🗺️ Entered ${zInfo.name}! Visit 🏥 Hospital (East) or 🏬 Shopping Center (West)!`, 3400);
   }
 
   function rollWildSpeciesForZone(zoneId) {
@@ -1690,16 +1789,16 @@
     // Check if an NPC or Portal is on target tile
     const npcAtTarget = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getNpcAt(state.zone, nx, ny) : null;
     if (npcAtTarget && npcAtTarget.type === 'portal') {
-      travelToZone(npcAtTarget.targetZone);
+      travelToZone(npcAtTarget.targetZone, npcAtTarget.targetX, npcAtTarget.targetY);
       return true;
     }
 
-    // Impassable tiles: 'T' (Tree/Wall), or NPC tiles ('S','M','K','N') triggers interaction
+    // Impassable tiles: 'T' (Tree/Wall), or Building/NPC tiles ('S','H','C','M','K','N') triggers interaction
     if (targetTile === 'T') {
       updateInteractPrompt();
       return false;
     }
-    if (targetTile === 'S' || targetTile === 'M' || targetTile === 'K' || targetTile === 'N') {
+    if (targetTile === 'S' || targetTile === 'H' || targetTile === 'C' || targetTile === 'M' || targetTile === 'K' || targetTile === 'N') {
       updateInteractPrompt();
       interactWithNpc(npcAtTarget);
       return true;
@@ -1728,18 +1827,17 @@
 
   function interactWithNpc(npc) {
     if (!npc) return;
-    if (npc.type === 'shrine') {
-      healSquadAtShrine();
-    } else if (npc.type === 'ranch' || npc.isGrandpa) {
-      openModal('ranch');
-    } else if (npc.type === 'merchant') {
+    if (npc.type === 'portal') {
+      travelToZone(npc.targetZone, npc.targetX, npc.targetY);
+    } else if (npc.type === 'shrine' || npc.type === 'hospital') {
+      state.marketTab = 'hospital';
       openModal('shop');
-    } else if (npc.type === 'portal') {
-      travelToZone(npc.targetZone);
-    } else if (npc.type === 'tamer') {
-      startTamerBattle(npc);
-    } else if (npc.type === 'warden') {
-      startWardenBattle(npc.wardenId);
+    } else if (npc.type === 'merchant' || npc.type === 'shopping_center') {
+      state.marketTab = 'shopping_center';
+      openModal('shop');
+    } else {
+      state.activeDialogNpc = npc;
+      openModal('npc_dialog');
     }
   }
 
@@ -1769,6 +1867,7 @@
 
   function startWildEncounter(forceSpeciesId = null, forceLevel = null, forceRadiant = undefined) {
     if (!DATA) return;
+    grantEncounterGrace(4500);
     let healthyIdx = getFirstHealthySquadIndex();
     if (healthyIdx === -1) {
       healSquadAtShrine(true);
@@ -1812,7 +1911,7 @@
       healthyIdx = 0;
     }
 
-    const enemySquad = (tamerNpc.squad || [{ speciesId: 10, level: 4 }]).map((s) =>
+    const enemySquad = (tamerNpc.squad || tamerNpc.team || [{ speciesId: 10, level: 4 }]).map((s) =>
       DATA.createKinInstance(s.speciesId, s.level, { isRadiant: false })
     );
     enemySquad.forEach((k) => markSeen(k.speciesId));
@@ -1828,7 +1927,7 @@
       playerIndex: healthyIdx,
       activeTab: 'moves',
       busy: false,
-      logText: `${tamerNpc.name}: “${tamerNpc.quote}”`
+      logText: `${tamerNpc.name}: ${tamerNpc.quote ? `“${tamerNpc.quote}”` : (tamerNpc.dialogue && tamerNpc.dialogue[0]) || "Let’s battle!"}`
     };
 
     openBattleOverlay();
@@ -1971,6 +2070,7 @@
   }
 
   function closeBattleOverlay() {
+    grantEncounterGrace(4500);
     const overlay = $('battleOverlay', 'battle-layer');
     if (overlay) overlay.classList.add('hidden');
     if (typeof document !== "undefined") {
@@ -3049,23 +3149,31 @@
           }).join('')}
         </div>
       `;
-    } else if (tab === 'shop' || tab === 'market') {
-      const mTab = state.marketTab || 'recovery';
+    } else if (tab === 'shop' || tab === 'market' || tab === 'hospital' || tab === 'shopping_center') {
+      if (tab === 'hospital') state.marketTab = 'hospital';
+      if (tab === 'shopping_center') state.marketTab = 'shopping_center';
+      const rawTab = state.marketTab || 'hospital';
+      const mTab = (rawTab === 'hospital' || rawTab === 'recovery') ? 'hospital' : (rawTab === 'shopping_center' || rawTab === 'boosters') ? 'shopping_center' : 'gems';
       if (state.gems === undefined || state.gems === null) state.gems = 50;
       const selKinIdx = Math.max(0, Math.min((state.squad.length || 1) - 1, Number(state.selectedMarketKinIdx || 0)));
       const selKin = state.squad[selKinIdx] || state.squad[0];
 
-      titleEl.textContent = `🛒 Aether Marketplace (🪙 ${state.shards} Shards • 💎 ${state.gems} Gems)`;
+      titleEl.textContent = mTab === 'hospital'
+        ? `🏥 Kin Care Hospital (🪙 ${state.shards} Shards • 💎 ${state.gems} Gems)`
+        : mTab === 'shopping_center'
+          ? `🏬 Aether Shopping Center (🪙 ${state.shards} Shards • 💎 ${state.gems} Gems)`
+          : `💎 Aether Gem Store (🪙 ${state.shards} Shards • 💎 ${state.gems} Gems)`;
 
       // Squad Vitality & Target Selector Strip
       const squadStripHtml = `
-        <div class="ranch-banner" style="margin-bottom:8px;border-color:rgba(56,189,248,0.45)">
+        <div class="ranch-banner" style="margin-bottom:8px;border-color:${mTab === 'hospital' ? 'rgba(248,113,113,0.55)' : 'rgba(56,189,248,0.45)'}">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-            <strong style="font-size:0.76rem;color:#fde047">🐾 Target Squad Kin for Instant Food / Level-Up:</strong>
+            <strong style="font-size:0.76rem;color:#fde047">${mTab === 'hospital' ? '🏥 Hospital Patient Squad (Select Kin for Medical Care):' : '🏬 Select Squad Kin for Fruits, Meals & Boosters:'}</strong>
             <div style="display:flex;gap:6px;align-items:center">
+              <button class="mini-btn" id="btnHospitalFreeCheckup" style="background:#dc2626;padding:4px 8px">🏥 Emergency Squad Checkup (Free / Cooldown)</button>
               ${state.vipShrinePass
-                ? '<span class="regen-timer-pill" style="color:#4ade80;border-color:#4ade80">👑 VIP Shrine Pass Active</span>'
-                : `<button class="mini-btn" id="btnMarketShrineBypass" style="background:#0284c7;padding:4px 8px">⛲ Full Squad Blessing (10 💎)</button>`
+                ? '<span class="regen-timer-pill" style="color:#4ade80;border-color:#4ade80">👑 VIP Hospital Pass Active</span>'
+                : `<button class="mini-btn" id="btnMarketShrineBypass" style="background:#0284c7;padding:4px 8px">💉 Instant Full Squad Surgery (10 💎)</button>`
               }
             </div>
           </div>
@@ -3091,20 +3199,19 @@
 
       const tabBarHtml = `
         <div class="market-tab-bar">
-          <button type="button" class="market-tab-btn ${mTab === 'recovery' ? 'active' : ''}" data-mtab="recovery">🍖 Food &amp; Recovery</button>
-          <button type="button" class="market-tab-btn ${mTab === 'boosters' ? 'active' : ''}" data-mtab="boosters">⚡ Level-Up &amp; Prisms</button>
+          <button type="button" class="market-tab-btn ${mTab === 'hospital' ? 'active' : ''}" data-mtab="recovery" data-facility="hospital">🏥 Kin Care Hospital</button>
+          <button type="button" class="market-tab-btn ${mTab === 'shopping_center' ? 'active' : ''}" data-mtab="boosters" data-facility="shopping_center">🏬 Fruits &amp; Shopping Center</button>
           <button type="button" class="market-tab-btn ${mTab === 'gems' ? 'active' : ''}" data-mtab="gems">💎 Gem Store (USD)</button>
         </div>
       `;
 
       let tabContentHtml = '';
 
-      if (mTab === 'recovery') {
+      if (mTab === 'hospital') {
         const recKeys = [
-          'sunberryRation', 'heartwoodStew', 'feastPlatter',
           'vitalTonic', 'hyperTonic', 'phoenixDew',
           'dewTonic', 'hiTonic', 'reviveLeaf',
-          'heartwoodBerry', 'apexNectar'
+          'sunberryRation', 'heartwoodStew', 'feastPlatter'
         ].filter((k) => DATA.ITEMS[k]);
 
         tabContentHtml = `
@@ -3132,8 +3239,10 @@
             }).join('')}
           </div>
         `;
-      } else if (mTab === 'boosters') {
+      } else if (mTab === 'shopping_center') {
         const boostKeys = [
+          'sunberryRation', 'heartwoodStew', 'feastPlatter',
+          'heartwoodBerry', 'apexNectar',
           'basicPrism', 'greaterPrism', 'masteryPrism',
           'bagUpgrade1', 'bagUpgrade2', 'bagUpgrade3',
           'aetherCandy', 'apexTome', 'xpBooster2x', 'hatchAccelerator'
@@ -3153,7 +3262,7 @@
               const item = DATA.ITEMS[key];
               const owned = state.inventory[item.id] || 0;
               const gCost = item.gemCost || Math.max(1, Math.ceil(item.cost / 8));
-              const canUseDirect = item.category === 'booster';
+              const canUseDirect = item.category === 'booster' || item.category === 'food' || item.category === 'bond';
               return `
                 <div class="shop-card">
                   <div style="display:flex;justify-content:space-between;align-items:center">
@@ -3234,6 +3343,12 @@
         });
       });
 
+      const freeHospBtn = $('btnHospitalFreeCheckup');
+      if (freeHospBtn) {
+        freeHospBtn.addEventListener('click', () => {
+          if (healSquadAtShrine(false, false)) openModal('shop');
+        });
+      }
       const shrineBypassBtn = $('btnMarketShrineBypass');
       if (shrineBypassBtn) {
         shrineBypassBtn.addEventListener('click', () => {
@@ -4122,6 +4237,131 @@
           startWildEncounter(spId, 6);
         });
       });
+    } else if (tab === 'npc_dialog') {
+      closeHubMenuDrawer();
+      const npc = state.activeDialogNpc || {
+        id: 'elder_rowan',
+        name: 'Grandpa Rowan',
+        type: 'ranch',
+        icon: '👴',
+        dialogue: [
+          'Welcome to Heartwood Homestead, grandchild! Walk up to any Tamer, Ranger, or Warden across the 6 Worlds to take on their personal missions.',
+          'Every world also has a 🏥 Kin Care Hospital (East) for medical checkups and a 🏬 Shopping Center (West) for fresh fruits, meals, and Snare Traps!'
+        ],
+        quest: {
+          id: 'nq_rowan_catch',
+          title: 'Homestead Scouting',
+          desc: 'Catch or bind 2 Wild Kin species in your KinDex using Snare Traps.',
+          stat: 'kindexCount',
+          target: 2,
+          rewardShards: 180,
+          rewardGems: 15,
+          rewardItem: 'greaterPrism',
+          rewardQty: 2
+        }
+      };
+
+      const lines = Array.isArray(npc.dialogue) && npc.dialogue.length > 0
+        ? npc.dialogue
+        : [npc.quote || `Greetings, Tamer! I am ${npc.name} of ${getZoneObj(state.zone).name}.`];
+
+      const roleBadge = npc.type === 'warden'
+        ? '👑 Realm Warden'
+        : npc.type === 'tamer'
+          ? '⚔️ Rival Tamer'
+          : npc.type === 'ranch'
+            ? '🧬 Homestead Elder & Rancher'
+            : '🧭 Field Quest Guide';
+
+      let questHtml = '';
+      if (npc.quest && npc.quest.id) {
+        const q = npc.quest;
+        const prog = evaluateQuestMetric(q.stat || q.metric, state);
+        const target = Number(q.target || 1);
+        const pct = Math.max(0, Math.min(100, Math.round((prog / target) * 100)));
+        const claimed = Boolean(state.claimedNpcQuests && state.claimedNpcQuests[q.id]);
+        const ready = !claimed && prog >= target;
+        const rewardItemObj = q.rewardItem && DATA.ITEMS ? DATA.ITEMS[q.rewardItem] : null;
+        questHtml = `
+          <div class="warden-card" style="border-color:${claimed ? '#4ade80' : ready ? '#facc15' : '#38bdf8'};background:rgba(15,23,42,0.92)">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+              <strong style="font-size:0.8rem;color:#fde047">📜 Character Mission: ${q.title}</strong>
+              <span style="font-size:0.66rem;font-weight:900;color:${claimed ? '#4ade80' : ready ? '#facc15' : '#38bdf8'}">
+                ${claimed ? '✓ COMPLETED' : `Progress: ${Math.min(prog, target)}/${target}`}
+              </span>
+            </div>
+            <div style="font-size:0.68rem;color:#e2e8f0;margin:4px 0">${q.desc}</div>
+            <div class="hp-bar-outer" style="height:7px;margin:4px 0">
+              <div class="hp-bar-fill" style="width:${pct}%;background:${claimed ? '#22c55e' : '#38bdf8'}"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:4px">
+              <div style="font-size:0.65rem;color:#86efac">
+                🎁 Reward: <strong>+${q.rewardShards || 200}🪙</strong> • <strong>+${q.rewardGems || 20}💎</strong>
+                ${rewardItemObj ? ` • <strong>${rewardItemObj.icon} ${rewardItemObj.name} x${q.rewardQty || 1}</strong>` : ''}
+              </div>
+              ${claimed
+                ? '<span style="font-size:0.66rem;color:#4ade80;font-weight:900">✓ Reward Claimed</span>'
+                : ready
+                  ? '<button type="button" class="mini-btn" id="btnClaimNpcQuest" style="background:#16a34a;flex:0 0 auto;padding:6px 12px">🎁 Claim Mission Reward!</button>'
+                  : '<span style="font-size:0.62rem;color:#94a3b8">Complete objective in the world to claim!</span>'
+              }
+            </div>
+          </div>
+        `;
+      }
+
+      let primaryActionBtn = '';
+      if (npc.type === 'ranch' || npc.isGrandpa) {
+        primaryActionBtn = '<button type="button" class="primary-cta" id="btnNpcOpenRanch" style="padding:9px 14px;font-size:0.78rem">🧬 Open Grandpa’s Ranch &amp; Breeding</button>';
+      } else if (npc.type === 'tamer') {
+        const defeated = Boolean(state.defeatedTamers && state.defeatedTamers[npc.id]);
+        primaryActionBtn = `<button type="button" class="primary-cta" id="btnNpcBattleTamer" style="padding:9px 14px;font-size:0.78rem">⚔️ ${defeated ? 'Rematch' : 'Battle'} ${npc.name} (+${npc.reward || 65}🪙)</button>`;
+      } else if (npc.type === 'warden') {
+        primaryActionBtn = `<button type="button" class="primary-cta" id="btnNpcBattleWarden" style="padding:9px 14px;font-size:0.78rem">👑 Challenge Warden ${npc.name}</button>`;
+      }
+
+      titleEl.textContent = `${npc.icon || '💬'} ${npc.name} • ${roleBadge}`;
+      bodyEl.innerHTML = `
+        <div class="ranch-banner" style="border-color:rgba(250,204,21,0.5);background:linear-gradient(135deg,rgba(30,41,59,0.95),rgba(15,23,42,0.95))">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <div style="font-size:2rem;line-height:1;background:rgba(15,23,42,0.8);padding:8px;border-radius:12px;border:1px solid rgba(250,204,21,0.4)">${npc.icon || '🧭'}</div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+              ${lines.map((line) => `<div style="font-size:0.74rem;color:#f8fafc;line-height:1.4">“${line}”</div>`).join('')}
+            </div>
+          </div>
+        </div>
+        ${questHtml}
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+          ${primaryActionBtn}
+          <div class="mini-btn-row">
+            <button type="button" class="mini-btn secondary" id="btnNpcOpenHospital">🏥 Kin Care Hospital</button>
+            <button type="button" class="mini-btn secondary" id="btnNpcOpenShopping">🏬 Shopping Center</button>
+            <button type="button" class="mini-btn secondary" id="btnNpcOpenZones">🗺️ 6 Worlds Map</button>
+            <button type="button" class="mini-btn secondary" id="btnNpcOpenAllQuests">📜 All Quests</button>
+          </div>
+        </div>
+      `;
+
+      const claimBtn = $('btnClaimNpcQuest');
+      if (claimBtn && npc.quest) {
+        claimBtn.addEventListener('click', () => {
+          if (claimNpcQuest(npc.quest, state).ok) openModal('npc_dialog');
+        });
+      }
+      const ranchBtn = $('btnNpcOpenRanch');
+      if (ranchBtn) ranchBtn.addEventListener('click', () => openModal('ranch'));
+      const tamerBtn = $('btnNpcBattleTamer');
+      if (tamerBtn) tamerBtn.addEventListener('click', () => startTamerBattle(npc));
+      const wardenBtn = $('btnNpcBattleWarden');
+      if (wardenBtn) wardenBtn.addEventListener('click', () => startWardenBattle(npc.wardenId));
+      const hospBtn = $('btnNpcOpenHospital');
+      if (hospBtn) hospBtn.addEventListener('click', () => { state.marketTab = 'hospital'; openModal('shop'); });
+      const shopBtn = $('btnNpcOpenShopping');
+      if (shopBtn) shopBtn.addEventListener('click', () => { state.marketTab = 'shopping_center'; openModal('shop'); });
+      const zonesBtn = $('btnNpcOpenZones');
+      if (zonesBtn) zonesBtn.addEventListener('click', () => openModal('zones'));
+      const allQuestsBtn = $('btnNpcOpenAllQuests');
+      if (allQuestsBtn) allQuestsBtn.addEventListener('click', () => openModal('story'));
     }
   }
 
@@ -4271,6 +4511,7 @@
       btnLobbyLocker: () => openModal('locker'),
       btnLobbyLockerTop: () => openModal('locker'),
       btnQuickTrade: () => openModal('trade'),
+      btnQuickZones: () => openModal('zones'),
       btnBattleEmote: () => triggerEmote('emote_fire', state),
       btnLobbyRanch: () => openModal('ranch'),
       btnLobbyMarket: () => openModal('shop')
@@ -4450,11 +4691,15 @@
             };
           }
           if (targetTile) {
-            const tx = Math.max(0.6, Math.min(14.8, targetTile.x));
-            const ty = Math.max(0.2, Math.min(10.6, targetTile.y));
+            const tx = Math.max(0.0, Math.min(15.0, targetTile.x));
+            const ty = Math.max(0.0, Math.min(11.0, targetTile.y));
             const tappedWild = (state.wildSpawns || []).find((ws) => Math.hypot(ws.x - tx, ws.y - ty) <= 1.15);
             if (tappedWild) {
-              startWildEncounter(tappedWild.speciesId, tappedWild.level, tappedWild.isRadiant);
+              const hitSp = tappedWild.speciesId;
+              const hitLv = tappedWild.level;
+              const hitRad = tappedWild.isRadiant;
+              relocateAndRerollRoamer(tappedWild, state.zone);
+              startWildEncounter(hitSp, hitLv, hitRad);
               return;
             }
             const nearTappedNpc = findNearbyNpcFloat(tx, ty, 1.35);
@@ -4634,7 +4879,7 @@
 
       const portalNpc = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getNpcAt(state.zone, curGridX, curGridY) : null;
       if (portalNpc && portalNpc.type === "portal") {
-        travelToZone(portalNpc.targetZone);
+        travelToZone(portalNpc.targetZone, portalNpc.targetX, portalNpc.targetY);
         return;
       }
 
@@ -4649,7 +4894,7 @@
     }
 
     const curTile = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getTileAt(state.zone, curGridX, curGridY) : ".";
-    if (curTile === "G" || curTile === "W" || curTile === "~") {
+    if ((curTile === "G" || curTile === "W" || curTile === "~") && Date.now() > (playerMotion.encounterGraceUntil || 0)) {
       playerMotion.grassDist += movedDist;
       if (playerMotion.grassDist >= 1.45) {
         playerMotion.grassDist = 0;
@@ -4706,12 +4951,17 @@
             ws.x = ws.homeX + Math.cos(ws.timer * 0.7 + idx) * r;
             ws.y = ws.homeY + Math.sin(ws.timer * 0.7 + idx) * r;
             ws.angle = Math.atan2(-Math.sin(ws.timer * 0.7 + idx), Math.cos(ws.timer * 0.7 + idx));
-            if (playerMotion.speed > 0.1 && Math.hypot(playerMotion.x - ws.x, playerMotion.y - ws.y) < 0.72) {
+            const nowLoop = Date.now();
+            if (
+              playerMotion.speed > 0.08 &&
+              nowLoop > (playerMotion.encounterGraceUntil || 0) &&
+              nowLoop > (ws.cooldownUntil || 0) &&
+              Math.hypot(playerMotion.x - ws.x, playerMotion.y - ws.y) < 0.72
+            ) {
               const hitSp = ws.speciesId;
               const hitLv = ws.level;
               const hitRad = ws.isRadiant;
-              ws.homeX = Math.max(2, Math.min(13, (ws.homeX + 5) % 14));
-              ws.x = ws.homeX;
+              relocateAndRerollRoamer(ws, state.zone);
               startWildEncounter(hitSp, hitLv, hitRad);
             }
           });
@@ -4771,6 +5021,8 @@
     executeNpcTrade,
     claimSideQuest,
     claimTamerTask,
+    claimNpcQuest,
+    grantEncounterGrace,
     ensureZoneWildSpawns,
     syncWildRoamers: ensureZoneWildSpawns,
     openLobbyScreen,
