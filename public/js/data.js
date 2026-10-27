@@ -77,107 +77,136 @@
     return TYPE_CHART[atkAffinity][defAffinity];
   }
 
-  // Moves Dictionary
+  // Moves Dictionary — Balanced 4-Archetype Tactical System
   const MOVES = {
     clawSwipe: {
-      id: 'clawSwipe', name: 'Claw Swipe', affinity: 'Terra', power: 40, accuracy: 100, stamina: 25,
-      category: 'physical', desc: 'A swift slash with hardened claws.'
+      id: 'clawSwipe', name: 'Claw Swipe', affinity: 'Terra', archetype: 'strike', power: 56, accuracy: 100, stamina: 20,
+      category: 'physical', effectTag: '🎯 100% Reliable', desc: 'A swift, reliable slash with hardened claws.'
     },
     quickDash: {
-      id: 'quickDash', name: 'Quick Dash', affinity: 'Volt', power: 40, accuracy: 100, stamina: 25,
-      category: 'physical', priority: 1, desc: 'Lunges at blinding speed. Strikes first.'
+      id: 'quickDash', name: 'Quick Dash', affinity: 'Volt', archetype: 'strike', power: 55, accuracy: 100, stamina: 20,
+      category: 'physical', priority: 1, effectTag: '⚡ First-Strike', desc: 'Lunges at blinding speed. Always strikes first.'
     },
     emberPounce: {
-      id: 'emberPounce', name: 'Ember Pounce', affinity: 'Pyre', power: 48, accuracy: 100, stamina: 20,
-      category: 'physical', statusEffect: { type: 'burn', chance: 0.2 }, desc: 'Leaps cloaked in sparks. May Burn.'
+      id: 'emberPounce', name: 'Ember Pounce', affinity: 'Pyre', archetype: 'strike', power: 58, accuracy: 100, stamina: 20,
+      category: 'physical', statusEffect: { type: 'burn', chance: 0.25 }, effectTag: '🔥 Burn 25%', desc: 'Leaps cloaked in sparks. 25% chance to Burn.'
     },
     flameBurst: {
-      id: 'flameBurst', name: 'Flame Burst', affinity: 'Pyre', power: 68, accuracy: 95, stamina: 15,
-      category: 'special', statusEffect: { type: 'burn', chance: 0.25 }, desc: 'Searing fireball that often Burns.'
+      id: 'flameBurst', name: 'Flame Burst', affinity: 'Pyre', archetype: 'heavy', power: 82, accuracy: 90, stamina: 10,
+      category: 'special', statusEffect: { type: 'burn', chance: 0.30 }, effectTag: '🔥 Burn 30%', desc: 'Searing fireball with high STAB power.'
     },
     solarFlare: {
-      id: 'solarFlare', name: 'Solar Flare', affinity: 'Pyre', power: 92, accuracy: 90, stamina: 10,
-      category: 'special', statusEffect: { type: 'burn', chance: 0.35 }, desc: 'Unleashes miniature sunfire upon the foe.'
+      id: 'solarFlare', name: 'Solar Flare', affinity: 'Pyre', archetype: 'ultimate', power: 118, accuracy: 78, stamina: 5,
+      category: 'special', cooldown: 1, recoil: 0.15, statusEffect: { type: 'burn', chance: 0.35 }, effectTag: '☀️ 1T CD • 15% Recoil', desc: 'Ultimate sunfire finisher. 1-turn cooldown & 15% recoil.'
     },
     magmaCrush: {
-      id: 'magmaCrush', name: 'Magma Crush', affinity: 'Pyre', power: 80, accuracy: 95, stamina: 12,
-      category: 'physical', statusEffect: { type: 'burn', chance: 0.2 }, desc: 'Molten-armored slam with heavy impact.'
+      id: 'magmaCrush', name: 'Magma Crush', affinity: 'Pyre', archetype: 'heavy', power: 86, accuracy: 88, stamina: 10,
+      category: 'physical', statusEffect: { type: 'burn', chance: 0.25 }, effectTag: '🌋 Heavy Slam', desc: 'Molten-armored slam with heavy impact.'
     },
     rippleJet: {
-      id: 'rippleJet', name: 'Ripple Jet', affinity: 'Tide', power: 46, accuracy: 100, stamina: 20,
-      category: 'physical', priority: 1, desc: 'High-pressure water dart that strikes first.'
+      id: 'rippleJet', name: 'Ripple Jet', affinity: 'Tide', archetype: 'strike', power: 56, accuracy: 100, stamina: 20,
+      category: 'physical', priority: 1, effectTag: '🌊 First-Strike', desc: 'High-pressure water dart that strikes first.'
     },
     brinePulse: {
-      id: 'brinePulse', name: 'Brine Pulse', affinity: 'Tide', power: 65, accuracy: 95, stamina: 15,
-      category: 'special', statusEffect: { type: 'soak', chance: 0.25 }, desc: 'Crashing wave that may Soak & slow the foe.'
+      id: 'brinePulse', name: 'Brine Pulse', affinity: 'Tide', archetype: 'heavy', power: 82, accuracy: 90, stamina: 10,
+      category: 'special', statusEffect: { type: 'soak', chance: 0.30 }, effectTag: '🌊 Soak -25% Spd', desc: 'Crashing wave that Soaks & slows the foe.'
     },
     tidalVortex: {
-      id: 'tidalVortex', name: 'Tidal Vortex', affinity: 'Tide', power: 88, accuracy: 90, stamina: 10,
-      category: 'special', statusEffect: { type: 'soak', chance: 0.35 }, desc: 'Whirlpool from the deep abyss.'
+      id: 'tidalVortex', name: 'Tidal Vortex', affinity: 'Tide', archetype: 'ultimate', power: 115, accuracy: 78, stamina: 5,
+      category: 'special', cooldown: 1, recoil: 0.15, statusEffect: { type: 'soak', chance: 0.35 }, effectTag: '🌀 1T CD • 15% Recoil', desc: 'Ultimate abyssal whirlpool. 1-turn cooldown & 15% recoil.'
     },
     rimeFang: {
-      id: 'rimeFang', name: 'Rime Fang', affinity: 'Tide', power: 62, accuracy: 95, stamina: 15,
-      category: 'physical', statusEffect: { type: 'soak', chance: 0.2 }, desc: 'Chilling bite that numbs movement.'
+      id: 'rimeFang', name: 'Rime Fang', affinity: 'Tide', archetype: 'tactical', power: 52, accuracy: 96, stamina: 15,
+      category: 'physical', statusEffect: { type: 'soak', chance: 0.40 }, effectTag: '❄️ Chill -25% Spd', desc: 'Chilling bite with 40% chance to slow enemy Speed.'
     },
     vineLash: {
-      id: 'vineLash', name: 'Briar Lash', affinity: 'Grove', power: 46, accuracy: 100, stamina: 20,
-      category: 'physical', desc: 'Snaps thorny vines across the target.'
+      id: 'vineLash', name: 'Briar Lash', affinity: 'Grove', archetype: 'strike', power: 58, accuracy: 100, stamina: 20,
+      category: 'physical', effectTag: '🌿 100% Reliable', desc: 'Snaps thorny vines across the target.'
     },
     sporeDrain: {
-      id: 'sporeDrain', name: 'Sap Drain', affinity: 'Grove', power: 55, accuracy: 95, stamina: 15,
-      category: 'special', drain: 0.4, desc: 'Absorbs life energy, healing 40% of damage dealt.'
+      id: 'sporeDrain', name: 'Sap Drain', affinity: 'Grove', archetype: 'tactical', power: 54, accuracy: 98, stamina: 14,
+      category: 'special', drain: 0.35, effectTag: '💚 Drain 35% HP', desc: 'Absorbs life energy, healing 35% of damage dealt.'
     },
     razorCanopy: {
-      id: 'razorCanopy', name: 'Briar Canopy', affinity: 'Grove', power: 72, accuracy: 95, stamina: 15,
-      category: 'physical', critBonus: 0.2, desc: 'Whirling iron-leaves with a high critical rate.'
+      id: 'razorCanopy', name: 'Briar Canopy', affinity: 'Grove', archetype: 'heavy', power: 84, accuracy: 90, stamina: 10,
+      category: 'physical', critBonus: 0.25, effectTag: '💥 +25% Crit', desc: 'Whirling iron-leaves with a high critical rate.'
     },
     sylvanWrath: {
-      id: 'sylvanWrath', name: 'Sylvan Wrath', affinity: 'Grove', power: 90, accuracy: 90, stamina: 10,
-      category: 'special', statusEffect: { type: 'poison', chance: 0.3 }, desc: 'Ancient forest surge that may Poison.'
+      id: 'sylvanWrath', name: 'Sylvan Wrath', affinity: 'Grove', archetype: 'ultimate', power: 116, accuracy: 78, stamina: 5,
+      category: 'special', cooldown: 1, recoil: 0.15, statusEffect: { type: 'poison', chance: 0.35 }, effectTag: '🌲 1T CD • 15% Recoil', desc: 'Ultimate forest surge. 1-turn cooldown & 15% recoil.'
     },
     sparkPeck: {
-      id: 'sparkPeck', name: 'Spark Peck', affinity: 'Volt', power: 48, accuracy: 100, stamina: 20,
-      category: 'physical', statusEffect: { type: 'paralyze', chance: 0.2 }, desc: 'Electrified beak strike. May Paralyze.'
+      id: 'sparkPeck', name: 'Spark Peck', affinity: 'Volt', archetype: 'strike', power: 58, accuracy: 100, stamina: 20,
+      category: 'physical', statusEffect: { type: 'paralyze', chance: 0.25 }, effectTag: '⚡ Stun 25%', desc: 'Electrified beak strike. 25% chance to Paralyze.'
     },
     arcBolt: {
-      id: 'arcBolt', name: 'Arc Bolt', affinity: 'Volt', power: 68, accuracy: 95, stamina: 15,
-      category: 'special', statusEffect: { type: 'paralyze', chance: 0.25 }, desc: 'Crackling lightning arc.'
+      id: 'arcBolt', name: 'Arc Bolt', affinity: 'Volt', archetype: 'heavy', power: 82, accuracy: 90, stamina: 10,
+      category: 'special', statusEffect: { type: 'paralyze', chance: 0.30 }, effectTag: '⚡ Stun 30%', desc: 'Crackling high-voltage lightning arc.'
     },
     tempestDive: {
-      id: 'tempestDive', name: 'Tempest Dive', affinity: 'Volt', power: 88, accuracy: 90, stamina: 10,
-      category: 'physical', statusEffect: { type: 'paralyze', chance: 0.3 }, desc: 'Supersonic thunder-plummet from the sky.'
+      id: 'tempestDive', name: 'Tempest Dive', affinity: 'Volt', archetype: 'ultimate', power: 116, accuracy: 78, stamina: 5,
+      category: 'physical', cooldown: 1, recoil: 0.15, statusEffect: { type: 'paralyze', chance: 0.30 }, effectTag: '🌩️ 1T CD • 15% Recoil', desc: 'Ultimate thunder-plummet. 1-turn cooldown & 15% recoil.'
     },
     pebbleToss: {
-      id: 'pebbleToss', name: 'Shale Toss', affinity: 'Terra', power: 48, accuracy: 100, stamina: 20,
-      category: 'physical', desc: 'Hurls jagged stones at the enemy.'
+      id: 'pebbleToss', name: 'Shale Toss', affinity: 'Terra', archetype: 'strike', power: 58, accuracy: 100, stamina: 20,
+      category: 'physical', effectTag: '🪨 100% Reliable', desc: 'Hurls jagged stones at the enemy with pinpoint accuracy.'
     },
     quakeStomp: {
-      id: 'quakeStomp', name: 'Quake Stomp', affinity: 'Terra', power: 70, accuracy: 95, stamina: 15,
-      category: 'physical', desc: 'Shakes the battlefield with tectonic force.'
+      id: 'quakeStomp', name: 'Quake Stomp', affinity: 'Terra', archetype: 'heavy', power: 85, accuracy: 90, stamina: 10,
+      category: 'physical', effectTag: '🪨 Tectonic Smash', desc: 'Shakes the battlefield with heavy tectonic force.'
     },
     crystalSpire: {
-      id: 'crystalSpire', name: 'Crystal Spire', affinity: 'Terra', power: 88, accuracy: 90, stamina: 10,
-      category: 'special', critBonus: 0.2, desc: 'Erupts razor-sharp quartz pillars under the foe.'
+      id: 'crystalSpire', name: 'Crystal Spire', affinity: 'Terra', archetype: 'ultimate', power: 115, accuracy: 78, stamina: 5,
+      category: 'special', cooldown: 1, recoil: 0.15, critBonus: 0.25, effectTag: '💎 1T CD • 15% Recoil', desc: 'Ultimate quartz eruption. 1-turn cooldown & 15% recoil.'
     },
     duskDart: {
-      id: 'duskDart', name: 'Dusk Wing', affinity: 'Umbra', power: 48, accuracy: 100, stamina: 20,
-      category: 'special', statusEffect: { type: 'poison', chance: 0.2 }, desc: 'Scatters twilight dust that may Poison.'
+      id: 'duskDart', name: 'Dusk Wing', affinity: 'Umbra', archetype: 'strike', power: 58, accuracy: 100, stamina: 20,
+      category: 'special', statusEffect: { type: 'poison', chance: 0.25 }, effectTag: '☠️ Poison 25%', desc: 'Scatters twilight dust that may Poison.'
     },
     voidPulse: {
-      id: 'voidPulse', name: 'Astral Pulse', affinity: 'Umbra', power: 70, accuracy: 95, stamina: 15,
-      category: 'special', desc: 'Warps gravity with dark starlight.'
+      id: 'voidPulse', name: 'Astral Pulse', affinity: 'Umbra', archetype: 'heavy', power: 84, accuracy: 90, stamina: 10,
+      category: 'special', drain: 0.25, effectTag: '🌙 Drain 25% HP', desc: 'Warps gravity with dark starlight and siphons 25% HP.'
     },
     eclipseNova: {
-      id: 'eclipseNova', name: 'Eclipse Nova', affinity: 'Umbra', power: 94, accuracy: 90, stamina: 8,
-      category: 'special', statusEffect: { type: 'burn', chance: 0.3 }, desc: 'Collapses a dark star upon the battlefield.'
+      id: 'eclipseNova', animType: 'aether_beam', name: 'Eclipse Nova', affinity: 'Umbra', archetype: 'ultimate', power: 120, accuracy: 76, stamina: 5,
+      category: 'special', cooldown: 1, recoil: 0.15, statusEffect: { type: 'burn', chance: 0.35 }, effectTag: '🌑 1T CD • 15% Recoil', desc: 'Ultimate collapsing star. 1-turn cooldown & 15% recoil.'
     },
     aetherFocus: {
-      id: 'aetherFocus', name: 'Aether Focus', affinity: 'Volt', power: 0, accuracy: 100, stamina: 15,
-      category: 'status', selfBuff: { atk: 1.35, spd: 1.2 }, desc: 'Harmonizes Aether to raise Attack & Speed.'
+      id: 'aetherFocus', name: 'Aether Focus', affinity: 'Volt', archetype: 'tactical', power: 0, accuracy: 100, stamina: 15,
+      category: 'status', selfBuff: { atk: 1.35, spd: 1.2, crit: 0.20 }, effectTag: '🎯 +35% Atk / +20% Crit', desc: 'Harmonizes Aether to raise Attack (+35%), Speed (+20%) & Crit.'
+    },
+    venom_fang: {
+      id: 'venom_fang', name: 'Shadow Venom Fang', affinity: 'Umbra', archetype: 'tactical', power: 55, accuracy: 95, stamina: 15,
+      category: 'physical', effect: 'poison_weaken', animType: 'shadow_miasma',
+      statusEffect: { type: 'poison', chance: 1.0, weaken: true }, effectTag: '☠️ Shadow Poison (-12% Atk/Def/T)',
+      desc: 'Bites with toxic shadow fangs. Inflicts Shadow Poison that drains HP and weakens Attack & Defense by 12% every round.'
+    },
+    blight_miasma: {
+      id: 'blight_miasma', name: 'Umbral Blight Cloud', affinity: 'Umbra', archetype: 'tactical', power: 45, accuracy: 100, stamina: 12,
+      category: 'special', effect: 'poison_weaken', animType: 'shadow_miasma',
+      statusEffect: { type: 'poison', chance: 1.0, weaken: true }, effectTag: '☠️ Toxic Decay (-12% Atk/Def/T)',
+      desc: 'Blankets the foe in corrosive dark venom, stacking Toxic Decay (-HP & -12% Atk/Def per round).'
+    },
+    abyssal_toxin: {
+      id: 'abyssal_toxin', name: 'Abyssal Neurotoxin', affinity: 'Umbra', archetype: 'heavy', power: 75, accuracy: 90, stamina: 10,
+      category: 'special', effect: 'poison_weaken', bonusVsPoisoned: 1.30, animType: 'shadow_miasma',
+      statusEffect: { type: 'poison', chance: 0.85, weaken: true }, effectTag: '☠️ +30% vs Poisoned',
+      desc: 'Injects shadow venom that deals +30% bonus damage if the target is already poisoned and corrodes their stats each turn.'
+    },
+    spore_venom: {
+      id: 'spore_venom', name: 'Venom Spore Lash', affinity: 'Grove', archetype: 'tactical', power: 50, accuracy: 95, stamina: 15,
+      category: 'special', effect: 'poison_weaken', animType: 'shadow_miasma',
+      statusEffect: { type: 'poison', chance: 0.90, weaken: true }, effectTag: '☠️ Spore Decay (-12% Atk/Def/T)',
+      desc: 'Lashes with toxic spores that poison and sap the enemy strength every round.'
+    },
+    galeVortex: {
+      id: 'galeVortex', name: 'Cyclone Tempest', affinity: 'Volt', archetype: 'heavy', power: 80, accuracy: 92, stamina: 12,
+      category: 'special', animType: 'tornado', statusEffect: { type: 'soak', chance: 0.30 }, effectTag: '🌪️ Wind Tornado',
+      desc: 'Summons a roaring 3D wind tornado vortex that lifts and batters the foe.'
     },
     ironShell: {
-      id: 'ironShell', name: 'Granite Guard', affinity: 'Terra', power: 0, accuracy: 100, stamina: 15,
-      category: 'status', selfBuff: { def: 1.45 }, desc: 'Hardens outer carapace to sharply boost Defense.'
+      id: 'ironShell', name: 'Granite Guard', affinity: 'Terra', archetype: 'tactical', power: 0, accuracy: 100, stamina: 15,
+      category: 'status', selfBuff: { def: 1.40 }, effectTag: '🛡️ +40% Def (3T)', desc: 'Hardens outer carapace to boost Defense (+40%).'
     }
   };
 
@@ -513,7 +542,7 @@
       evolvesTo: { id: 22, level: 13 },
       baseStats: { hp: 48, atk: 56, def: 44, spd: 68 },
       catchRate: 0.55,
-      moves: ['sparkPeck', 'quickDash', 'arcBolt', 'aetherFocus'],
+      moves: ['sparkPeck', 'quickDash', 'galeVortex', 'arcBolt'],
       palette: { primary: '#fbbf24', secondary: '#fef08a', accent: '#92400e', eye: '#ef4444' },
       radiantPalette: { primary: '#38bdf8', secondary: '#fde047', accent: '#0c4a6e', eye: '#f43f5e' },
       lore: 'Stores surplus electricity in the spiral markings on its flanks. Loves rubbing against metallic ore veins.'
@@ -598,7 +627,7 @@
       radiantPalette: { primary: '#f43f5e', secondary: '#fde047', accent: '#31102f', eye: '#22d3ee' },
       lore: 'Mythic Kin born where starlight meets the Astral Ruin Sanctum. Its translucent wings hold entire constellations.'
     },
-    {
+        {
       id: 27,
       slug: 'aetherion',
       name: 'Aetherion',
@@ -613,8 +642,247 @@
       palette: { primary: '#22d3ee', secondary: '#fde047', accent: '#0f172a', eye: '#f43f5e' },
       radiantPalette: { primary: '#facc15', secondary: '#ec4899', accent: '#1e1b4b', eye: '#38bdf8' },
       lore: 'The legendary progenitor of all Aether Prisms. Only a tamer who has earned all four Warden Crests can earn its respect.'
+    },
+
+    // --- EXPANDED ELEMENTAL & AQUATIC ROSTER (28-33: 3-4+ Per Element & Rare Water Leviathans) ---
+    {
+      id: 28,
+      slug: 'terragrif',
+      name: 'Terragrif',
+      title: 'Sandstone Cub Kin',
+      affinity: 'Terra',
+      stage: 1,
+      evolvesTo: { id: 29, level: 16 },
+      baseStats: { hp: 64, atk: 68, def: 72, spd: 48 },
+      catchRate: 0.45,
+      moves: ['pebbleToss', 'clawSwipe', 'quakeStomp', 'ironShell'],
+      palette: { primary: '#d97706', secondary: '#fde68a', accent: '#451a03', eye: '#38bdf8' },
+      radiantPalette: { primary: '#10b981', secondary: '#fde047', accent: '#064e3b', eye: '#f43f5e' },
+      lore: 'Prowls canyon riverbeds and ancient stone bridges, sharpening its quartz talons on riverbed boulders.'
+    },
+    {
+      id: 29,
+      slug: 'monolithon',
+      name: 'Monolithon',
+      title: 'Tectonic Colossus Kin',
+      affinity: 'Terra',
+      stage: 2,
+      evolvesTo: null,
+      baseStats: { hp: 104, atk: 96, def: 116, spd: 44 },
+      catchRate: 0.16,
+      moves: ['crystalSpire', 'quakeStomp', 'magmaCrush', 'ironShell'],
+      palette: { primary: '#92400e', secondary: '#38bdf8', accent: '#1c1917', eye: '#facc15' },
+      radiantPalette: { primary: '#059669', secondary: '#fde047', accent: '#022c22', eye: '#38bdf8' },
+      lore: 'A towering tectonic guardian whose footsteps send seismic ripples across entire valleys.'
+    },
+    {
+      id: 30,
+      slug: 'gloomfang',
+      name: 'Gloomfang',
+      title: 'Mire Viper Kin',
+      affinity: 'Umbra',
+      aquatic: true,
+      stage: 1,
+      evolvesTo: { id: 31, level: 16 },
+      baseStats: { hp: 56, atk: 66, def: 52, spd: 68 },
+      catchRate: 0.48,
+      moves: ['venom_fang', 'blight_miasma', 'duskDart', 'spore_venom'],
+      palette: { primary: '#7e22ce', secondary: '#4ade80', accent: '#1e1b4b', eye: '#fde047' },
+      radiantPalette: { primary: '#ec4899', secondary: '#22d3ee', accent: '#31102f', eye: '#facc15' },
+      lore: 'Lurks beneath murky marshlands and twilight lagoons, striking with shadow-toxin fangs that sap enemy strength.'
+    },
+    {
+      id: 31,
+      slug: 'abyssalisk',
+      name: 'Abyssalisk',
+      title: 'Trench Hydra Kin',
+      affinity: 'Umbra',
+      aquatic: true,
+      stage: 2,
+      evolvesTo: null,
+      baseStats: { hp: 92, atk: 102, def: 84, spd: 86 },
+      catchRate: 0.15,
+      moves: ['abyssal_toxin', 'blight_miasma', 'eclipseNova', 'venom_fang'],
+      palette: { primary: '#4c1d95', secondary: '#2dd4bf', accent: '#090d16', eye: '#f43f5e' },
+      radiantPalette: { primary: '#be123c', secondary: '#38bdf8', accent: '#1f2937', eye: '#fde047' },
+      lore: 'An apex deep-trench serpent shrouded in virulent shadow miasma. Rarely surfaces except when drawn by master anglers.'
+    },
+    {
+      id: 32,
+      slug: 'kelpsprite',
+      name: 'Kelpsprite',
+      title: 'Reef Seahorse Kin',
+      affinity: 'Tide',
+      aquatic: true,
+      stage: 1,
+      evolvesTo: { id: 18, level: 14 },
+      baseStats: { hp: 54, atk: 52, def: 58, spd: 64 },
+      catchRate: 0.62,
+      moves: ['rippleJet', 'rippleJet', 'brinePulse', 'spore_venom'],
+      palette: { primary: '#0ea5e9', secondary: '#6ee7b7', accent: '#0c4a6e', eye: '#fde047' },
+      radiantPalette: { primary: '#f472b6', secondary: '#fde047', accent: '#4c0519', eye: '#38bdf8' },
+      lore: 'Camouflages among swaying kelp forests and sunny fishing piers. Playfully nibbles on bobbers tossed near shore.'
+    },
+        {
+      id: 33,
+      slug: 'krakenlord',
+      name: 'Krakenlord',
+      title: 'Maelstrom Sovereign Kin',
+      affinity: 'Tide',
+      element: 'Tide',
+      aquatic: true,
+      mythic: true,
+      stage: 3,
+      evolvesTo: null,
+      baseStats: { hp: 112, atk: 108, def: 98, spd: 88 },
+      catchRate: 0.08,
+      moves: ['tidalVortex', 'abyssal_toxin', 'brinePulse', 'rimeFang'],
+      palette: { primary: '#0284c7', secondary: '#facc15', accent: '#082f49', eye: '#f43f5e' },
+      radiantPalette: { primary: '#eab308', secondary: '#38bdf8', accent: '#1e1b4b', eye: '#ffffff' },
+      lore: 'A mythic deep-sea sovereign that commands whirlpools and abyssal tides. Only 5% of fishing tosses ever glimpse its golden crown.'
+    },
+    {
+      id: 34,
+      slug: 'frostkit',
+      name: 'Frostkit',
+      title: 'Rime Fox Kin',
+      affinity: 'Tide',
+      element: 'Frost',
+      aquatic: true,
+      stage: 1,
+      evolvesTo: { id: 35, level: 15 },
+      baseStats: { hp: 54, atk: 58, def: 52, spd: 66 },
+      catchRate: 0.52,
+      moves: ['rimeFang', 'rippleJet', 'quickDash', 'brinePulse'],
+      palette: { primary: '#38bdf8', secondary: '#e0f2fe', accent: '#0369a1', eye: '#facc15' },
+      radiantPalette: { primary: '#c084fc', secondary: '#f3e8ff', accent: '#3b0764', eye: '#22d3ee' },
+      lore: 'Skates across frozen fjords and icy fishing holes, leaving crystalline snowflakes in its wake.'
+    },
+    {
+      id: 35,
+      slug: 'glacieron',
+      name: 'Glacieron',
+      title: 'Permafrost Wolf Kin',
+      affinity: 'Tide',
+      element: 'Frost',
+      aquatic: true,
+      stage: 2,
+      evolvesTo: { id: 36, level: 28 },
+      baseStats: { hp: 82, atk: 88, def: 80, spd: 86 },
+      catchRate: 0.24,
+      moves: ['rimeFang', 'tidalVortex', 'brinePulse', 'ironShell'],
+      palette: { primary: '#0284c7', secondary: '#bae6fd', accent: '#0c4a6e', eye: '#fde047' },
+      radiantPalette: { primary: '#9333ea', secondary: '#fde047', accent: '#1e1b4b', eye: '#38bdf8' },
+      lore: 'Howls with the fury of an arctic blizzard, freezing crashing waves into jagged ice spires.'
+    },
+    {
+      id: 36,
+      slug: 'cryowurm',
+      name: 'Cryowurm',
+      title: 'Glacier Leviathan Kin',
+      affinity: 'Tide',
+      element: 'Frost',
+      aquatic: true,
+      mythic: true,
+      stage: 3,
+      evolvesTo: null,
+      baseStats: { hp: 108, atk: 102, def: 104, spd: 82 },
+      catchRate: 0.10,
+      moves: ['rimeFang', 'tidalVortex', 'crystalSpire', 'aetherFocus'],
+      palette: { primary: '#0ea5e9', secondary: '#ffffff', accent: '#1e3a8a', eye: '#f43f5e' },
+      radiantPalette: { primary: '#facc15', secondary: '#67e8f9', accent: '#0f172a', eye: '#ec4899' },
+      lore: 'An ancient iceburg dragon slumbering beneath Frostveil Glacier. Awakens when hooked by a legendary angler.'
+    },
+    {
+      id: 37,
+      slug: 'zephyrling',
+      name: 'Zephyrling',
+      title: 'Breeze Finch Kin',
+      affinity: 'Volt',
+      element: 'Gale',
+      stage: 1,
+      evolvesTo: { id: 38, level: 14 },
+      baseStats: { hp: 50, atk: 56, def: 46, spd: 74 },
+      catchRate: 0.55,
+      moves: ['galeVortex', 'quickDash', 'sparkPeck', 'aetherFocus'],
+      palette: { primary: '#38bdf8', secondary: '#fef08a', accent: '#0f172a', eye: '#10b981' },
+      radiantPalette: { primary: '#f43f5e', secondary: '#fde047', accent: '#31102f', eye: '#38bdf8' },
+      lore: 'Rides coastal updrafts and thermal currents, whipping miniature whirlwinds with its wingtips.'
+    },
+    {
+      id: 38,
+      slug: 'stratoswing',
+      name: 'Stratoswing',
+      title: 'Cyclone Falcon Kin',
+      affinity: 'Volt',
+      element: 'Gale',
+      stage: 2,
+      evolvesTo: { id: 39, level: 27 },
+      baseStats: { hp: 78, atk: 88, def: 70, spd: 104 },
+      catchRate: 0.24,
+      moves: ['galeVortex', 'tempestDive', 'quickDash', 'arcBolt'],
+      palette: { primary: '#0284c7', secondary: '#fde047', accent: '#1e293b', eye: '#34d399' },
+      radiantPalette: { primary: '#eab308', secondary: '#38bdf8', accent: '#090d16', eye: '#f43f5e' },
+      lore: 'Dives from the stratosphere at supersonic speeds, Summoning roaring tornadoes across the battlefield.'
+    },
+    {
+      id: 39,
+      slug: 'tempestroc',
+      name: 'Tempestroc',
+      title: 'Hurricane Sovereign Kin',
+      affinity: 'Volt',
+      element: 'Gale',
+      mythic: true,
+      stage: 3,
+      evolvesTo: null,
+      baseStats: { hp: 98, atk: 106, def: 86, spd: 112 },
+      catchRate: 0.10,
+      moves: ['galeVortex', 'tempestDive', 'arcBolt', 'aetherFocus'],
+      palette: { primary: '#0ea5e9', secondary: '#facc15', accent: '#0f172a', eye: '#ffffff' },
+      radiantPalette: { primary: '#ec4899', secondary: '#fde047', accent: '#1e1b4b', eye: '#22d3ee' },
+      lore: 'Lord of the Stormspire skies. A single beat of its wings unleashes a category-five gale vortex.'
+    },
+    {
+      id: 40,
+      slug: 'starlighton',
+      name: 'Starlighton',
+      title: 'Nebula Fawn Kin',
+      affinity: 'Umbra',
+      element: 'Aether',
+      stage: 1,
+      evolvesTo: { id: 41, level: 18 },
+      baseStats: { hp: 62, atk: 68, def: 64, spd: 76 },
+      catchRate: 0.35,
+      moves: ['voidPulse', 'aetherFocus', 'quickDash', 'eclipseNova'],
+      palette: { primary: '#818cf8', secondary: '#fde047', accent: '#1e1b4b', eye: '#38bdf8' },
+      radiantPalette: { primary: '#f472b6', secondary: '#fef08a', accent: '#31102f', eye: '#22d3ee' },
+      lore: 'Born from condensed starlight near Aether shrines. Its crystalline antlers refract cosmic beams.'
+    },
+    {
+      id: 41,
+      slug: 'celestigon',
+      name: 'Celestigon',
+      title: 'Astral Seraph Kin',
+      affinity: 'Volt',
+      element: 'Aether',
+      mythic: true,
+      stage: 2,
+      evolvesTo: null,
+      baseStats: { hp: 100, atk: 108, def: 94, spd: 104 },
+      catchRate: 0.10,
+      moves: ['eclipseNova', 'tempestDive', 'solarFlare', 'aetherFocus'],
+      palette: { primary: '#6366f1', secondary: '#facc15', accent: '#0f172a', eye: '#22d3ee' },
+      radiantPalette: { primary: '#fde047', secondary: '#f43f5e', accent: '#1e1b4b', eye: '#38bdf8' },
+      lore: 'Channels pure cosmic Aether beams capable of cleaving dimensional rifts.'
     }
   ];
+
+  KIN_SPECIES.forEach((s) => {
+    if (s.id === 18) s.element = 'Frost';
+    else if (s.id === 11) s.element = 'Gale';
+    else if (s.id === 26 || s.id === 27) s.element = 'Aether';
+    else if (!s.element) s.element = s.affinity;
+  });
 
   // Items, Food Recovery, Level-Up Boosters & Capture Prisms
   const ITEMS = {
@@ -901,7 +1169,95 @@
       color: '#facc15',
       icon: '🎒',
       desc: 'Sovereign dimensional harness: carry up to 8 Active Squad Kin and 52 Reserve Kin!'
+    },
+
+    // 6. Tiered Fishing Poles (Higher Rod Level = Higher Rarity & Evolution Stage Water Creatures!)
+    bambooPole: {
+      id: 'bambooPole',
+      name: 'Bamboo Reed Pole',
+      category: 'rod',
+      marketTab: 'boosters',
+      rodTier: 1,
+      maxStage: 1,
+      rarityCap: 'Common Stage 1 Water Kin (B / A-Rank)',
+      allowedGeneticTiers: ['B', 'A'],
+      catchPool: [4, 15, 17, 13],
+      levelBonus: 0,
+      radiantChance: 0.02,
+      cost: 120,
+      gemCost: 15,
+      usdPrice: 0.99,
+      priceDisplay: '$0.99',
+      color: '#4ade80',
+      icon: '🎣',
+      desc: 'Lv.1 Starter Fishing Pole. Cast near water (~) to hook Common Stage 1 Water & Tide Kin (Ripplefin, Pebblecrab, Dewdrop) with B or A-Rank genetics.'
+    },
+    carbonRod: {
+      id: 'carbonRod',
+      name: 'Carbon Aether Rod',
+      category: 'rod',
+      marketTab: 'boosters',
+      rodTier: 2,
+      maxStage: 2,
+      rarityCap: 'Rare Stage 2 Evolved Water Kin (A / S-Rank)',
+      allowedGeneticTiers: ['A', 'S'],
+      catchPool: [5, 18, 16, 22, 4, 17],
+      levelBonus: 4,
+      radiantChance: 0.07,
+      cost: 420,
+      gemCost: 45,
+      usdPrice: 2.99,
+      priceDisplay: '$2.99',
+      color: '#38bdf8',
+      icon: '🎣',
+      desc: 'Lv.2 Pro Fishing Rod! Unlocks Rare Stage 2 Evolved Water & Tide Kin (Torrentscale, Mistserpent, Basaltitan) with guaranteed A/S-Rank genetics (+4 Lv bonus & 2.5x Radiant odds)!'
+    },
+    leviathanRod: {
+      id: 'leviathanRod',
+      name: 'Sovereign Leviathan Rod',
+      category: 'rod',
+      marketTab: 'boosters',
+      rodTier: 3,
+      maxStage: 3,
+      rarityCap: 'Mythic Stage 3 Apex Leviathans (S / SS-Rank)',
+      allowedGeneticTiers: ['S', 'SS'],
+      catchPool: [6, 26, 27, 18, 16, 5],
+      levelBonus: 8,
+      radiantChance: 0.18,
+      cost: 1100,
+      gemCost: 110,
+      usdPrice: 6.99,
+      priceDisplay: '$6.99',
+      color: '#facc15',
+      icon: '🎣',
+      desc: 'Lv.3 Master Fishing Rod! Hooks Mythic & Stage 3 Apex Water Leviathans (Abyssaldrake, Astralwyrm, Aetherion, Mistserpent) with guaranteed S/SS-Rank genetics, +8 Lv bonus & 18% Radiant hook rate!'
     }
+  };
+
+  // Ensure every item in ITEMS has a direct cash ($ USD) price for Marketplace cash checkout
+  const ITEM_USD_PRICES = {
+    sunberryRation: 0.99,
+    heartwoodStew: 1.49,
+    feastPlatter: 2.49,
+    spicedSkewers: 0.99,
+    glacierBerryTart: 1.49,
+    vitalTonic: 0.99,
+    hiTonic: 1.49,
+    maxElixir: 2.49,
+    phoenixDew: 1.99,
+    aetherCandy: 1.99,
+    apexTome: 3.99,
+    xpBooster2x: 1.99,
+    hatchAccelerator: 1.99,
+    basicPrism: 0.99,
+    greaterPrism: 1.49,
+    masteryPrism: 2.99,
+    bagUpgrade1: 1.99,
+    bagUpgrade2: 3.49,
+    bagUpgrade3: 5.99,
+    bambooPole: 0.99,
+    carbonRod: 2.99,
+    leviathanRod: 6.99
   };
 
   ITEMS.spicedSkewers = {
@@ -991,6 +1347,34 @@
       color: '#facc15',
       icon: '👑',
       desc: '3,800 💎 Aether Gems + 5,000 🪙 Shards + 10x Rare Aether Crystals + 2x XP Tomes + 5x Apex Prisms + Permanent VIP Instant Shrine Pass!'
+    },
+    {
+      id: 'angler_master_pack',
+      name: 'Master Angler Rod Pack',
+      priceUsd: 4.99,
+      priceDisplay: '$4.99',
+      gems: 350,
+      shardsBonus: 400,
+      rodTier: 3,
+      items: { leviathanRod: 1, carbonRod: 1, greaterPrism: 5 },
+      badge: 'LV.3 LEVIATHAN ROD',
+      color: '#38bdf8',
+      icon: '🎣',
+      desc: 'Instant Lv.3 Sovereign Leviathan Rod + Lv.2 Carbon Rod + 5x Magnetized Vault Traps + 350 💎 Gems + 400 🪙 Shards! Catch Mythic S/SS-Rank Water Leviathans immediately!'
+    },
+    {
+      id: 'sovereign_bag_pack',
+      name: 'Max Carrier Bag Expansion Pack',
+      priceUsd: 3.99,
+      priceDisplay: '$3.99',
+      gems: 250,
+      shardsBonus: 300,
+      bagTier: 3,
+      items: { bagUpgrade3: 1, masteryPrism: 3, feastPlatter: 2 },
+      badge: '8 SQUAD • 52 RESERVE',
+      color: '#facc15',
+      icon: '🎒',
+      desc: 'Instant Tier 3 Grandmaster Spatial Harness (8 Active Squad / 52 Reserve Kin) + 3x Sovereign Stasis Traps + 2x Feast Platters + 250 💎 Gems!'
     }
   ];
 
@@ -2302,6 +2686,7 @@
     TYPE_CHART,
     MOVES,
     KIN_SPECIES,
+    SPECIES: KIN_SPECIES,
     ITEMS,
     MARKETPLACE_BUNDLES,
     GEM_BUNDLES: MARKETPLACE_BUNDLES,

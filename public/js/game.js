@@ -85,6 +85,15 @@
     if (defender && defender.status === 'soak') {
       defStat *= 0.85;
     }
+    // Shadow Poison Weaken: progressive -12% Attack & Defense reduction per stack each round!
+    if (attacker && (attacker.status === 'poison_weaken' || Number(attacker.poisonStacks || 0) > 0)) {
+      const stacks = Math.max(1, Math.min(4, Number(attacker.poisonStacks || 1)));
+      atkStat *= Math.max(0.45, 1 - 0.12 * stacks);
+    }
+    if (defender && (defender.status === 'poison_weaken' || Number(defender.poisonStacks || 0) > 0)) {
+      const stacks = Math.max(1, Math.min(4, Number(defender.poisonStacks || 1)));
+      defStat *= Math.max(0.45, 1 - 0.12 * stacks);
+    }
 
     const stab = moveAffinity === atkAffinity;
     const stabMult = stab ? 1.25 : 1.0;
@@ -144,6 +153,87 @@
     return Math.max(0.05, Math.min(0.98, Number(rawChance.toFixed(4))));
   }
 
+
+  /**
+   * Per-round Shadow Poison progression: drains HP AND weakens target's Attack & Defense every round!
+   */
+  function tickPoisonWeakenRound(fighter) {
+    if (!fighter || fighter.currentHp <= 0) return { triggered: false, dot: 0, stacks: 0, weakenMultiplier: 1.0 };
+    const isShadowPoison = fighter.status === 'poison_weaken' || Number(fighter.poisonStacks || 0) > 0;
+    if (!isShadowPoison && fighter.status !== 'poison' && fighter.status !== 'burn') {
+      return { triggered: false, dot: 0, stacks: 0, weakenMultiplier: 1.0 };
+    }
+    if (isShadowPoison) {
+      fighter.status = 'poison_weaken';
+      const stacks = Math.max(1, Math.min(4, Number(fighter.poisonStacks || 1)));
+      const drainPct = 0.08 + 0.03 * stacks;
+      const dot = Math.max(1, Math.round(fighter.maxHp * drainPct));
+      fighter.currentHp = Math.max(0, fighter.currentHp - dot);
+      const weakenMultiplier = Number(Math.max(0.45, 1 - 0.12 * stacks).toFixed(2));
+      fighter.buffs = fighter.buffs || { atk: 1, def: 1, spd: 1 };
+      fighter.buffs.atk = Math.min(fighter.buffs.atk || 1, weakenMultiplier);
+      fighter.buffs.def = Math.min(fighter.buffs.def || 1, weakenMultiplier);
+      // Escalate stack for next round (up to 4 stacks)
+      fighter.poisonStacks = Math.min(4, stacks + 1);
+      return {
+        triggered: true,
+        isShadowPoison: true,
+        dot,
+        stacks,
+        nextStacks: fighter.poisonStacks,
+        weakenMultiplier
+      };
+    }
+    const dot = Math.max(1, Math.floor(fighter.maxHp * 0.08));
+    fighter.currentHp = Math.max(0, fighter.currentHp - dot);
+    return { triggered: true, isShadowPoison: false, dot, stacks: 1, weakenMultiplier: 1.0 };
+  }
+
+  /**
+   * Smart Tactical Enemy AI: evaluates type advantage, STAB, Shadow Poison application, and cooldowns
+   */
+  function chooseSmartEnemyMove(enemy, player) {
+    if (!enemy || !DATA || !DATA.MOVES) return DATA ? DATA.MOVES.clawSwipe : null;
+    const rawSlots = Array.isArray(enemy.moveSlots) && enemy.moveSlots.length > 0
+      ? enemy.moveSlots
+      : [{ id: 'clawSwipe', currentStamina: 20 }];
+    const candidates = rawSlots
+      .filter((s) => (s.currentStamina === undefined || s.currentStamina > 0) && !(s.cooldownLeft > 0))
+      .map((s) => DATA.MOVES[s.id])
+      .filter(Boolean);
+    if (candidates.length === 0) return DATA.MOVES.clawSwipe;
+
+    const eAff = resolveAffinity(enemy);
+    const pAff = resolveAffinity(player);
+    let bestMove = candidates[0];
+    let bestScore = -999;
+
+    for (const mv of candidates) {
+      let score = Number(mv.power || 40) * ((Number(mv.accuracy || 100)) / 100);
+      const mult = DATA.getTypeMultiplier ? DATA.getTypeMultiplier(mv.affinity || eAff, pAff) : 1.0;
+      score *= mult;
+      if ((mv.affinity || eAff) === eAff) score *= 1.2;
+
+      if (mv.effect === 'poison_weaken' || (mv.statusEffect && mv.statusEffect.type === 'poison_weaken')) {
+        const pStacks = Number((player && player.poisonStacks) || 0);
+        if (pStacks < 2) score += 42;
+      }
+      if (mv.category === 'status' && mv.selfBuff) {
+        const hpRatio = enemy.currentHp / Math.max(1, enemy.maxHp);
+        score = hpRatio > 0.65 && (!enemy.buffs || (enemy.buffs.atk <= 1.05 && enemy.buffs.def <= 1.05)) ? 68 : 15;
+      }
+      if (mv.archetype === 'ultimate' && enemy.ultimateCooldown > 0) {
+        score -= 500;
+      }
+      score += Math.random() * 12;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = mv;
+      }
+    }
+    return bestMove;
+  }
+
   // =========================================================================
   // 2. GAME STATE & PERSISTENCE
   // =========================================================================
@@ -166,6 +256,13 @@
       marketTab: 'recovery',
       selectedMarketKinIdx: 0,
       activeCheckoutBundleId: null,
+      playerId: "wk_" + Math.random().toString(36).slice(2, 9),
+      rodTier: 1,
+      pvpRating: 1000,
+      pvpWins: 0,
+      chatChannel: "global",
+      remotePlayers: [],
+      worldChatMessages: [],
       bagTier: 0,
       maxSquadSize: 4,
       maxVaultSize: 8,
@@ -173,6 +270,9 @@
         basicPrism: 6,
         greaterPrism: 2,
         masteryPrism: 0,
+        bambooPole: 1,
+        carbonRod: 0,
+        leviathanRod: 0,
         bagUpgrade1: 0,
         bagUpgrade2: 0,
         bagUpgrade3: 0,
@@ -206,7 +306,9 @@
         evolutions: 0,
         foodFed: 0,
         radiantBound: 0,
-        tradesDone: 0
+        tradesDone: 0,
+        fishCaught: 0,
+        pvpWon: 0
       },
       storyChapter: 1,
       storyModalTab: 'story',
@@ -809,7 +911,7 @@
     for (let y = 1; y < root.WILDKIN_MAPS.MAP_HEIGHT - 1; y++) {
       for (let x = 1; x < root.WILDKIN_MAPS.MAP_WIDTH - 1; x++) {
         const ch = root.WILDKIN_MAPS.getTileAt(zoneId, x, y);
-        if (ch === "G" || ch === "W" || ch === "~") {
+        if (ch === "G" || ch === "F") {
           grassTiles.push({ x, y });
         }
       }
@@ -825,12 +927,17 @@
       { x: 9, y: 18 },
       { x: 18, y: 18 },
       { x: 9, y: 4 },
-      { x: 19, y: 4 }
+      { x: 19, y: 4 },
+      { x: 30, y: 12 },
+      { x: 20, y: 24 }
     ];
     const spawns = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 10; i++) {
       const spot = preferredSpots[i];
-      const pickTile = (spot && grassTiles.find((gt) => Math.hypot(gt.x - spot.x, gt.y - spot.y) <= 3.5)) || grassTiles[(i * 13 + 5) % grassTiles.length];
+      const rawTile = (spot && grassTiles.find((gt) => Math.hypot(gt.x - spot.x, gt.y - spot.y) <= 3.5)) || grassTiles[(i * 13 + 5) % grassTiles.length];
+      const pickTile = root.WILDKIN_MAPS.snapToWalkableLand
+        ? root.WILDKIN_MAPS.snapToWalkableLand(zoneId, rawTile.x, rawTile.y)
+        : rawTile;
       const rolled = rollWildSpeciesForZone(zoneId);
       spawns.push({
         id: `wild_${zoneId}_${i}_${Date.now()}`,
@@ -1259,6 +1366,781 @@
     return { ok: true, item, kin, healedDelta, message: msg };
   }
 
+
+  function getEquippedRod(st = state) {
+    const tier = Math.max(1, Math.min(3, Number((st && st.rodTier) || 1)));
+    const key = tier === 3 ? "leviathanRod" : tier === 2 ? "carbonRod" : "bambooPole";
+    return (DATA && DATA.ITEMS && DATA.ITEMS[key]) || {
+      id: key,
+      name: tier === 3 ? "Sovereign Leviathan Rod" : tier === 2 ? "Carbon Aether Rod" : "Bamboo Reed Pole",
+      rodTier: tier,
+      maxStage: tier,
+      allowedGeneticTiers: tier === 3 ? ["S", "SS"] : tier === 2 ? ["A", "S"] : ["B", "A"],
+      catchPool: tier === 3 ? [6, 26, 27, 18, 16, 5] : tier === 2 ? [5, 18, 16, 22, 4, 17] : [4, 15, 17, 13],
+      levelBonus: tier === 3 ? 8 : tier === 2 ? 4 : 0,
+      radiantChance: tier === 3 ? 0.18 : tier === 2 ? 0.07 : 0.02
+    };
+  }
+
+  function upgradeFishingRod(itemIdOrTier, st = state) {
+    if (!st) return { ok: false };
+    if (!st.inventory) st.inventory = {};
+    let newTier = Number(itemIdOrTier);
+    if (isNaN(newTier)) {
+      const item = DATA && DATA.ITEMS ? DATA.ITEMS[itemIdOrTier] : null;
+      newTier = (item && item.rodTier) || (itemIdOrTier === "leviathanRod" ? 3 : itemIdOrTier === "carbonRod" ? 2 : 1);
+    }
+    newTier = Math.max(1, Math.min(3, newTier));
+    st.rodTier = Math.max(Number(st.rodTier || 1), newTier);
+    if (newTier >= 1) st.inventory.bambooPole = Math.max(1, Number(st.inventory.bambooPole || 0));
+    if (newTier >= 2) st.inventory.carbonRod = Math.max(1, Number(st.inventory.carbonRod || 0));
+    if (newTier >= 3) st.inventory.leviathanRod = Math.max(1, Number(st.inventory.leviathanRod || 0));
+    const rodObj = getEquippedRod(st);
+    if (st === state) {
+      const lbl = $("fishBtnLabel");
+      if (lbl) lbl.textContent = `Fish (Lv.${st.rodTier})`;
+      saveGame();
+      updateHud();
+      showToast(`🎣 Equipped ${rodObj.name} (Tier ${st.rodTier})!`, 3000);
+    }
+    return { ok: true, rodTier: st.rodTier, rod: rodObj };
+  }
+
+  let fishingReelState = null;
+
+  function rollFishingCatchForRod(rodTier = 1, zoneId = state.zone, rngFn = Math.random) {
+    const tier = Math.max(1, Math.min(3, Number(rodTier || 1)));
+    const rod = getEquippedRod({ rodTier: tier });
+    const roll = typeof rngFn === "function" ? rngFn() : Math.random();
+
+    // Water creature pools by rarity bucket:
+    // 50% Common (0.00 - 0.50): Stage 1 Water/Aquatic creatures
+    // 30% Uncommon (0.50 - 0.80): Stage 1-2 Aquatic/Frost/Mire creatures
+    // 15% Evolved (0.80 - 0.95): Stage 2 Evolved Water creatures
+    // 5% Rare (0.95 - 1.00): Mythic / Apex Water Leviathans!
+    const commonPool = [4, 15, 17, 30, 32, 34];
+    const uncommonPool = tier >= 2 ? [4, 17, 18, 30, 32, 34, 5] : [4, 15, 17, 30, 32, 34];
+    const evolvedPool = tier >= 2 ? [5, 16, 18, 31, 35] : [4, 17, 32, 18, 5];
+    const rarePool = tier >= 3 ? [33, 6, 36, 31] : tier === 2 ? [6, 31, 33, 35] : [6, 18, 31, 33];
+
+    let rarityBucket = "common";
+    let rarityLabel = "Common Water Kin (50%)";
+    let isRarePop = false;
+    let bucketPool = commonPool;
+
+    if (roll >= 0.95) {
+      rarityBucket = "rare";
+      rarityLabel = "🌟 5% RARE WATER LEVIATHAN!";
+      isRarePop = true;
+      bucketPool = rarePool;
+    } else if (roll >= 0.80) {
+      rarityBucket = "evolved";
+      rarityLabel = "Evolved Water Kin (15%)";
+      bucketPool = evolvedPool;
+    } else if (roll >= 0.50) {
+      rarityBucket = "uncommon";
+      rarityLabel = "Uncommon Water Kin (30%)";
+      bucketPool = uncommonPool;
+    }
+
+    const idxPick = Math.floor((typeof rngFn === "function" ? rngFn() : Math.random()) * bucketPool.length);
+    const pickedId = bucketPool[idxPick] || 4;
+    const sp = (DATA && DATA.getSpeciesById && DATA.getSpeciesById(pickedId)) || { id: pickedId, name: "Ripplefin", stage: 1 };
+    const zObj = getZoneObj(zoneId || "meadow");
+    const minLv = (zObj && zObj.levelRange && zObj.levelRange[0]) || 4;
+    const maxLv = (zObj && zObj.levelRange && zObj.levelRange[1]) || 10;
+    const baseLv = minLv + Math.floor((typeof rngFn === "function" ? rngFn() : Math.random()) * Math.max(1, maxLv - minLv + 1));
+    const level = Math.min(100, baseLv + Number(rod.levelBonus || 0) + (isRarePop ? 4 : 0));
+    const tiers = isRarePop
+      ? (tier >= 3 ? ["SS"] : ["S", "SS"])
+      : (Array.isArray(rod.allowedGeneticTiers) && rod.allowedGeneticTiers.length > 0 ? rod.allowedGeneticTiers : ["B", "A"]);
+    const geneticTier = tiers[Math.floor((typeof rngFn === "function" ? rngFn() : Math.random()) * tiers.length)];
+    const isRadiant = (typeof rngFn === "function" ? rngFn() : Math.random()) < (Number(rod.radiantChance || 0.02) + (isRarePop ? 0.15 : 0));
+
+    return {
+      speciesId: sp.id,
+      speciesName: sp.name || "Water Kin",
+      stage: sp.stage || 1,
+      level,
+      geneticTier,
+      isRadiant,
+      rodTier: tier,
+      rodName: rod.name,
+      rarityBucket,
+      rarityLabel,
+      isRarePop,
+      roll
+    };
+  }
+
+  function getFishingReelState() {
+    return fishingReelState;
+  }
+
+  function openFishingReelMinigame(catchRollInput = null) {
+    const rTier = Math.max(1, Math.min(3, Number((catchRollInput && catchRollInput.rodTier) || state.rodTier || 1)));
+    const catchRoll = catchRollInput || rollFishingCatchForRod(rTier, state.zone);
+    const sp = (DATA && DATA.getSpeciesById && DATA.getSpeciesById(catchRoll.speciesId)) || {
+      id: catchRoll.speciesId || 4,
+      name: catchRoll.speciesName || "Ripplefin",
+      affinity: "Tide",
+      palette: { primary: "#0ea5e9", secondary: "#67e8f9", accent: "#0c4a6e", eye: "#fde047" }
+    };
+
+    // Play Battle Encounter Stinger + Creature Cry when hooked!
+    if (root.WILDKIN_AUDIO) {
+      if (typeof root.WILDKIN_AUDIO.playEncounterStinger === "function") {
+        root.WILDKIN_AUDIO.playEncounterStinger(catchRoll.isRarePop ? "warden" : "wild");
+      } else {
+        root.WILDKIN_AUDIO.playEncounterAlert();
+      }
+      if (typeof root.WILDKIN_AUDIO.playKinCry === "function") {
+        root.WILDKIN_AUDIO.playKinCry(sp.id, sp.affinity || "Tide", sp.stage || 1, false);
+      }
+    }
+
+    const zoneWidth = rTier === 3 ? 34 : rTier === 2 ? 28 : 24;
+    const targetStart = 18 + Math.floor(Math.random() * (64 - zoneWidth));
+    const requiredHits = catchRoll.isRarePop ? 4 : 3;
+
+    fishingReelState = {
+      active: true,
+      catchRoll,
+      species: sp,
+      rodTier: rTier,
+      markerPos: 10,
+      markerDir: 1,
+      markerSpeed: catchRoll.isRarePop ? 92 : 68, // % per second
+      targetStart,
+      targetWidth: zoneWidth,
+      targetEnd: targetStart + zoneWidth,
+      hits: 0,
+      requiredHits,
+      misses: 0,
+      maxMisses: 3,
+      completed: false,
+      caught: false,
+      lastFrameTs: typeof performance !== "undefined" ? performance.now() : Date.now()
+    };
+
+    if (typeof document !== "undefined") {
+      const modalBackdrop = $("modalBackdrop");
+      const modalTitle = $("modalTitle");
+      const modalBody = $("modalBody");
+      if (modalBackdrop && modalTitle && modalBody) {
+        modalBackdrop.classList.remove("hidden");
+        modalTitle.textContent = catchRoll.isRarePop
+          ? "🌟 5% RARE WATER LEVIATHAN HOOKED!"
+          : `🎣 HOOKED! REEL IN ${sp.name.toUpperCase()}!`;
+        renderFishingReelModalBody();
+      }
+    }
+
+    return fishingReelState;
+  }
+
+  function renderFishingReelModalBody() {
+    if (typeof document === "undefined" || !fishingReelState) return;
+    const modalBody = $("modalBody");
+    if (!modalBody) return;
+    const st = fishingReelState;
+    const sp = st.species;
+    const cr = st.catchRoll;
+    const svgArt = root.WILDKIN_SPRITES && typeof root.WILDKIN_SPRITES.renderKinSvg === "function"
+      ? root.WILDKIN_SPRITES.renderKinSvg(sp, 76, cr.isRadiant)
+      : "🌊";
+
+    const pipsHtml = [];
+    for (let i = 0; i < st.requiredHits; i++) {
+      pipsHtml.push(`<span class="fishing-reel-pip ${i < st.hits ? "hit" : ""}">${i < st.hits ? "✓ LOCKED" : `TAP ${i + 1}`}</span>`);
+    }
+
+    modalBody.innerHTML = `
+      <div class="fishing-reel-card ${cr.isRarePop ? "rare-hook" : ""}" id="fishingReelCard">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span class="shop-tag" style="background:${cr.isRarePop ? "#ca8a04" : "#0284c7"};color:#fff">${cr.rarityLabel}</span>
+          <span style="font-size:12px;color:#94a3b8">Line Integrity: ${Math.max(0, st.maxMisses - st.misses)}/${st.maxMisses} ❤️</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:8px 0">
+          <div>${svgArt}</div>
+          <div style="text-align:left">
+            <div style="font-size:18px;font-weight:900;color:#f8fafc">${cr.isRadiant ? "✨ Radiant " : ""}${sp.name} <span style="color:#38bdf8">Lv.${cr.level}</span></div>
+            <div style="font-size:12px;color:#fde047;font-weight:700">[${cr.geneticTier}-Rank Genetics] • ${cr.rodName}</div>
+            <div style="font-size:12px;color:#cbd5e1;margin-top:3px" id="fishingReelStatusText">Tap when the moving bar enters the green target zone!</div>
+          </div>
+        </div>
+
+        <div class="fishing-reel-pips" id="fishingReelPips">${pipsHtml.join("")}</div>
+
+        <div class="fishing-reel-track" id="fishingReelTrack" title="Tap accurately when the marker is inside the target zone!">
+          <div class="fishing-reel-target-zone" id="fishingReelTargetZone" style="left:${st.targetStart}%;width:${st.targetWidth}%"></div>
+          <div class="fishing-reel-marker" id="fishingReelMarker" style="left:${st.markerPos}%"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button type="button" class="btn-tap-reel-bar" id="btnTapReelBar">🎯 TAP TO CATCH (${st.hits}/${st.requiredHits})</button>
+          <button type="button" class="mini-btn" id="btnBattleHookedFish" style="padding:12px 14px;background:#1e293b;border-color:#38bdf8">⚔️ Battle Instead</button>
+        </div>
+      </div>
+    `;
+
+    const tapBtn = $("btnTapReelBar");
+    if (tapBtn) {
+      tapBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        tapFishingReelBar();
+      });
+    }
+    const trackEl = $("fishingReelTrack");
+    if (trackEl) {
+      trackEl.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        tapFishingReelBar();
+      });
+    }
+    const battleBtn = $("btnBattleHookedFish");
+    if (battleBtn) {
+      battleBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const savedRoll = st.catchRoll;
+        fishingReelState = null;
+        closeModal();
+        startFishingEncounter(savedRoll.rodTier, savedRoll);
+      });
+    }
+  }
+
+  function tapFishingReelBar(overrideMarkerPos = null) {
+    if (!fishingReelState || fishingReelState.completed) {
+      return { ok: false, reason: "no_active_reel" };
+    }
+    const st = fishingReelState;
+    const pos = overrideMarkerPos !== null ? Number(overrideMarkerPos) : st.markerPos;
+    const isHit = pos >= st.targetStart - 2 && pos <= st.targetEnd + 2;
+
+    if (isHit) {
+      st.hits += 1;
+      if (root.WILDKIN_AUDIO) {
+        if (typeof root.WILDKIN_AUDIO.playHitImpactSfx === "function") {
+          root.WILDKIN_AUDIO.playHitImpactSfx(1.6, true);
+        } else {
+          root.WILDKIN_AUDIO.playAttack(2.0);
+        }
+      }
+      // Shift target sweet-spot zone for next tap and slightly speed up
+      const nextStart = 12 + Math.floor(Math.random() * Math.max(10, 76 - st.targetWidth));
+      st.targetStart = nextStart;
+      st.targetEnd = nextStart + st.targetWidth;
+      st.markerSpeed = Math.min(135, st.markerSpeed + 10);
+
+      if (st.hits >= st.requiredHits) {
+        st.completed = true;
+        st.caught = true;
+        const zObj = getZoneObj(state.zone);
+        const caughtKin = DATA.createKinInstance(st.catchRoll.speciesId, st.catchRoll.level, {
+          isRadiant: st.catchRoll.isRadiant,
+          geneticTier: st.catchRoll.geneticTier,
+          caughtZone: `${zObj.name} Waters`
+        });
+        markBound(caughtKin.speciesId);
+        if (!state.stats) state.stats = {};
+        state.stats.fishCaught = Number(state.stats.fishCaught || 0) + 1;
+        state.stats.kinCaught = Number(state.stats.kinCaught || 0) + 1;
+
+        let destination = "Squad";
+        if (state.squad.length < getMaxSquadSize(state)) {
+          state.squad.push(caughtKin);
+        } else {
+          state.sanctuary.push(caughtKin);
+          destination = "Sanctuary Vault";
+        }
+        if (root.WILDKIN_AUDIO) {
+          if (typeof root.WILDKIN_AUDIO.playCaughtFanfare === 'function') root.WILDKIN_AUDIO.playCaughtFanfare();
+          else if (typeof root.WILDKIN_AUDIO.playCaptureSuccess === 'function') root.WILDKIN_AUDIO.playCaptureSuccess();
+        }
+        fishingReelState = null;
+        closeModal();
+        saveGame();
+        updateHud();
+        showToast(
+          `🎣 CAUGHT! ${caughtKin.isRadiant ? "✨ RADIANT " : ""}${caughtKin.nickname} (Lv.${caughtKin.level} • [${st.catchRoll.geneticTier}-Rank]) joined your ${destination}!`,
+          3800
+        );
+        return { ok: true, hit: true, caught: true, caughtKin, destination };
+      }
+
+      renderFishingReelModalBody();
+      const statusEl = $("fishingReelStatusText");
+      if (statusEl) {
+        statusEl.textContent = `🎯 GREAT TIMING! (${st.hits}/${st.requiredHits}) — Keep tapping in the green zone!`;
+        statusEl.style.color = "#4ade80";
+      }
+      return { ok: true, hit: true, caught: false, hits: st.hits, requiredHits: st.requiredHits };
+    } else {
+      st.misses += 1;
+      if (root.WILDKIN_AUDIO) {
+        if (typeof root.WILDKIN_AUDIO.playHitImpactSfx === "function") {
+          root.WILDKIN_AUDIO.playHitImpactSfx(0.5, false);
+        } else {
+          root.WILDKIN_AUDIO.playBlip(220, 0.12);
+        }
+      }
+      if (st.misses >= st.maxMisses) {
+        const fallbackRoll = st.catchRoll;
+        st.completed = true;
+        fishingReelState = null;
+        closeModal();
+        showToast("🌊 The hooked Water Kin pulled hard — entering Wild Battle!", 2600);
+        startFishingEncounter(fallbackRoll.rodTier, fallbackRoll);
+        return { ok: true, hit: false, caught: false, enteredBattle: true };
+      }
+      renderFishingReelModalBody();
+      const statusEl = $("fishingReelStatusText");
+      if (statusEl) {
+        statusEl.textContent = `⚠️ Missed the zone! Wait for the bar to enter the green sweet-spot!`;
+        statusEl.style.color = "#facc15";
+      }
+      return { ok: true, hit: false, caught: false, misses: st.misses };
+    }
+  }
+
+  function startFishingEncounter(rodTierOverride = null, preRolledCatch = null) {
+    if (!DATA) return { ok: false };
+    const rTier = Math.max(1, Math.min(3, Number(rodTierOverride || state.rodTier || 1)));
+    const catchRoll = preRolledCatch || rollFishingCatchForRod(rTier, state.zone);
+    if (!state.stats) state.stats = {};
+    state.stats.fishCaught = Number(state.stats.fishCaught || 0) + 1;
+
+    let healthyIdx = getFirstHealthySquadIndex();
+    if (healthyIdx === -1) {
+      healSquadAtShrine(true);
+      healthyIdx = 0;
+    }
+
+    const zObj = getZoneObj(state.zone);
+    const enemyKin = DATA.createKinInstance(catchRoll.speciesId, catchRoll.level, {
+      isRadiant: catchRoll.isRadiant,
+      geneticTier: catchRoll.geneticTier,
+      caughtZone: `${zObj.name} Waters`
+    });
+    applyWorldStatScaling(enemyKin, state.zone);
+    markSeen(enemyKin.speciesId);
+
+    battleState = {
+      mode: "wild",
+      isFishingEncounter: true,
+      rodTier: rTier,
+      rarityBucket: catchRoll.rarityBucket,
+      isRarePop: Boolean(catchRoll.isRarePop),
+      title: catchRoll.isRarePop
+        ? `🌟 5% RARE LEVIATHAN • ${catchRoll.rodName.toUpperCase()}`
+        : `🎣 ANGLING • ${catchRoll.rodName.toUpperCase()}`,
+      trainerName: null,
+      wardenId: null,
+      rewardShards: Math.round((24 + catchRoll.level * 7) * (zObj.statScale || 1)),
+      enemySquad: [enemyKin],
+      enemyIndex: 0,
+      playerIndex: healthyIdx,
+      activeTab: "moves",
+      busy: false,
+      logText: `🎣 ${catchRoll.isRarePop ? "🌟 5% RARE WATER LEVIATHAN HOOKED! " : "HOOKED! "}Your ${catchRoll.rodName} reeled in a ${enemyKin.isRadiant ? "✨ RADIANT " : ""}wild ${enemyKin.nickname} (Lv.${enemyKin.level} • [${catchRoll.geneticTier}-Rank])!`
+    };
+
+    openBattleOverlay();
+    saveGame();
+    updateHud();
+    return { ok: true, catchRoll, enemyKin };
+  }
+
+  function castFishingLine(targetWaterX = null, targetWaterY = null, openMinigame = false) {
+    if (!root.WILDKIN_MAPS) return { ok: false, reason: "no_maps" };
+    const rod = getEquippedRod(state);
+    let spot = root.WILDKIN_MAPS.isNearWater(state.zone, state.pos.x, state.pos.y);
+    if (!spot || !spot.near) {
+      const nearest = root.WILDKIN_MAPS.findNearestWaterSpot(state.zone, state.pos.x, state.pos.y);
+      if (nearest) {
+        state.pos.x = nearest.standX;
+        state.pos.y = nearest.standY;
+        playerMotion.x = nearest.standX;
+        playerMotion.y = nearest.standY;
+        spot = { near: true, waterX: nearest.waterX, waterY: nearest.waterY, tile: nearest.tile };
+        showToast(`🎣 Walked to the water's edge — Tap to Toss ${rod.name}!`, 2200);
+      }
+    }
+    const wx = targetWaterX !== null ? targetWaterX : (spot ? spot.waterX : state.pos.x + 1);
+    const wy = targetWaterY !== null ? targetWaterY : (spot ? spot.waterY : state.pos.y);
+
+    if (root.WILDKIN_AUDIO) {
+      if (typeof root.WILDKIN_AUDIO.playEncounterStinger === "function") {
+        root.WILDKIN_AUDIO.playEncounterStinger("wild");
+      } else {
+        root.WILDKIN_AUDIO.playBlip(620, 0.08);
+      }
+    }
+    if (root.WILDKIN_3D && typeof root.WILDKIN_3D.playFishingCast3D === "function") {
+      root.WILDKIN_3D.playFishingCast3D(wx, wy, state.rodTier || 1, () => {
+        if (openMinigame && typeof document !== "undefined") {
+          openFishingReelMinigame();
+        } else {
+          startFishingEncounter(state.rodTier || 1);
+        }
+      });
+      return { ok: true, waterX: wx, waterY: wy, rodTier: state.rodTier || 1 };
+    }
+    if (openMinigame && typeof document !== "undefined") {
+      openFishingReelMinigame();
+      return { ok: true, waterX: wx, waterY: wy, rodTier: state.rodTier || 1 };
+    }
+    return startFishingEncounter(state.rodTier || 1);
+  }
+
+  async function purchaseUsdItem(itemId, paymentMethod = "apple_pay", targetState = state) {
+    const st = targetState || state;
+    const item = DATA && DATA.ITEMS ? DATA.ITEMS[itemId] : null;
+    if (!item) return { ok: false, error: "Invalid itemId" };
+
+    let serverOrder = null;
+    if (typeof fetch === "function") {
+      try {
+        const res = await fetch("/api/marketplace/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            itemId: item.id,
+            quantity: 1,
+            paymentMethod,
+            trainerName: st.trainerName || "Aether Tamer"
+          })
+        });
+        const data = await res.json();
+        if (data && data.ok && data.order) {
+          serverOrder = data.order;
+        }
+      } catch (_err) {
+        // Local fallback if offline
+      }
+    }
+
+    if (!st.inventory) st.inventory = {};
+    st.inventory[item.id] = Number(st.inventory[item.id] || 0) + 1;
+    if (item.category === "bag" || item.bagTier) {
+      upgradeKinBag(item.id, st);
+    }
+    if (item.category === "rod" || item.rodTier) {
+      upgradeFishingRod(item.id, st);
+    }
+
+    const orderId = (serverOrder && serverOrder.orderId) || ("WK-ITEM-" + Math.random().toString(36).slice(2, 8).toUpperCase());
+    if (st === state) {
+      if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playLevelUp();
+      saveGame();
+      updateHud();
+      showToast(`💵 Purchased ${item.icon} ${item.name} (${item.priceDisplay || "$" + item.usdPrice})! [Receipt #${orderId}]`, 3400);
+    }
+    return {
+      ok: true,
+      orderId,
+      item,
+      priceUsd: item.usdPrice || 0.99,
+      priceDisplay: item.priceDisplay || "$0.99",
+      rodTier: st.rodTier,
+      bagTier: st.bagTier
+    };
+  }
+
+  // =========================================================================
+  // LIVE MULTIPLAYER OVERWORLD SYNC, WORLD CHAT & REAL-TIME PVP ENGINE
+  // =========================================================================
+  let lastWorldSyncMs = 0;
+
+  function renderWorldChatFeed(messages = state.worldChatMessages) {
+    if (typeof document === "undefined") return;
+    const feedEl = $("worldChatFeed");
+    if (!feedEl) return;
+    const list = Array.isArray(messages) ? messages : [];
+    const chan = state.chatChannel || "global";
+    const filtered = chan === "zone"
+      ? list.filter((m) => !m.zone || m.zone === state.zone || m.channel === "global")
+      : list;
+
+    feedEl.innerHTML = filtered.slice(-20).map((m) => {
+      const isSelf = m.playerId === state.playerId;
+      const zName = (m.zone || "meadow").toUpperCase().slice(0, 6);
+      const safeName = String(m.name || "Tamer").replace(/[<>&"]/g, "");
+      const safeMsg = String(m.message || m.text || "").replace(/[<>&"]/g, "");
+      return `
+        <div class="world-chat-msg ${isSelf ? "self-msg" : ""}">
+          <span class="world-chat-zone-tag">[${zName}]</span>
+          <span class="world-chat-author" data-chat-pvp-id="${m.playerId || ""}" title="Tap to Challenge ${safeName} to Live PvP!">${safeName}:</span>
+          <span>${safeMsg}</span>
+        </div>
+      `;
+    }).join("");
+    feedEl.scrollTop = feedEl.scrollHeight;
+
+    feedEl.querySelectorAll("[data-chat-pvp-id]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const targetId = el.getAttribute("data-chat-pvp-id");
+        if (targetId && targetId !== state.playerId) {
+          challengeOnlinePlayer(targetId);
+        }
+      });
+    });
+  }
+
+  function renderRemotePlayerOverlays(remoteList = state.remotePlayers) {
+    if (typeof document === "undefined") return;
+    const container = $("remotePlayerLabels");
+    if (!container) return;
+    if (!state.started || battleState || activeEvo) {
+      container.innerHTML = "";
+      return;
+    }
+    const list = Array.isArray(remoteList) ? remoteList.slice(0, 6) : [];
+    const nowMs = Date.now();
+    container.innerHTML = list.map((rp) => {
+      const hasBubble = rp.lastChat && rp.lastChat.text && (nowMs - Number(rp.lastChat.ts || 0)) < 12000;
+      const leftPct = Math.max(12, Math.min(88, 50 + (Number(rp.x || 13) - playerMotion.x) * 6.5));
+      const topPct = Math.max(16, Math.min(76, 48 + (Number(rp.y || 11) - playerMotion.y) * 6.5));
+      const safeName = String(rp.name || "Tamer").replace(/[<>&"]/g, "");
+      const safeBubble = hasBubble ? String(rp.lastChat.text).replace(/[<>&"]/g, "") : "";
+      return `
+        <div class="remote-player-tag" data-challenge-rp="${rp.playerId}" style="left:${leftPct}%;top:${topPct}%" title="Tap to Challenge ${safeName} to Live PvP!">
+          ${hasBubble ? `<div class="remote-speech-bubble">💬 “${safeBubble}”</div>` : ""}
+          <div class="remote-name-pill ${rp.isHuman ? "" : "bot-pill"}">
+            ${rp.isHuman ? "🟢" : "⚔️"} ${safeName} <span style="color:#fde047">Lv.${rp.level || 10}</span> • ⚔️ PvP
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    container.querySelectorAll("[data-challenge-rp]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const pid = el.getAttribute("data-challenge-rp");
+        if (pid) challengeOnlinePlayer(pid);
+      });
+    });
+  }
+
+  async function syncWorldPresence(st = state) {
+    if (!st || typeof fetch !== "function") return { ok: false };
+    if (!st.playerId) st.playerId = "wk_" + Math.random().toString(36).slice(2, 9);
+    const lead = (st.squad && st.squad[0]) || null;
+    try {
+      const res = await fetch("/api/world/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId: st.playerId,
+          name: st.trainerName || "Rowan’s Apprentice",
+          zone: st.zone || "meadow",
+          x: playerMotion.x || (st.pos && st.pos.x) || 13,
+          y: playerMotion.y || (st.pos && st.pos.y) || 11,
+          dir: (st.pos && st.pos.dir) || "down",
+          level: getHighestKinLevel(st),
+          leadSpeciesId: lead ? lead.speciesId : 1,
+          isRadiant: Boolean(lead && lead.isRadiant),
+          outfitId: st.equippedOutfit || "homestead_tunic",
+          crests: (st.crests || []).length,
+          rodTier: st.rodTier || 1,
+          lastChat: st.lastChat || null,
+          squad: st.squad || []
+        })
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        st.remotePlayers = data.players || [];
+        if (Array.isArray(data.recentChat)) {
+          st.worldChatMessages = data.recentChat;
+          renderWorldChatFeed(st.worldChatMessages);
+        }
+        if (root.WILDKIN_3D && typeof root.WILDKIN_3D.syncRemotePlayers === "function") {
+          root.WILDKIN_3D.syncRemotePlayers(st.remotePlayers);
+        }
+        renderRemotePlayerOverlays(st.remotePlayers);
+        const badge = $("worldChatOnlineBadge");
+        if (badge) badge.textContent = `${data.onlineCount || (st.remotePlayers.length + 1)} Online`;
+        const pvpLbl = $("pvpBtnLabel");
+        if (pvpLbl) pvpLbl.textContent = `PvP (${data.onlineCount || 4})`;
+        return data;
+      }
+    } catch (_e) {}
+    return { ok: false };
+  }
+
+  async function sendWorldChatMessage(text, channel = null, st = state) {
+    const msg = String(text || "").trim().slice(0, 160);
+    if (!msg || !st) return { ok: false, error: "empty" };
+    const chan = channel || st.chatChannel || "global";
+    const nowMs = Date.now();
+    st.lastChat = { text: msg, ts: nowMs };
+
+    if (typeof document !== "undefined") {
+      const bubble = $("playerEmoteBubble");
+      if (bubble) {
+        bubble.textContent = `💬 “${msg}”`;
+        bubble.classList.remove("hidden");
+        if (emoteTimer) clearTimeout(emoteTimer);
+        emoteTimer = setTimeout(() => bubble.classList.add("hidden"), 4500);
+      }
+    }
+
+    if (typeof fetch === "function") {
+      try {
+        const res = await fetch("/api/world/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerId: st.playerId || "wk_local",
+            name: st.trainerName || "Rowan’s Apprentice",
+            zone: st.zone || "meadow",
+            channel: chan,
+            message: msg
+          })
+        });
+        const data = await res.json();
+        if (data && data.ok) {
+          st.worldChatMessages = data.messages || [];
+          renderWorldChatFeed(st.worldChatMessages);
+          return data;
+        }
+      } catch (_err) {}
+    }
+
+    if (!st.worldChatMessages) st.worldChatMessages = [];
+    const fallbackEntry = {
+      id: "local_" + nowMs,
+      playerId: st.playerId || "wk_local",
+      name: st.trainerName || "Rowan’s Apprentice",
+      zone: st.zone || "meadow",
+      channel: chan,
+      message: msg,
+      ts: nowMs
+    };
+    st.worldChatMessages.push(fallbackEntry);
+    renderWorldChatFeed(st.worldChatMessages);
+    return { ok: true, entry: fallbackEntry, messages: st.worldChatMessages };
+  }
+
+  function startLivePvpBattle(match) {
+    if (!match || !DATA) return { ok: false };
+    const isP1 = match.player1 && match.player1.playerId === state.playerId;
+    const oppSide = isP1 ? (match.player2 || match.player1) : (match.player1 || match.player2);
+    if (!oppSide || !Array.isArray(oppSide.squad) || oppSide.squad.length === 0) {
+      return { ok: false, reason: "waiting_for_opponent", match };
+    }
+
+    let healthyIdx = getFirstHealthySquadIndex();
+    if (healthyIdx === -1) {
+      healSquadAtShrine(true);
+      healthyIdx = 0;
+    }
+
+    const enemySquad = oppSide.squad.map((s) =>
+      DATA.createKinInstance(s.speciesId || 1, s.level || 10, {
+        isRadiant: Boolean(s.isRadiant),
+        geneticTier: s.geneticTier || "A",
+        nickname: s.nickname
+      })
+    );
+    enemySquad.forEach((k) => markSeen(k.speciesId));
+
+    closeModal();
+    closeLobbyScreen();
+    battleState = {
+      mode: "pvp",
+      isLivePvp: true,
+      liveMatchId: match.matchId,
+      roomCode: match.roomCode,
+      title: `⚔️ LIVE PVP • VS ${(oppSide.name || "CHALLENGER").toUpperCase()}`,
+      trainerName: oppSide.name || "Online Challenger",
+      rewardShards: 260,
+      enemySquad,
+      enemyIndex: 0,
+      playerIndex: healthyIdx,
+      activeTab: "moves",
+      busy: false,
+      logText: `⚔️ LIVE PVP MATCH (${match.roomCode || "ARENA"})! ${oppSide.name} sent out ${enemySquad[0].nickname} (Lv.${enemySquad[0].level})!`
+    };
+    openBattleOverlay("warden");
+    return { ok: true, matchId: match.matchId, battleState };
+  }
+
+  async function joinPvpQueue(opts = {}, st = state) {
+    if (!st || typeof fetch !== "function") return { ok: false };
+    if (!st.playerId) st.playerId = "wk_" + Math.random().toString(36).slice(2, 9);
+    try {
+      const res = await fetch("/api/pvp/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId: st.playerId,
+          name: st.trainerName || "Rowan’s Apprentice",
+          zone: st.zone || "meadow",
+          level: getHighestKinLevel(st),
+          squad: st.squad || [],
+          mode: opts.mode || "quick",
+          roomCode: opts.roomCode || undefined,
+          allowBotFallback: opts.allowBotFallback !== undefined ? opts.allowBotFallback : true
+        })
+      });
+      const data = await res.json();
+      if (data && data.ok && data.status === "active" && data.match && opts.autoStart !== false) {
+        startLivePvpBattle(data.match);
+      }
+      return data;
+    } catch (_e) {
+      return { ok: false, error: "network_error" };
+    }
+  }
+
+  async function challengeOnlinePlayer(targetPlayerId, st = state) {
+    if (!st || typeof fetch !== "function") return { ok: false };
+    if (!st.playerId) st.playerId = "wk_" + Math.random().toString(36).slice(2, 9);
+    try {
+      const res = await fetch("/api/pvp/challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId: st.playerId,
+          name: st.trainerName || "Rowan’s Apprentice",
+          zone: st.zone || "meadow",
+          level: getHighestKinLevel(st),
+          squad: st.squad || [],
+          targetPlayerId
+        })
+      });
+      const data = await res.json();
+      if (data && data.ok && data.match) {
+        startLivePvpBattle(data.match);
+      }
+      return data;
+    } catch (_e) {
+      return { ok: false };
+    }
+  }
+
+  async function submitPvpTurnAction(action, matchId = null, st = state) {
+    const mId = matchId || (battleState && battleState.liveMatchId);
+    if (!mId || typeof fetch !== "function") return { ok: false };
+    try {
+      const res = await fetch("/api/pvp/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          matchId: mId,
+          playerId: (st && st.playerId) || state.playerId,
+          action,
+          forceResolve: Boolean(action && action.forceResolve)
+        })
+      });
+      return await res.json();
+    } catch (_e) {
+      return { ok: false };
+    }
+  }
+
   async function purchaseUsdBundle(bundleId, paymentMethod = 'apple_pay', targetState = state) {
     const st = targetState || state;
     const bundles = (DATA && DATA.MARKETPLACE_BUNDLES) || [];
@@ -1291,6 +2173,14 @@
     if (bundle.vipShrinePass) {
       st.vipShrinePass = true;
       st.shrineCooldownUntil = 0;
+    }
+    if (bundle.rodTier) {
+      upgradeFishingRod(bundle.rodTier, st);
+    }
+    if (bundle.bagTier) {
+      st.bagTier = Math.max(Number(st.bagTier || 0), Number(bundle.bagTier));
+      st.maxSquadSize = getMaxSquadSize(st);
+      st.maxVaultSize = getMaxVaultSize(st);
     }
     if (bundle.items && st.inventory) {
       Object.entries(bundle.items).forEach(([k, qty]) => {
@@ -2156,12 +3046,43 @@
     }
     closeHubMenuDrawer();
     closeLobbyScreen();
+    const castRodText = $('castRodCtaText');
+    const castRodBtn = $('btnCastRodMain');
+    if (castRodText && root.WILDKIN_MAPS) {
+      const rodObj = getEquippedRod(state);
+      const nearW = root.WILDKIN_MAPS.isNearWater(state.zone, state.pos.x, state.pos.y);
+      if (nearW && nearW.near) {
+        castRodText.textContent = `🎣 Tap to Toss — ${rodObj.name} (Water Ready!)`;
+        if (castRodBtn) castRodBtn.style.boxShadow = '0 0 18px rgba(56, 189, 248, 0.9)';
+      } else {
+        castRodText.textContent = `Tap to Toss — ${rodObj.name}`;
+        if (castRodBtn) castRodBtn.style.boxShadow = '';
+      }
+      document.querySelectorAll('[data-select-rod]').forEach((rb) => {
+        const t = Number(rb.getAttribute('data-select-rod'));
+        rb.classList.toggle('active', t === Number(state.rodTier || 1));
+      });
+    }
     const interactBtn = $('interactBanner');
     if (interactBtn) interactBtn.classList.add('hidden');
 
     if (root.WILDKIN_AUDIO) {
-      root.WILDKIN_AUDIO.playEncounterAlert();
-      root.WILDKIN_AUDIO.startBgm(bgmType);
+      const modeKey = battleState && (battleState.mode === 'warden' || battleState.mode === 'pvp' || battleState.mode === 'spire') ? 'warden' : 'wild';
+      if (typeof root.WILDKIN_AUDIO.playEncounterStinger === 'function') {
+        root.WILDKIN_AUDIO.playEncounterStinger(modeKey);
+      } else {
+        root.WILDKIN_AUDIO.playEncounterAlert();
+      }
+      if (typeof root.WILDKIN_AUDIO.startBattleBgm === 'function') {
+        root.WILDKIN_AUDIO.startBattleBgm(modeKey);
+      } else {
+        root.WILDKIN_AUDIO.startBgm(bgmType);
+      }
+      const foeInit = battleState && battleState.enemySquad && battleState.enemySquad[battleState.enemyIndex];
+      if (foeInit && typeof root.WILDKIN_AUDIO.playKinCry === 'function') {
+        const foeSp = DATA && DATA.getSpeciesById ? DATA.getSpeciesById(foeInit.speciesId) : null;
+        root.WILDKIN_AUDIO.playKinCry(foeInit.speciesId, (foeSp && foeSp.affinity) || 'Terra', (foeSp && foeSp.stage) || 1, false);
+      }
     }
 
     const pKin = state.squad[battleState.playerIndex];
@@ -2185,6 +3106,9 @@
     }
     battleState = null;
     if (root.WILDKIN_AUDIO) {
+      if (typeof root.WILDKIN_AUDIO.stopBattleBgm === 'function') {
+        root.WILDKIN_AUDIO.stopBattleBgm();
+      }
       root.WILDKIN_AUDIO.startBgm('overworld');
     }
     saveGame();
@@ -2545,8 +3469,17 @@
       return;
     }
 
+    if (root.WILDKIN_AUDIO && typeof root.WILDKIN_AUDIO.playElementMoveSfx === 'function') {
+      root.WILDKIN_AUDIO.playElementMoveSfx(move.affinity || 'Terra', move.category || 'physical');
+    }
     const res = calculateDamage(player, enemy, move);
-    if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playAttack(res.multiplier);
+    if (root.WILDKIN_AUDIO) {
+      if (typeof root.WILDKIN_AUDIO.playHitImpactSfx === 'function') {
+        root.WILDKIN_AUDIO.playHitImpactSfx(res.multiplier, res.isCrit);
+      } else {
+        root.WILDKIN_AUDIO.playAttack(res.multiplier);
+      }
+    }
 
     animateSpriteHit(true, () => {
       enemy.currentHp = Math.max(0, enemy.currentHp - res.damage);
@@ -2560,8 +3493,22 @@
         player.currentHp = Math.min(player.maxHp, player.currentHp + drained);
         msg += ` Drained +${drained} HP!`;
       }
+      if (move.recoil && res.damage > 0) {
+        const rec = Math.max(1, Math.round(res.damage * move.recoil));
+        player.currentHp = Math.max(1, player.currentHp - rec);
+        msg += ` (Recoil -${rec} HP)`;
+      }
 
-      if (enemy.currentHp > 0 && move.statusEffect && !enemy.status) {
+      const isPoisonWeakenMove = move.effect === 'poison_weaken' || (move.statusEffect && move.statusEffect.type === 'poison_weaken');
+      if (enemy.currentHp > 0 && isPoisonWeakenMove) {
+        const chance = (move.statusEffect && move.statusEffect.chance) || 0.75;
+        if (Math.random() < chance) {
+          enemy.status = 'poison_weaken';
+          enemy.poisonStacks = Math.min(4, Number(enemy.poisonStacks || 0) + 1);
+          const wkPct = Math.round((1 - Math.max(0.45, 1 - 0.12 * enemy.poisonStacks)) * 100);
+          msg += ` ☠️ ${enemy.nickname} is afflicted with SHADOW POISON Lv.${enemy.poisonStacks} (-${wkPct}% ATK/DEF & HP drain every round)!`;
+        }
+      } else if (enemy.currentHp > 0 && move.statusEffect && !enemy.status) {
         if (Math.random() < move.statusEffect.chance) {
           enemy.status = move.statusEffect.type;
           msg += ` ${enemy.nickname} was inflicted with ${enemy.status.toUpperCase()}!`;
@@ -2591,20 +3538,18 @@
       return;
     }
 
-    // PHASE 2: ENEMY'S TURN (Distinct announcement + camera cut to enemy + wind-up pause)
-    const eMoves = (enemy.moveSlots || []).map((ms) => DATA.MOVES[ms.id] || DATA.MOVES.clawSwipe);
-    const chosenMove = eMoves[Math.floor(Math.random() * eMoves.length)] || DATA.MOVES.clawSwipe;
+    // PHASE 2: ENEMY'S TURN (Smart Tactical AI + Shadow Poison Weaken progression)
+    const chosenMove = chooseSmartEnemyMove(enemy, player) || DATA.MOVES.clawSwipe;
 
     setBattleTurnBanner('phase-enemy', 'TURN 2 • FOE ATTACKS', `Foe ${enemy.nickname} counters with ${chosenMove.name}!`);
     setBattleLog(`⚠️ [FOE TURN] Foe ${enemy.nickname} readies ${chosenMove.name}!`);
 
-    // End-of-round burn/poison tick on enemy
-    if (enemy.status === 'burn' || enemy.status === 'poison') {
-      const dot = Math.max(1, Math.floor(enemy.maxHp * 0.08));
-      enemy.currentHp = Math.max(0, enemy.currentHp - dot);
+    // End-of-round burn / poison / Shadow Poison Weaken tick on enemy
+    if (enemy.status === 'burn' || enemy.status === 'poison' || enemy.status === 'poison_weaken' || Number(enemy.poisonStacks || 0) > 0) {
+      const pTick = tickPoisonWeakenRound(enemy);
       if (enemy.currentHp <= 0) {
         renderBattleUI();
-        setBattleLog(`${enemy.nickname} fainted from ${enemy.status.toUpperCase()} damage!`);
+        setBattleLog(`☠️ ${enemy.nickname} collapsed from ${pTick.isShadowPoison ? 'SHADOW POISON' : enemy.status.toUpperCase()} (-${pTick.dot} HP)!`);
         setTimeout(() => handleEnemyDefeated(), 850);
         return;
       }
@@ -2651,18 +3596,32 @@
         if (res.effectiveness === 'super') msg += ' It’s super effective!';
         else if (res.effectiveness === 'resist') msg += ' Not very effective.';
 
-        if (player.currentHp > 0 && chosenMove.statusEffect && !player.status) {
+        const foePoisonWeaken = chosenMove.effect === 'poison_weaken' || (chosenMove.statusEffect && chosenMove.statusEffect.type === 'poison_weaken');
+        if (player.currentHp > 0 && foePoisonWeaken) {
+          const chance = (chosenMove.statusEffect && chosenMove.statusEffect.chance) || 0.75;
+          if (Math.random() < chance) {
+            player.status = 'poison_weaken';
+            player.poisonStacks = Math.min(4, Number(player.poisonStacks || 0) + 1);
+            msg += ` ☠️ ${player.nickname} was afflicted with SHADOW POISON Lv.${player.poisonStacks}!`;
+          }
+        } else if (player.currentHp > 0 && chosenMove.statusEffect && !player.status) {
           if (Math.random() < chosenMove.statusEffect.chance) {
             player.status = chosenMove.statusEffect.type;
             msg += ` ${player.nickname} caught ${player.status.toUpperCase()}!`;
           }
         }
 
-        // Player burn/poison tick
-        if (player.currentHp > 0 && (player.status === 'burn' || player.status === 'poison')) {
-          const pDot = Math.max(1, Math.floor(player.maxHp * 0.07));
-          player.currentHp = Math.max(0, player.currentHp - pDot);
-          msg += ` (${player.status.toUpperCase()} -${pDot} HP)`;
+        // Player burn / poison / Shadow Poison Weaken per-round tick
+        if (player.currentHp > 0 && (player.status === 'burn' || player.status === 'poison' || player.status === 'poison_weaken' || Number(player.poisonStacks || 0) > 0)) {
+          const pTick = tickPoisonWeakenRound(player);
+          if (pTick.triggered) {
+            msg += pTick.isShadowPoison
+              ? ` (☠️ SHADOW POISON -${pTick.dot} HP & ATK/DEF x${pTick.weakenMultiplier})`
+              : ` (${player.status.toUpperCase()} -${pTick.dot} HP)`;
+          }
+        }
+        if (player.currentHp > 0 && player.currentHp <= player.maxHp * 0.25 && root.WILDKIN_AUDIO && typeof root.WILDKIN_AUDIO.playLowHpBeep === 'function') {
+          root.WILDKIN_AUDIO.playLowHpBeep();
         }
 
         setBattleLog(msg);
@@ -3096,6 +4055,10 @@
       upgradeKinBag(itemId, state);
       return true;
     }
+    if (item.category === "rod") {
+      upgradeFishingRod(itemId, state);
+      return true;
+    }
     if (root.WILDKIN_AUDIO) root.WILDKIN_AUDIO.playBlip(720, 0.06);
     saveGame();
     updateHud();
@@ -3338,6 +4301,7 @@
                   <div class="mini-btn-row" style="margin-top:4px">
                     <button class="mini-btn" data-buy-id="${item.id}">🪙 ${item.cost}</button>
                     <button class="mini-btn secondary" data-buy-gem-id="${item.id}" style="background:#7e22ce">💎 ${gCost}</button>
+                    <button class="mini-btn" data-buy-usd-id="${item.id}" style="background:#059669;border-color:#34d399">💵 ${item.priceDisplay || ("$" + (item.usdPrice || "0.99"))}</button>
                     <button class="mini-btn" data-use-market-id="${item.id}" style="background:${owned > 0 ? '#16a34a' : '#334155'}">
                       ✨ ${owned > 0 ? `Use on ${item.squadFullHeal ? 'Squad' : (selKin ? selKin.nickname : 'Kin')}` : 'Buy & Use'}
                     </button>
@@ -3351,6 +4315,7 @@
         const boostKeys = [
           'sunberryRation', 'heartwoodStew', 'feastPlatter',
           'heartwoodBerry', 'apexNectar',
+          'bambooPole', 'carbonRod', 'leviathanRod',
           'basicPrism', 'greaterPrism', 'masteryPrism',
           'bagUpgrade1', 'bagUpgrade2', 'bagUpgrade3',
           'aetherCandy', 'apexTome', 'xpBooster2x', 'hatchAccelerator'
@@ -3468,6 +4433,14 @@
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-buy-id');
           if (buyShopItem(id, false)) openModal('shop');
+        });
+      });
+
+      bodyEl.querySelectorAll('[data-buy-usd-id]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-buy-usd-id');
+          await purchaseUsdItem(id, 'apple_pay', state);
+          openModal('shop');
         });
       });
 
@@ -3619,7 +4592,31 @@
             `;
           }).join('')}
         </div>
-        <div style="font-size:0.75rem;color:#38bdf8;font-weight:800;margin-top:6px">🌐 Online PvP Squad Arena Room</div>
+        <div class="warden-card" style="border-color:#22c55e;background:linear-gradient(135deg,rgba(6,78,59,0.65),rgba(15,23,42,0.92));margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+            <strong style="color:#4ade80;font-size:0.82rem">🟢 Live Multiplayer World & Real-Time PvP Arena</strong>
+            <button type="button" class="mini-btn" id="btnLiveQuickPvp" style="background:#16a34a;flex:0 0 auto;padding:6px 12px">⚡ Quick Matchmaking Queue</button>
+          </div>
+          <div style="font-size:0.68rem;color:#cbd5e1;margin:4px 0">
+            Players currently roaming <strong>${getZoneObj(state.zone).name}</strong> (tap any player below or in the 3D world to battle live!):
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:6px">
+            ${(state.remotePlayers && state.remotePlayers.length ? state.remotePlayers : [
+              { playerId: "online_tamer_aria", name: "Aria_Vanguard", level: 12, isHuman: false },
+              { playerId: "online_tamer_kaelen", name: "Kaelen_Apex", level: 22, isHuman: false },
+              { playerId: "online_tamer_nyx", name: "Nyx_Sovereign", level: 34, isHuman: false }
+            ]).map((rp) => `
+              <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(15,23,42,0.85);padding:6px 8px;border-radius:8px;border:1px solid rgba(56,189,248,0.35)">
+                <div>
+                  <div style="font-size:0.72rem;font-weight:800;color:#f8fafc">${rp.isHuman ? "🟢" : "⚔️"} ${rp.name}</div>
+                  <div style="font-size:0.6rem;color:#fde047">Lv.${rp.level || 10} • ${rp.isHuman ? "Live Player" : "Online Tamer"}</div>
+                </div>
+                <button type="button" class="mini-btn" data-challenge-online="${rp.playerId}" style="flex:0 0 auto;padding:4px 8px;background:#0284c7">⚔️ Duel</button>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div style="font-size:0.75rem;color:#38bdf8;font-weight:800;margin-top:6px">🌐 Private Room Code PvP (Battle a Friend)</div>
         <div class="warden-card">
           <div style="font-size:0.68rem;color:#cbd5e1">Host your current Squad in an Arena Room or enter a 4-letter Room Code (e.g. <strong>AETH</strong> or <strong>NOVA</strong>) to duel another Tamer’s squad!</div>
           <div style="display:flex;gap:6px;align-items:center">
@@ -3631,6 +4628,15 @@
         </div>
       `;
 
+      const quickPvpBtn = $('btnLiveQuickPvp');
+      if (quickPvpBtn) {
+        quickPvpBtn.addEventListener('click', () => joinPvpQueue({ mode: 'quick' }, state));
+      }
+      bodyEl.querySelectorAll('[data-challenge-online]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          challengeOnlinePlayer(btn.getAttribute('data-challenge-online'), state);
+        });
+      });
       const spireBtn = $('btnEnterSpire');
       if (spireBtn) {
         spireBtn.addEventListener('click', () => startSpireBattle());
@@ -4701,6 +5707,93 @@
         startWildEncounter();
       });
     }
+
+    const btnQuickFish = $("btnQuickFish");
+    if (btnQuickFish) {
+      btnQuickFish.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!state.started || battleState || activeEvo) return;
+        castFishingLine(null, null, true);
+      });
+    }
+    const btnCastRodMain = $("btnCastRodMain");
+    if (btnCastRodMain) {
+      btnCastRodMain.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!state.started || battleState || activeEvo) return;
+        castFishingLine(null, null, true);
+      });
+    }
+    document.querySelectorAll("[data-select-rod]").forEach((rodBtn) => {
+      rodBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const reqTier = Number(rodBtn.getAttribute("data-select-rod") || 1);
+        const rodKey = reqTier === 3 ? "leviathanRod" : reqTier === 2 ? "carbonRod" : "bambooPole";
+        if (reqTier > 1 && !(state.inventory && state.inventory[rodKey] > 0) && Number(state.rodTier || 1) < reqTier) {
+          state.marketTab = "rods";
+          openModal("shop");
+          showToast(`🎣 Unlock Lv.${reqTier} Fishing Pole in the Angler Shop!`, 2400);
+          return;
+        }
+        state.rodTier = reqTier;
+        updateHud();
+        const rodObj = getEquippedRod(state);
+        showToast(`🎣 Equipped ${rodObj.name} (Lv.${reqTier}) — Tap to Toss near water!`, 2200);
+      });
+    });
+    const btnQuickPvp = $("btnQuickPvp");
+    if (btnQuickPvp) {
+      btnQuickPvp.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!state.started || battleState || activeEvo) return;
+        syncWorldPresence(state);
+        openModal('arena');
+      });
+    }
+    const btnQuickWorldChat = $("btnQuickWorldChat");
+    const worldChatDock = $("worldChatDock");
+    const btnToggleWorldChat = $("btnToggleWorldChat");
+    if (btnQuickWorldChat && worldChatDock) {
+      btnQuickWorldChat.addEventListener("click", (e) => {
+        e.stopPropagation();
+        worldChatDock.classList.toggle("minimized");
+      });
+    }
+    if (btnToggleWorldChat && worldChatDock) {
+      btnToggleWorldChat.addEventListener("click", (e) => {
+        e.stopPropagation();
+        worldChatDock.classList.toggle("minimized");
+      });
+    }
+    const chanBtns = document.querySelectorAll("[data-chat-chan]");
+    chanBtns.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        state.chatChannel = btn.getAttribute("data-chat-chan") || "global";
+        chanBtns.forEach((b) => b.classList.toggle("active", b === btn));
+        renderWorldChatFeed(state.worldChatMessages);
+      });
+    });
+    document.querySelectorAll("[data-quick-chat]").forEach((chip) => {
+      chip.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const msg = chip.getAttribute("data-quick-chat");
+        if (msg) sendWorldChatMessage(msg, state.chatChannel, state);
+      });
+    });
+    const worldChatForm = $("worldChatForm");
+    if (worldChatForm) {
+      worldChatForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const inp = $("worldChatInput");
+        if (inp && inp.value.trim()) {
+          sendWorldChatMessage(inp.value.trim(), state.chatChannel, state);
+          inp.value = "";
+        }
+      });
+    }
+
     const btnQuickRanch = $("btnQuickRanch");
     if (btnQuickRanch) {
       btnQuickRanch.addEventListener("click", (e) => {
@@ -4760,7 +5853,7 @@
     if (viewport) {
       viewport.addEventListener("pointerdown", (e) => {
         if (!state.started || battleState || activeEvo) return;
-        if (e.target && e.target.closest("button, .overlay-screen, .overworld-hud, .world-action-bar, .recovery-alert-banner")) return;
+        if (e.target && e.target.closest("button, input, select, textarea, form, .overlay-screen, .overworld-hud, .world-action-bar, .recovery-alert-banner, .world-chat-dock, .remote-player-labels, .fishing-quick-bar, .fish-floating-cta")) return;
 
         dragSteer.active = true;
         dragSteer.pointerId = e.pointerId;
@@ -4830,6 +5923,11 @@
             const maxTileY = ((root.WILDKIN_MAPS && root.WILDKIN_MAPS.MAP_HEIGHT) || 22) - 1;
             const tx = Math.max(0.0, Math.min(maxTileX, targetTile.x));
             const ty = Math.max(0.0, Math.min(maxTileY, targetTile.y));
+            const tappedTileCode = root.WILDKIN_MAPS ? root.WILDKIN_MAPS.getTileAt(state.zone, Math.round(tx), Math.round(ty)) : "G";
+            if (tappedTileCode === "~") {
+              castFishingLine(Math.round(tx), Math.round(ty), true);
+              return;
+            }
             const tappedWild = (state.wildSpawns || []).find((ws) => Math.hypot(ws.x - tx, ws.y - ty) <= 1.15);
             if (tappedWild) {
               const hitSp = tappedWild.speciesId;
@@ -5071,6 +6169,24 @@
       updateContinuous3DMovement(dtSec);
       if (state.started && !battleState) {
         tickPassiveRecovery(state, dtSec);
+        if (tNow - lastWorldSyncMs > 3500) {
+          lastWorldSyncMs = tNow;
+          syncWorldPresence(state);
+        }
+      }
+      if (fishingReelState && fishingReelState.active && !fishingReelState.completed) {
+        fishingReelState.markerPos += fishingReelState.markerDir * fishingReelState.markerSpeed * dtSec;
+        if (fishingReelState.markerPos >= 96) {
+          fishingReelState.markerPos = 96;
+          fishingReelState.markerDir = -1;
+        } else if (fishingReelState.markerPos <= 4) {
+          fishingReelState.markerPos = 4;
+          fishingReelState.markerDir = 1;
+        }
+        const markerEl = $("fishingReelMarker");
+        if (markerEl) {
+          markerEl.style.left = `${fishingReelState.markerPos.toFixed(1)}%`;
+        }
       }
       renderOverworld();
 
@@ -5087,8 +6203,15 @@
           state.wildSpawns.forEach((ws, idx) => {
             ws.timer = (ws.timer || 0) + dtSec;
             const r = 0.55;
-            ws.x = ws.homeX + Math.cos(ws.timer * 0.7 + idx) * r;
-            ws.y = ws.homeY + Math.sin(ws.timer * 0.7 + idx) * r;
+            const candX = ws.homeX + Math.cos(ws.timer * 0.7 + idx) * r;
+            const candY = ws.homeY + Math.sin(ws.timer * 0.7 + idx) * r;
+            if (!root.WILDKIN_MAPS.isWalkableLandForRoamer || root.WILDKIN_MAPS.isWalkableLandForRoamer(state.zone, candX, candY)) {
+              ws.x = candX;
+              ws.y = candY;
+            } else {
+              ws.x = ws.homeX;
+              ws.y = ws.homeY;
+            }
             ws.angle = Math.atan2(-Math.sin(ws.timer * 0.7 + idx), Math.cos(ws.timer * 0.7 + idx));
             const nowLoop = Date.now();
             if (
@@ -5179,7 +6302,24 @@
     healSquadAtShrine,
     tickPassiveRecovery,
     useRecoveryOrBoosterItem,
+    tickPoisonWeakenRound,
+    chooseSmartEnemyMove,
+    getEquippedRod,
+    upgradeFishingRod,
+    rollFishingCatchForRod,
+    openFishingReelMinigame,
+    tapFishingReelBar,
+    getFishingReelState,
+    castFishingLine,
+    startFishingEncounter,
+    purchaseUsdItem,
     purchaseUsdBundle,
+    syncWorldPresence,
+    sendWorldChatMessage,
+    joinPvpQueue,
+    challengeOnlinePlayer,
+    submitPvpTurnAction,
+    startLivePvpBattle,
     getKinRecoveryEtaText,
     buyShopItem,
     startWildEncounter,

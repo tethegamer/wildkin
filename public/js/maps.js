@@ -10,8 +10,8 @@
 (function (root) {
   "use strict";
 
-  const MAP_WIDTH = 28;
-  const MAP_HEIGHT = 22;
+  const MAP_WIDTH = 36;
+  const MAP_HEIGHT = 28;
 
   // Tile legend:
   // "." = Open Path / Ground
@@ -63,30 +63,59 @@
       },
       spawn: { x: 13, y: 11 },
       rows: [
-        "TTTTTTTTTTTTTPPTTWTTTTTTTTTT",
-        "TGGGGGG....R....R....GGGGGGT",
-        "TGGGGGG..............GGGGGGT",
-        "TGGG..C.....F..F.....H..GGGT",
-        "TGGG....................GGGT",
-        "T..F....GGGG....GGGG....F..T",
-        "T......GGGGGG..GGGGGG......T",
-        "T..R...GGGGGG..GGGGGG...R..T",
-        "T.......GGGG....GGGG.......T",
-        "T..GGG................GGG..T",
-        "T..GGGG....F....F....GGGG..T",
-        "T..GGGG..............GGGG..T",
-        "T..GGG...GGGG..GGGG...GGG..T",
-        "T.......GGGGGGGGGGGG.......T",
-        "T~~~BBBB~~~~BBBB~~~~BBBB~~~T",
-        "T~~~BBBB~~~~BBBB~~~~BBBB~~~T",
-        "T..GGG......F..F......GGG..T",
-        "T..GGGG..............GGGG..T",
-        "T..GGGG..R........R..GGGG..T",
-        "T..GGG....GGGGGGGG....GGG..T",
-        "T.........GGGGGGGG.........T",
-        "TTTTTTTTTTTTTPPTTTTTTTTTTTTT"
+        "TTTTTTTTTTTTTPPTTWTTTTTTTTTTTTTTTTTT",
+        "TGGGGGG....R....R....GGGGGG..~~~..RT",
+        "TGGGGGG..............GGGGGG.~~~~~..T",
+        "TGGG..C.....F..F.....H..GGG.~~~~~..T",
+        "TGGG....................GGG..~~~...T",
+        "T..F....GGGG....GGGG....F.....B....T",
+        "T......GGGGGG..GGGGGG........GGG...T",
+        "T..R...GGGGGG..GGGGGG...R...GGGGG..T",
+        "T.......GGGG....GGGG.........GGG...T",
+        "T..GGG................GGG..........T",
+        "T..GGGG....F....F....GGGG....BBBB~.T",
+        "T..GGGG..............GGGG...~~~~~~.T",
+        "T..GGG...GGGG..GGGG...GGG....BBBB~.T",
+        "T.......GGGGGGGGGGGG........~~~~~~.T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~~~BB~~~T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~~~BB~~~T",
+        "T..GGG......F..F......GGG...~~~~~~.T",
+        "T..GGGG..............GGGG....BBBB~.T",
+        "T..GGGG..R........R..GGGG.....F....T",
+        "T..GGG....GGGGGGGG....GGG....GGGG..T",
+        "T.........GGGGGGGG...........GGGG..T",
+        "T..GGG......F..F......GGG...~~~~...T",
+        "T..GGGG....GGGGGG....GGGG..~~~~~~..T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T..GGGG....F....F....GGGG...~~~~...T",
+        "T.........GGGGGGGG.................T",
+        "TTTTTTTTTTTTTPPTTTTTTTTTTTTTTTTTTTTT"
       ],
       npcs: {
+        "28,12": {
+          id: "npc_angler_kai",
+          name: "Master Angler Kai",
+          role: "Tidewater Fishing Mentor • Rod Tier Guide",
+          icon: "🎣",
+          type: "guide",
+          color: "#38bdf8",
+          dialogue: [
+            "“Welcome to the Eastern Angler Pier! Stand near any water shoreline (~) or bridge (B) and tap 🎣 Fish to cast your line!”",
+            "“Your Lv.1 Bamboo Pole hooks Common Stage 1 Water Kin (B/A-Rank). Upgrade to the Lv.2 Carbon Rod or Lv.3 Sovereign Leviathan Rod in the 🏬 Shopping Center to hook Evolved Stage 2 & Mythic Stage 3 Leviathans!”"
+          ],
+          quest: {
+            id: "npc_q_kai_fishing",
+            title: "Angler’s Initiation: Hook 2 Water Kin",
+            desc: "Cast your Fishing Pole near water in any world and hook 2 Water-based Kin.",
+            stat: "fishCaught",
+            target: 2,
+            rewardShards: 280,
+            rewardGems: 30,
+            rewardItem: "greaterPrism",
+            rewardQty: 3
+          }
+        },
         "13,10": {
           id: "rowan",
           name: "Grandpa Rowan",
@@ -226,8 +255,8 @@
       portals: {
         "13,0": { targetZone: "tidecove", targetX: 13, targetY: 19, label: "North Gate → Whispering Tidecove (World 2 • Lv.6+)" },
         "14,0": { targetZone: "tidecove", targetX: 14, targetY: 19, label: "North Gate → Whispering Tidecove (World 2 • Lv.6+)" },
-        "13,21": { targetZone: "sanctum", targetX: 13, targetY: 2, label: "South Gate → Astral Sanctum (World 6 • Lv.48+)" },
-        "14,21": { targetZone: "sanctum", targetX: 14, targetY: 2, label: "South Gate → Astral Sanctum (World 6 • Lv.48+)" }
+        "13,27": { targetZone: "sanctum", targetX: 13, targetY: 2, label: "South Gate → Astral Sanctum (World 6 • Lv.48+)" },
+        "14,27": { targetZone: "sanctum", targetX: 14, targetY: 2, label: "South Gate → Astral Sanctum (World 6 • Lv.48+)" }
       }
     },
 
@@ -249,28 +278,34 @@
       },
       spawn: { x: 13, y: 19 },
       rows: [
-        "TTTTTTTTTTTTTPPTTWTTTTTTTTTT",
-        "T~~~~GGGG..............GGGGT",
-        "T~~~~GGGG....R....R....GGGGT",
-        "T~~~..C.....F..F.....H..~~~T",
-        "T~~~....................~~~T",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T..GGGGGG..............GGGGT",
-        "T..GGGGGG..F........F..GGGGT",
-        "T..R..GGG....GGGGGG....R...T",
-        "T............GGGGGG........T",
-        "T..GGGG................GGGGT",
-        "T..GGGG~~BBBB~~~~BBBB~~GGGGT",
-        "T..GGGG~~BBBB~~~~BBBB~~GGGGT",
-        "T......~~~~........~~~~....T",
-        "T..GGG....GGGG..GGGG....GGGT",
-        "T..GGGG...GGGG..GGGG...GGGGT",
-        "T..GGGG.......FF.......GGGGT",
-        "T..R...GGG..........GGG..R.T",
-        "T.........F........F.......T",
-        "T..........................T",
-        "T....GGGG..........GGGG....T",
-        "TTTTTTTTTTTTTPPTTTTTTTTTTTTT"
+        "TTTTTTTTTTTTTPPTTWTTTTTTTTTTTTTTTTTT",
+        "T~~~~GGGG..............GGGG..~~~..RT",
+        "T~~~~GGGG....R....R....GGGG.~~~~~..T",
+        "T~~~..C.....F..F.....H..~~~.~~~~~..T",
+        "T~~~....................~~~..~~~...T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB...B....T",
+        "T..GGGGGG..............GGGG..GGG...T",
+        "T..GGGGGG..F........F..GGGG.GGGGG..T",
+        "T..R..GGG....GGGGGG....R.....GGG...T",
+        "T............GGGGGG................T",
+        "T..GGGG................GGGG..BBBB~.T",
+        "T..GGGG~~BBBB~~~~BBBB~~GGGG.~~~~~~.T",
+        "T..GGGG~~BBBB~~~~BBBB~~GGGG..BBBB~.T",
+        "T......~~~~........~~~~.....~~~~~~.T",
+        "T..GGG....GGGG..GGGG....GGG~~~BB~~~T",
+        "T..GGGG...GGGG..GGGG...GGGG~~~BB~~~T",
+        "T..GGGG.......FF.......GGGG.~~~~~~.T",
+        "T..R...GGG..........GGG..R...BBBB~.T",
+        "T.........F........F..........F....T",
+        "T............................GGGG..T",
+        "T....GGGG..........GGGG......GGGG..T",
+        "T..GGG......F..F......GGG...~~~~...T",
+        "T..GGGG....GGGGGG....GGGG..~~~~~~..T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T..GGGG....F....F....GGGG...~~~~...T",
+        "T.........GGGGGGGG.................T",
+        "TTTTTTTTTTTTTPPTTTTTTTTTTTTTTTTTTTTT"
       ],
       npcs: {
         "6,3": {
@@ -385,8 +420,8 @@
         }
       },
       portals: {
-        "13,21": { targetZone: "meadow", targetX: 13, targetY: 2, label: "South Gate → Sunleaf Meadow (World 1)" },
-        "14,21": { targetZone: "meadow", targetX: 14, targetY: 2, label: "South Gate → Sunleaf Meadow (World 1)" },
+        "13,27": { targetZone: "meadow", targetX: 13, targetY: 2, label: "South Gate → Sunleaf Meadow (World 1)" },
+        "14,27": { targetZone: "meadow", targetX: 14, targetY: 2, label: "South Gate → Sunleaf Meadow (World 1)" },
         "13,0": { targetZone: "stormspire", targetX: 13, targetY: 19, label: "North Gate → Stormspire Ridge (World 3 • Lv.14+)" },
         "14,0": { targetZone: "stormspire", targetX: 14, targetY: 19, label: "North Gate → Stormspire Ridge (World 3 • Lv.14+)" }
       }
@@ -410,28 +445,34 @@
       },
       spawn: { x: 13, y: 19 },
       rows: [
-        "TTTTTTTTTTTTTPPTTWTTTTTTTTTT",
-        "TGGGGGG....R....R....GGGGGGT",
-        "TGGGGGG..............GGGGGGT",
-        "TGGG..C.....F..F.....H..GGGT",
-        "TGGG....................GGGT",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T..GGGGGG..............GGGGT",
-        "T..GGGGGG..R........R..GGGGT",
-        "T....GGGG....GGGGGG....GGGGT",
-        "T............GGGGGG........T",
-        "T..GGGG................GGGGT",
-        "T..GGGG..R....FF....R..GGGGT",
-        "T..GGGG................GGGGT",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T..GGGG....GGGG..GGGG..GGGGT",
-        "T..GGGG....GGGG..GGGG..GGGGT",
-        "T..R...GGG....FF....GGG..R.T",
-        "T..........................T",
-        "T....GGGG..........GGGG....T",
-        "T....GGGG....F..F..GGGG....T",
-        "T..........................T",
-        "TTTTTTTTTTTTTPPTTTTTTTTTTTTT"
+        "TTTTTTTTTTTTTPPTTWTTTTTTTTTTTTTTTTTT",
+        "TGGGGGG....R....R....GGGGGG..~~~..RT",
+        "TGGGGGG..............GGGGGG.~~~~~..T",
+        "TGGG..C.....F..F.....H..GGG.~~~~~..T",
+        "TGGG....................GGG..~~~...T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB...B....T",
+        "T..GGGGGG..............GGGG..GGG...T",
+        "T..GGGGGG..R........R..GGGG.GGGGG..T",
+        "T....GGGG....GGGGGG....GGGG..GGG...T",
+        "T............GGGGGG................T",
+        "T..GGGG................GGGG..BBBB~.T",
+        "T..GGGG..R....FF....R..GGGG.~~~~~~.T",
+        "T..GGGG................GGGG..BBBB~.T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB.~~~~~~.T",
+        "T..GGGG....GGGG..GGGG..GGGG~~~BB~~~T",
+        "T..GGGG....GGGG..GGGG..GGGG~~~BB~~~T",
+        "T..R...GGG....FF....GGG..R..~~~~~~.T",
+        "T............................BBBB~.T",
+        "T....GGGG..........GGGG.......F....T",
+        "T....GGGG....F..F..GGGG......GGGG..T",
+        "T............................GGGG..T",
+        "T..GGG......F..F......GGG...~~~~...T",
+        "T..GGGG....GGGGGG....GGGG..~~~~~~..T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T..GGGG....F....F....GGGG...~~~~...T",
+        "T.........GGGGGGGG.................T",
+        "TTTTTTTTTTTTTPPTTTTTTTTTTTTTTTTTTTTT"
       ],
       npcs: {
         "6,3": {
@@ -547,8 +588,8 @@
         }
       },
       portals: {
-        "13,21": { targetZone: "tidecove", targetX: 13, targetY: 2, label: "South Gate → Whispering Tidecove (World 2)" },
-        "14,21": { targetZone: "tidecove", targetX: 14, targetY: 2, label: "South Gate → Whispering Tidecove (World 2)" },
+        "13,27": { targetZone: "tidecove", targetX: 13, targetY: 2, label: "South Gate → Whispering Tidecove (World 2)" },
+        "14,27": { targetZone: "tidecove", targetX: 14, targetY: 2, label: "South Gate → Whispering Tidecove (World 2)" },
         "13,0": { targetZone: "cinderpeak", targetX: 13, targetY: 19, label: "North Gate → Cinderpeak Caldera (World 4 • Lv.24+)" },
         "14,0": { targetZone: "cinderpeak", targetX: 14, targetY: 19, label: "North Gate → Cinderpeak Caldera (World 4 • Lv.24+)" }
       }
@@ -572,28 +613,34 @@
       },
       spawn: { x: 13, y: 19 },
       rows: [
-        "TTTTTTTTTTTTTPPTTWTTTTTTTTTT",
-        "T~~~~GGGG....R....R....GGGGT",
-        "T~~~~GGGG..............GGGGT",
-        "T~~~..C.....F..F.....H..~~~T",
-        "T~~~....................~~~T",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T..GGGGGG..............GGGGT",
-        "T..GGGGGG..R........R..GGGGT",
-        "T....GGGG....GGGGGG....GGGGT",
-        "T............GGGGGG........T",
-        "T..GGGG................GGGGT",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T..GGGG................GGGGT",
-        "T..GGGG....GGGG..GGGG..GGGGT",
-        "T..R...GGG.GGGG..GGGG..R...T",
-        "T..............FF..........T",
-        "T....GGGG..........GGGG....T",
-        "T....GGGG..R....R..GGGG....T",
-        "T..........................T",
-        "T....GGGG..........GGGG....T",
-        "TTTTTTTTTTTTTPPTTTTTTTTTTTTT"
+        "TTTTTTTTTTTTTPPTTWTTTTTTTTTTTTTTTTTT",
+        "T~~~~GGGG....R....R....GGGG..~~~..RT",
+        "T~~~~GGGG..............GGGG.~~~~~..T",
+        "T~~~..C.....F..F.....H..~~~.~~~~~..T",
+        "T~~~....................~~~..~~~...T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB...B....T",
+        "T..GGGGGG..............GGGG..GGG...T",
+        "T..GGGGGG..R........R..GGGG.GGGGG..T",
+        "T....GGGG....GGGGGG....GGGG..GGG...T",
+        "T............GGGGGG................T",
+        "T..GGGG................GGGG..BBBB~.T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB.~~~~~~.T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB..BBBB~.T",
+        "T..GGGG................GGGG.~~~~~~.T",
+        "T..GGGG....GGGG..GGGG..GGGG~~~BB~~~T",
+        "T..R...GGG.GGGG..GGGG..R...~~~BB~~~T",
+        "T..............FF...........~~~~~~.T",
+        "T....GGGG..........GGGG......BBBB~.T",
+        "T....GGGG..R....R..GGGG.......F....T",
+        "T............................GGGG..T",
+        "T....GGGG..........GGGG......GGGG..T",
+        "T..GGG......F..F......GGG...~~~~...T",
+        "T..GGGG....GGGGGG....GGGG..~~~~~~..T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T..GGGG....F....F....GGGG...~~~~...T",
+        "T.........GGGGGGGG.................T",
+        "TTTTTTTTTTTTTPPTTTTTTTTTTTTTTTTTTTTT"
       ],
       npcs: {
         "6,3": {
@@ -698,8 +745,8 @@
         }
       },
       portals: {
-        "13,21": { targetZone: "stormspire", targetX: 13, targetY: 2, label: "South Gate → Stormspire Ridge (World 3)" },
-        "14,21": { targetZone: "stormspire", targetX: 14, targetY: 2, label: "South Gate → Stormspire Ridge (World 3)" },
+        "13,27": { targetZone: "stormspire", targetX: 13, targetY: 2, label: "South Gate → Stormspire Ridge (World 3)" },
+        "14,27": { targetZone: "stormspire", targetX: 14, targetY: 2, label: "South Gate → Stormspire Ridge (World 3)" },
         "13,0": { targetZone: "frostveil", targetX: 13, targetY: 19, label: "North Gate → Frostveil Expanse (World 5 • Lv.35+)" },
         "14,0": { targetZone: "frostveil", targetX: 14, targetY: 19, label: "North Gate → Frostveil Expanse (World 5 • Lv.35+)" }
       }
@@ -723,28 +770,34 @@
       },
       spawn: { x: 13, y: 19 },
       rows: [
-        "TTTTTTTTTTTTTPPTTWTTTTTTTTTT",
-        "TGGGGGG....R....R....GGGGGGT",
-        "TGGGGGG..............GGGGGGT",
-        "TGGG..C.....F..F.....H..GGGT",
-        "TGGG....................GGGT",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T..GGGGGG..............GGGGT",
-        "T..GGGGGG..R........R..GGGGT",
-        "T....GGGG....GGGGGG....GGGGT",
-        "T............GGGGGG........T",
-        "T..GGGG................GGGGT",
-        "T..GGGG~~BBBB~~~~BBBB~~GGGGT",
-        "T..GGGG~~BBBB~~~~BBBB~~GGGGT",
-        "T......~~~~........~~~~....T",
-        "T..GGGG....GGGG..GGGG..GGGGT",
-        "T..GGGG....GGGG..GGGG..GGGGT",
-        "T..R...GGG....FF....GGG..R.T",
-        "T..........................T",
-        "T....GGGG..........GGGG....T",
-        "T....GGGG....F..F..GGGG....T",
-        "T..........................T",
-        "TTTTTTTTTTTTTPPTTTTTTTTTTTTT"
+        "TTTTTTTTTTTTTPPTTWTTTTTTTTTTTTTTTTTT",
+        "TGGGGGG....R....R....GGGGGG..~~~..RT",
+        "TGGGGGG..............GGGGGG.~~~~~..T",
+        "TGGG..C.....F..F.....H..GGG.~~~~~..T",
+        "TGGG....................GGG..~~~...T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB...B....T",
+        "T..GGGGGG..............GGGG..GGG...T",
+        "T..GGGGGG..R........R..GGGG.GGGGG..T",
+        "T....GGGG....GGGGGG....GGGG..GGG...T",
+        "T............GGGGGG................T",
+        "T..GGGG................GGGG..BBBB~.T",
+        "T..GGGG~~BBBB~~~~BBBB~~GGGG.~~~~~~.T",
+        "T..GGGG~~BBBB~~~~BBBB~~GGGG..BBBB~.T",
+        "T......~~~~........~~~~.....~~~~~~.T",
+        "T..GGGG....GGGG..GGGG..GGGG~~~BB~~~T",
+        "T..GGGG....GGGG..GGGG..GGGG~~~BB~~~T",
+        "T..R...GGG....FF....GGG..R..~~~~~~.T",
+        "T............................BBBB~.T",
+        "T....GGGG..........GGGG.......F....T",
+        "T....GGGG....F..F..GGGG......GGGG..T",
+        "T............................GGGG..T",
+        "T..GGG......F..F......GGG...~~~~...T",
+        "T..GGGG....GGGGGG....GGGG..~~~~~~..T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T..GGGG....F....F....GGGG...~~~~...T",
+        "T.........GGGGGGGG.................T",
+        "TTTTTTTTTTTTTPPTTTTTTTTTTTTTTTTTTTTT"
       ],
       npcs: {
         "6,3": {
@@ -833,8 +886,8 @@
         }
       },
       portals: {
-        "13,21": { targetZone: "cinderpeak", targetX: 13, targetY: 2, label: "South Gate → Cinderpeak Caldera (World 4)" },
-        "14,21": { targetZone: "cinderpeak", targetX: 14, targetY: 2, label: "South Gate → Cinderpeak Caldera (World 4)" },
+        "13,27": { targetZone: "cinderpeak", targetX: 13, targetY: 2, label: "South Gate → Cinderpeak Caldera (World 4)" },
+        "14,27": { targetZone: "cinderpeak", targetX: 14, targetY: 2, label: "South Gate → Cinderpeak Caldera (World 4)" },
         "13,0": { targetZone: "sanctum", targetX: 13, targetY: 19, label: "North Gate → Astral Sanctum (World 6 • Lv.48+)" },
         "14,0": { targetZone: "sanctum", targetX: 14, targetY: 19, label: "North Gate → Astral Sanctum (World 6 • Lv.48+)" }
       }
@@ -858,28 +911,34 @@
       },
       spawn: { x: 13, y: 19 },
       rows: [
-        "TTTTTTTTTTTTTPPTTWTTTTTTTTTT",
-        "T~~~~GGGG....R....R....GGGGT",
-        "T~~~~GGGG..............GGGGT",
-        "T~~~..C.....F..F.....H..~~~T",
-        "T~~~....................~~~T",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T..GGGGGG..............GGGGT",
-        "T..GGGGGG..R........R..GGGGT",
-        "T....GGGG....GGGGGG....GGGGT",
-        "T............GGGGGG........T",
-        "T..GGGG................GGGGT",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T~~~BBBB~~~~BBBBBBBB~~~~BBBT",
-        "T..GGGG................GGGGT",
-        "T..GGGG....GGGG..GGGG..GGGGT",
-        "T..R...GGG.GGGG..GGGG..R...T",
-        "T..............FF..........T",
-        "T....GGGG..........GGGG....T",
-        "T....GGGG..R....R..GGGG....T",
-        "T..........................T",
-        "T....GGGG..........GGGG....T",
-        "TTTTTTTTTTTTTPPTTTTTTTTTTTTT"
+        "TTTTTTTTTTTTTPPTTWTTTTTTTTTTTTTTTTTT",
+        "T~~~~GGGG....R....R....GGGG..~~~..RT",
+        "T~~~~GGGG..............GGGG.~~~~~..T",
+        "T~~~..C.....F..F.....H..~~~.~~~~~..T",
+        "T~~~....................~~~..~~~...T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB...B....T",
+        "T..GGGGGG..............GGGG..GGG...T",
+        "T..GGGGGG..R........R..GGGG.GGGGG..T",
+        "T....GGGG....GGGGGG....GGGG..GGG...T",
+        "T............GGGGGG................T",
+        "T..GGGG................GGGG..BBBB~.T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB.~~~~~~.T",
+        "T~~~BBBB~~~~BBBBBBBB~~~~BBB..BBBB~.T",
+        "T..GGGG................GGGG.~~~~~~.T",
+        "T..GGGG....GGGG..GGGG..GGGG~~~BB~~~T",
+        "T..R...GGG.GGGG..GGGG..R...~~~BB~~~T",
+        "T..............FF...........~~~~~~.T",
+        "T....GGGG..........GGGG......BBBB~.T",
+        "T....GGGG..R....R..GGGG.......F....T",
+        "T............................GGGG..T",
+        "T....GGGG..........GGGG......GGGG..T",
+        "T..GGG......F..F......GGG...~~~~...T",
+        "T..GGGG....GGGGGG....GGGG..~~~~~~..T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T~~~BBBB~~~~BBBB~~~~BBBB~~~~BBBB~~~T",
+        "T..GGGG....F....F....GGGG...~~~~...T",
+        "T.........GGGGGGGG.................T",
+        "TTTTTTTTTTTTTPPTTTTTTTTTTTTTTTTTTTTT"
       ],
       npcs: {
         "6,3": {
@@ -968,8 +1027,8 @@
         }
       },
       portals: {
-        "13,21": { targetZone: "frostveil", targetX: 13, targetY: 2, label: "South Gate → Frostveil Expanse (World 5)" },
-        "14,21": { targetZone: "frostveil", targetX: 14, targetY: 2, label: "South Gate → Frostveil Expanse (World 5)" },
+        "13,27": { targetZone: "frostveil", targetX: 13, targetY: 2, label: "South Gate → Frostveil Expanse (World 5)" },
+        "14,27": { targetZone: "frostveil", targetX: 14, targetY: 2, label: "South Gate → Frostveil Expanse (World 5)" },
         "13,0": { targetZone: "meadow", targetX: 13, targetY: 19, label: "North Gate → Sunleaf Meadow (World 1)" },
         "14,0": { targetZone: "meadow", targetX: 14, targetY: 19, label: "North Gate → Sunleaf Meadow (World 1)" }
       }
@@ -1018,7 +1077,7 @@
 
     // 2. Western & Eastern Highland Ridges (x < 7 or x > 20 rise into scenic overlooks)
     let ridge = 0;
-    const distFromCenter = Math.abs(fx - 13.5);
+    const distFromCenter = Math.abs(fx - (MAP_WIDTH - 1) * 0.5);
     if (distFromCenter > 5.5) {
       const r = Math.min(1, (distFromCenter - 5.5) / 8.0);
       ridge = r * r * (0.52 * biomeRelief);
@@ -1096,6 +1155,113 @@
     return true;
   }
 
+  /**
+   * Checks if (x, y) in zoneId is within casting range (~1.85 tiles) of any water ("~" or "W") or bridge ("B") tile.
+   * Returns { near: boolean, waterX: number, waterY: number, tile: string }
+   */
+
+  const ROAMER_LAND_TILES = new Set([".", "G", "P", "F"]);
+
+  function isWalkableLandForRoamer(zoneId, x, y) {
+    const rx = Math.round(Number(x));
+    const ry = Math.round(Number(y));
+    if (isNaN(rx) || isNaN(ry)) return false;
+    if (rx < 1 || ry < 1 || rx >= MAP_WIDTH - 1 || ry >= MAP_HEIGHT - 1) return false;
+    const ch = getTileAt(zoneId, rx, ry);
+    if (ch === "~") return false;
+    return ROAMER_LAND_TILES.has(ch);
+  }
+
+  function snapToWalkableLand(zoneId, x, y) {
+    const startX = Math.max(1, Math.min(MAP_WIDTH - 2, Math.round(Number(x) || 13)));
+    const startY = Math.max(1, Math.min(MAP_HEIGHT - 2, Math.round(Number(y) || 11)));
+    if (isWalkableLandForRoamer(zoneId, startX, startY)) {
+      return { x: startX, y: startY, tile: getTileAt(zoneId, startX, startY) };
+    }
+    for (let r = 1; r < Math.max(MAP_WIDTH, MAP_HEIGHT); r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+          const nx = startX + dx;
+          const ny = startY + dy;
+          if (isWalkableLandForRoamer(zoneId, nx, ny)) {
+            return { x: nx, y: ny, tile: getTileAt(zoneId, nx, ny) };
+          }
+        }
+      }
+    }
+    return { x: 13, y: 11, tile: "." };
+  }
+
+  function isNearWater(zoneId, x, y) {
+    const fx = Number(x) || 0;
+    const fy = Number(y) || 0;
+    const rx = Math.round(fx);
+    const ry = Math.round(fy);
+    let bestWater = null;
+    let bestDist = 999;
+
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const tx = rx + dx;
+        const ty = ry + dy;
+        if (tx < 0 || tx >= MAP_WIDTH || ty < 0 || ty >= MAP_HEIGHT) continue;
+        const dist = Math.hypot(tx - fx, ty - fy);
+        if (dist > 1.95) continue;
+        const ch = getTileAt(zoneId, tx, ty);
+        if (ch === "~") {
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestWater = { near: true, waterX: tx, waterY: ty, tile: ch, distance: Number(dist.toFixed(2)) };
+          }
+        }
+      }
+    }
+    if (bestWater) return bestWater;
+
+    // Also allow casting while standing on a bridge "B"
+    const curCh = getTileAt(zoneId, rx, ry);
+    if (curCh === "B") {
+      return { near: true, waterX: rx, waterY: Math.min(MAP_HEIGHT - 2, ry + 1), tile: "~", distance: 1.0 };
+    }
+    return { near: false, waterX: null, waterY: null, tile: null, distance: null };
+  }
+
+  /**
+   * Finds the nearest walkable shoreline or bridge tile adjacent to water ("~") from (fromX, fromY).
+   */
+  function findNearestWaterSpot(zoneId, fromX, fromY) {
+    const fx = Number(fromX) || 0;
+    const fy = Number(fromY) || 0;
+    let best = null;
+    let bestDist = 9999;
+
+    for (let y = 1; y < MAP_HEIGHT - 1; y++) {
+      for (let x = 1; x < MAP_WIDTH - 1; x++) {
+        const ch = getTileAt(zoneId, x, y);
+        if (!isWalkableTile(ch)) continue;
+        const check = isNearWater(zoneId, x, y);
+        if (check.near) {
+          const d = Math.hypot(x - fx, y - fy);
+          if (d < bestDist) {
+            bestDist = d;
+            best = {
+              standX: x,
+              standY: y,
+              shorelineX: x,
+              shorelineY: y,
+              tile: "~",
+              waterX: check.waterX,
+              waterY: check.waterY,
+              distance: Number(d.toFixed(2))
+            };
+          }
+        }
+      }
+    }
+    return best;
+  }
+
   function getTileInfo(zoneId, x, y) {
     const map = ZONE_MAPS[zoneId] || ZONE_MAPS.meadow;
     const ch = getTileAt(zoneId, x, y);
@@ -1118,10 +1284,15 @@
     TILE_TYPES,
     ZONE_MAPS,
     getTileAt,
+    getTile: getTileAt,
     getElevationAt,
     getNpcAt,
     getTileInfo,
-    isWalkableTile
+    isWalkableTile,
+    isWalkableLandForRoamer,
+    snapToWalkableLand,
+    isNearWater,
+    findNearestWaterSpot
   };
 
   if (typeof module !== "undefined" && module.exports) {

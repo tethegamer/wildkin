@@ -103,6 +103,38 @@
           </div>
         </div>
 
+        <!-- Floating 3D Remote Player Nameplates & Speech Bubbles -->
+        <div class="remote-player-labels" id="remotePlayerLabels"></div>
+
+        <!-- Live Overworld Multiplayer Chat Box (Collapsible HUD Overlay) -->
+        <aside class="world-chat-dock" id="worldChatDock" aria-label="Live Overworld Chat">
+          <div class="world-chat-header" id="worldChatHeader">
+            <div class="world-chat-title">
+              <span class="chat-live-dot"></span>
+              <strong>💬 World Chat</strong>
+              <span class="world-chat-online" id="worldChatOnlineBadge">4 Online</span>
+            </div>
+            <div class="world-chat-controls">
+              <button type="button" class="chat-chan-btn active" id="btnChatChanGlobal" data-chat-chan="global">🌐 All</button>
+              <button type="button" class="chat-chan-btn" id="btnChatChanZone" data-chat-chan="zone">🌍 Zone</button>
+              <button type="button" class="chat-min-btn" id="btnToggleWorldChat" title="Minimize / Expand World Chat">▾</button>
+            </div>
+          </div>
+          <div class="world-chat-body" id="worldChatBody">
+            <div class="world-chat-feed" id="worldChatFeed"></div>
+            <div class="world-chat-quick-row">
+              <button type="button" class="chat-quick-chip" data-quick-chat="👋 Hey everyone! Anyone up for PvP?">👋 Yo!</button>
+              <button type="button" class="chat-quick-chip" data-quick-chat="⚔️ Meet me in the center for a Live PvP Duel!">⚔️ PvP me!</button>
+              <button type="button" class="chat-quick-chip" data-quick-chat="🎣 Heading to the Eastern Pier to fish!">🎣 Fishing!</button>
+              <button type="button" class="chat-quick-chip" data-quick-chat="✨ Just spotted a Radiant Kin!">✨ Radiant!</button>
+            </div>
+            <form class="world-chat-form" id="worldChatForm" onsubmit="return false;">
+              <input type="text" class="world-chat-input" id="worldChatInput" placeholder="Say something to the world..." maxlength="160" autocomplete="off" />
+              <button type="submit" class="world-chat-send-btn" id="btnSendWorldChat">Send</button>
+            </form>
+          </div>
+        </aside>
+
         <!-- Compact Floating 3D World Action Pills (Bottom of 3D Viewport) -->
         <div class="world-action-bar" id="worldActionBar">
           <button class="interact-banner hidden" id="interactBanner" type="button">
@@ -110,10 +142,33 @@
             <span class="interact-text" id="interactText">Tap to Interact</span>
           </button>
 
+          <div class="fishing-quick-bar fish-floating-cta" id="fishingQuickBar">
+            <button class="fishing-cast-cta" id="btnCastRodMain" data-tap-to-toss="1" type="button" title="Tap to Toss Fishing Rod into the Water! (50% Common / 5% Rare Water Kin)">
+              <span>🎣</span>
+              <span id="castRodCtaText">Tap to Toss — Bamboo Pole</span>
+            </button>
+            <div class="rod-tier-selector" id="rodSelectorPills">
+              <button type="button" class="rod-tier-pill active" data-select-rod="1" title="Tier 1: Bamboo Reed Pole (Basic Stage 1 Water Kin)">🎋 Lv.1</button>
+              <button type="button" class="rod-tier-pill" data-select-rod="2" title="Tier 2: Carbon Aether Rod (Stage 2 Evolved + A/S Rank)">🎣 Lv.2</button>
+              <button type="button" class="rod-tier-pill" data-select-rod="3" title="Tier 3: Sovereign Leviathan Rod (Stage 3 Apex + S/SS Rank)">🔱 Lv.3</button>
+            </div>
+          </div>
           <div class="world-quick-pills">
             <button class="world-pill-btn" id="btnQuickWild" type="button" title="Hunt a nearby Wild Kin in the tall grass!">
               <span>🪤</span>
               <span>Wild Hunt</span>
+            </button>
+            <button class="world-pill-btn" id="btnQuickFish" type="button" title="Cast your Fishing Pole into water to hook Water Kin!">
+              <span>🎣</span>
+              <span id="fishBtnLabel">Fish (Lv.1)</span>
+            </button>
+            <button class="world-pill-btn" id="btnQuickPvp" type="button" title="Multiplayer World & Live PvP Arena — Challenge Online Players!">
+              <span>⚔️</span>
+              <span id="pvpBtnLabel">Live PvP</span>
+            </button>
+            <button class="world-pill-btn" id="btnQuickWorldChat" type="button" title="Toggle Live World Chat Box to talk with players!">
+              <span>💬</span>
+              <span id="chatBtnLabel">Chat</span>
             </button>
             <button class="world-pill-btn" id="btnQuickRanch" type="button" title="Open Grandpa Rowan's Homestead Breeding & Care Ranch">
               <span>🧬</span>

@@ -666,6 +666,12 @@
     ctx.restore();
   }
 
+  for (let extraId = 28; extraId <= 45; extraId++) {
+    if (!PIXEL_GRIDS[extraId]) {
+      PIXEL_GRIDS[extraId] = PIXEL_GRIDS[((extraId - 1) % 27) + 1];
+    }
+  }
+
   root.WILDKIN_SPRITES = {
     PIXEL_GRIDS,
     drawKinSprite,

@@ -44,11 +44,11 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities, 6 Worlds, 6
     assert.equal(WildkinData.getTypeMultiplier('Umbra', 'Volt'), 2);
   });
 
-  it('defines all 27 original Kin species with valid base stats and moves', () => {
-    assert.equal(WildkinData.KIN_SPECIES.length, 27);
+  it('defines all 41 original Kin species (4-6 per element across all 9 elements) with valid base stats and moves', () => {
+    assert.equal(WildkinData.KIN_SPECIES.length, 41);
     const ids = new Set();
     for (const kin of WildkinData.KIN_SPECIES) {
-      assert.ok(kin.id >= 1 && kin.id <= 27);
+      assert.ok(kin.id >= 1 && kin.id <= 41);
       ids.add(kin.id);
       assert.ok(WildkinData.AFFINITIES[kin.affinity], `Invalid affinity ${kin.affinity} on #${kin.id}`);
       assert.ok(kin.baseStats.hp > 0 && kin.baseStats.atk > 0 && kin.baseStats.def > 0 && kin.baseStats.spd > 0);
@@ -57,7 +57,7 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities, 6 Worlds, 6
         assert.ok(WildkinData.MOVES[moveId], `Missing move ${moveId} referenced by ${kin.name}`);
       }
     }
-    assert.equal(ids.size, 27);
+    assert.equal(ids.size, 41);
   });
 
   it('includes original renamed moves rippleJet and rimeFang', () => {
@@ -69,7 +69,7 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities, 6 Worlds, 6
 
   it('validates all 14 evolution links point to valid target species', () => {
     const evoLinks = WildkinData.KIN_SPECIES.filter((k) => k.evolvesTo !== null);
-    assert.equal(evoLinks.length, 14);
+    assert.equal(evoLinks.length, 22);
     for (const kin of evoLinks) {
       const target = WildkinData.getSpeciesById(kin.evolvesTo.id);
       assert.ok(target && target.id === kin.evolvesTo.id, `Invalid evolution target ${kin.evolvesTo.id} for ${kin.name}`);
@@ -194,8 +194,8 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities, 6 Worlds, 6
 
     assert.ok(Array.isArray(WildkinData.MARKETPLACE_BUNDLES), 'Expected MARKETPLACE_BUNDLES array');
     assert.ok(Array.isArray(WildkinData.GEM_BUNDLES), 'Expected GEM_BUNDLES alias array');
-    assert.equal(WildkinData.GEM_BUNDLES.length, 4);
-    const expectedIds = ['starter_recovery', 'tamers_pouch', 'breeders_vault', 'sovereign_treasury'];
+    assert.equal(WildkinData.GEM_BUNDLES.length, 6);
+    const expectedIds = ['starter_recovery', 'tamers_pouch', 'breeders_vault', 'sovereign_treasury', 'angler_master_pack', 'sovereign_bag_pack'];
     assert.deepEqual(WildkinData.GEM_BUNDLES.map((b) => b.id), expectedIds);
     for (const b of WildkinData.GEM_BUNDLES) {
       assert.ok(b.priceUsd > 0 && b.priceDisplay && b.gems >= 250 && b.items);
@@ -216,10 +216,10 @@ describe('1. public/js/data.js — Kin Roster, Elemental Affinities, 6 Worlds, 6
   });
 });
 
-describe('2. public/js/maps.js — 6 Expansive 28x22 World Grids, 3D Elevation, Portals, Wardens & Grandpa Rowan Homestead', () => {
-  it('verifies all 6 world maps are strictly 28x22 grids with 3D elevation, Hospitals, Shopping Centers, Wardens, and connected portals', () => {
-    assert.equal(WildkinMaps.MAP_WIDTH, 28);
-    assert.equal(WildkinMaps.MAP_HEIGHT, 22);
+describe('2. public/js/maps.js — 6 Expansive 36x28 World Grids, 3D Elevation, Portals, Wardens & Grandpa Rowan Homestead', () => {
+  it('verifies all 6 world maps are strictly 36x28 grids with 3D elevation, Hospitals, Shopping Centers, Wardens, and connected portals', () => {
+    assert.equal(WildkinMaps.MAP_WIDTH, 36);
+    assert.equal(WildkinMaps.MAP_HEIGHT, 28);
     assert.equal(typeof WildkinMaps.getElevationAt, 'function');
     const expectedWorlds = [
       { zoneId: 'meadow',     wardenId: 'kael',    wx: 17, wy: 0,  tile: 'W' },
@@ -233,9 +233,9 @@ describe('2. public/js/maps.js — 6 Expansive 28x22 World Grids, 3D Elevation, 
     for (const w of expectedWorlds) {
       const map = WildkinMaps.ZONE_MAPS[w.zoneId];
       assert.ok(map, `Missing map for ${w.zoneId}`);
-      assert.equal(map.grid.length, 22, `Map ${w.zoneId} must have 22 rows`);
+      assert.equal(map.grid.length, 28, `Map ${w.zoneId} must have 28 rows`);
       for (const row of map.grid) {
-        assert.equal(row.length, 28, `Map ${w.zoneId} row "${row}" must be 28 chars`);
+        assert.equal(row.length, 36, `Map ${w.zoneId} row "${row}" must be 36 chars`);
       }
 
       // Every world has a Kin Care Hospital at 21,3 ('H') and Aether Shopping Center at 6,3 ('C')
@@ -276,7 +276,7 @@ describe('2. public/js/maps.js — 6 Expansive 28x22 World Grids, 3D Elevation, 
     assert.equal(WildkinMaps.getTileInfo('stormspire', 13, 0).portal.targetZone, 'cinderpeak');
     assert.equal(WildkinMaps.getTileInfo('cinderpeak', 13, 0).portal.targetZone, 'frostveil');
     assert.equal(WildkinMaps.getTileInfo('frostveil', 13, 0).portal.targetZone, 'sanctum');
-    assert.equal(WildkinMaps.getTileInfo('sanctum', 13, 21).portal.targetZone, 'frostveil');
+    assert.equal(WildkinMaps.getTileInfo('sanctum', 13, 27).portal.targetZone, 'frostveil');
 
     if (typeof WildkinMaps.isWalkableTile === 'function') {
       assert.equal(WildkinMaps.isWalkableTile('.'), true);
@@ -290,7 +290,7 @@ describe('2. public/js/maps.js — 6 Expansive 28x22 World Grids, 3D Elevation, 
 
 describe('3. public/js/sprites.js — 16x16 Pixel Art Grids & SVG Renderer', () => {
   it('verifies all 27 PIXEL_GRIDS exist with 16 rows of strictly 16 characters each', () => {
-    for (let id = 1; id <= 27; id++) {
+    for (let id = 1; id <= 41; id++) {
       const grid = WildkinSprites.PIXEL_GRIDS[id];
       assert.ok(Array.isArray(grid), `Missing pixel grid for Kin #${id}`);
       assert.equal(grid.length, 16, `Kin #${id} grid must have 16 rows`);
@@ -644,10 +644,11 @@ describe('4. public/js/renderer3d.js & Turn-by-Turn 3D Combat / Procedural Surfa
     // Spawn roaming 3D wild Kin across zones
     for (const zoneId of ['meadow', 'tidecove', 'stormspire', 'frostveil', 'embervault', 'sanctum']) {
       const spawns = WildkinGame.ensureZoneWildSpawns(zoneId);
-      assert.equal(spawns.length, 8, `Zone ${zoneId} must spawn 8 visible roaming 3D wild Kin across the 28x22 map`);
+      assert.equal(spawns.length, 10, `Zone ${zoneId} must spawn 10 visible roaming 3D wild Kin across the 36x28 map`);
       for (const ws of spawns) {
         assert.equal(ws.zone, zoneId);
-        assert.ok(ws.speciesId >= 1 && ws.speciesId <= 27);
+        assert.ok(ws.speciesId >= 1 && ws.speciesId <= 41);
+        assert.equal(WildkinMaps.isWalkableLandForRoamer(zoneId, ws.x, ws.y), true, `Roamer at (${ws.x},${ws.y}) in ${zoneId} must never spawn on water (~)`);
         assert.ok(ws.level >= 2);
         assert.equal(typeof ws.x, 'number');
         assert.equal(typeof ws.y, 'number');
@@ -771,7 +772,7 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.equal(data.ok, true);
-    assert.equal(data.kinCount, 27);
+    assert.equal(data.kinCount, 41);
     assert.equal(data.zones, 6);
   });
 
@@ -780,7 +781,7 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.equal(data.ok, true);
-    assert.equal(data.kin.length, 27);
+    assert.equal(data.kin.length, 41);
     assert.equal(Object.keys(data.affinities).length, 6);
     assert.equal(data.zones.length, 6);
     assert.equal(data.wardens.length, 6);
@@ -899,7 +900,7 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     assert.equal(checkoutRes.status, 200);
     const checkoutData = await checkoutRes.json();
     assert.equal(checkoutData.ok, true);
-    assert.ok(Array.isArray(catData.gemBundles) && catData.gemBundles.length === 4, 'Should also return gemBundles alias');
+    assert.ok(Array.isArray(catData.gemBundles) && catData.gemBundles.length >= 6, 'Should also return gemBundles alias');
     assert.equal(checkoutData.order.bundleId, 'starter_recovery');
     assert.equal(checkoutData.order.granted.gems, 250);
     assert.ok(checkoutData.order.granted.items.heartwoodStew >= 5);
@@ -925,5 +926,125 @@ describe('6. server.js — Express HTTP API & Three.js Vendor Integration Tests'
     const ordersData = await ordersRes.json();
     assert.equal(ordersData.ok, true);
     assert.ok(ordersData.orders.length >= 2);
+  });
+
+  it('verifies 3-Tier Fishing Poles, 50% Common / 5% Rare Fishing Toss Odds, Moving-Bar Fishing Catch Mini-Game, Shadow Poison Weaken, 10 3D Battle Animations, Live Multiplayer/Chat/PvP & Direct Cash Item Checkout', async () => {
+    const WildkinAudio = require('../public/js/audio.js');
+
+    // 1. 9-Element Roster: 4-6 creatures per element across all 9 elements
+    const elemCounts = {};
+    for (const sp of WildkinData.SPECIES) {
+      elemCounts[sp.element] = (elemCounts[sp.element] || 0) + 1;
+    }
+    for (const el of ['Pyre', 'Tide', 'Grove', 'Volt', 'Gale', 'Terra', 'Frost', 'Umbra', 'Aether']) {
+      assert.ok(elemCounts[el] >= 4, `Element ${el} should have at least 4 creatures (got ${elemCounts[el]})`);
+    }
+
+    // 2. 3-Tier Fishing Poles & 50% Common / 30% Uncommon / 15% Evolved / 5% Rare Pop-Up Odds
+    const commonCatch = WildkinGame.rollFishingCatchForRod(1, 'meadow', () => 0.25);
+    assert.equal(commonCatch.rarityBucket, 'common');
+    const uncommonCatch = WildkinGame.rollFishingCatchForRod(2, 'tidecove', () => 0.65);
+    assert.equal(uncommonCatch.rarityBucket, 'uncommon');
+    const evolvedCatch = WildkinGame.rollFishingCatchForRod(2, 'tidecove', () => 0.88);
+    assert.equal(evolvedCatch.rarityBucket, 'evolved');
+    const rareCatch = WildkinGame.rollFishingCatchForRod(3, 'tidecove', () => 0.97);
+    assert.equal(rareCatch.rarityBucket, 'rare');
+    assert.equal(rareCatch.isRarePop, true);
+    assert.ok([6, 31, 33, 36].includes(rareCatch.speciesId), '5% Rare Pop-Up should roll an Apex/Mythic Water Leviathan');
+
+    // 3. Interactive Moving-Bar Fishing Catch Mini-Game + Battle Sound
+    assert.equal(typeof WildkinAudio.playEncounterStinger, 'function');
+    assert.equal(typeof WildkinGame.openFishingReelMinigame, 'function');
+    assert.equal(typeof WildkinGame.tapFishingReelBar, 'function');
+
+    const reelState = WildkinGame.openFishingReelMinigame(commonCatch);
+    assert.equal(reelState.active, true);
+    assert.equal(reelState.requiredHits, 3);
+
+    // Tap accurately inside the target sweet-spot zone 3 times to catch the water creature!
+    const hit1 = WildkinGame.tapFishingReelBar(reelState.targetStart + 5);
+    assert.equal(hit1.ok, true);
+    assert.equal(hit1.hit, true);
+    assert.equal(hit1.caught, false);
+
+    const curReel = WildkinGame.getFishingReelState();
+    const hit2 = WildkinGame.tapFishingReelBar(curReel.targetStart + 5);
+    assert.equal(hit2.ok, true);
+    assert.equal(hit2.hit, true);
+    assert.equal(hit2.caught, false);
+
+    const curReel2 = WildkinGame.getFishingReelState();
+    const hit3 = WildkinGame.tapFishingReelBar(curReel2.targetStart + 5);
+    assert.equal(hit3.ok, true);
+    assert.equal(hit3.hit, true);
+    assert.equal(hit3.caught, true, '3rd accurate tap on the moving bar catches the water creature!');
+    assert.ok(hit3.caughtKin && hit3.caughtKin.speciesId === commonCatch.speciesId);
+
+    // 4. Shadow / Dark Creature Poison Moves (HP drain + progressive per-round ATK/DEF weakening)
+    for (const pmId of ['venom_fang', 'blight_miasma', 'abyssal_toxin', 'spore_venom']) {
+      const mv = WildkinData.MOVES[pmId];
+      assert.ok(mv, `Poison move ${pmId} must exist`);
+      assert.equal(mv.effect, 'poison_weaken');
+    }
+    const poisonedFoe = WildkinData.createKinInstance(19, 20);
+    const initialHp = poisonedFoe.currentHp;
+    poisonedFoe.status = 'poison_weaken';
+    poisonedFoe.poisonStacks = 1;
+
+    const dmgBeforeStack2 = WildkinGame.calculateDamage(poisonedFoe, WildkinData.createKinInstance(1, 20), 'clawSwipe', { noVariance: true, forceCrit: false }).damage;
+    const tick1 = WildkinGame.tickPoisonWeakenRound(poisonedFoe);
+    assert.equal(tick1.triggered, true);
+    assert.equal(tick1.isShadowPoison, true);
+    assert.ok(poisonedFoe.currentHp < initialHp, 'Shadow Poison must drain HP each round');
+    assert.equal(poisonedFoe.poisonStacks, 2, 'Shadow Poison must escalate stacks each round');
+    assert.ok(tick1.weakenMultiplier < 1.0, 'Shadow Poison must weaken fighter ATK & DEF multiplier');
+    const dmgAfterStack2 = WildkinGame.calculateDamage(poisonedFoe, WildkinData.createKinInstance(1, 20), 'clawSwipe', { noVariance: true, forceCrit: false }).damage;
+    assert.ok(dmgAfterStack2 < dmgBeforeStack2, 'Fighter afflicted with escalating Shadow Poison deals progressively less damage each round');
+
+    // 5. All 10 Distinct 3D Elemental Fight Animations
+    const expectedArchetypes = [
+      'tornado',
+      'lightning',
+      'fire_eruption',
+      'hydro_vortex',
+      'quake_boulders',
+      'blizzard_spikes',
+      'leaf_storm',
+      'shadow_miasma',
+      'aether_beam',
+      'claw_slash'
+    ];
+    assert.deepEqual(Wildkin3D.BATTLE_ANIM_ARCHETYPES, expectedArchetypes);
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.galeVortex), 'tornado');
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.arcBolt), 'lightning');
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.solarFlare), 'fire_eruption');
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.tidalVortex), 'hydro_vortex');
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.quakeStomp), 'quake_boulders');
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.rimeFang), 'blizzard_spikes');
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.sylvanWrath), 'leaf_storm');
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.abyssal_toxin), 'shadow_miasma');
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.eclipseNova), 'aether_beam');
+    assert.equal(Wildkin3D.resolveBattleAnimArchetype(WildkinData.MOVES.clawSwipe), 'claw_slash');
+
+    // 6. Direct Cash ($ USD) Individual Item Checkout + Live Multiplayer Overworld Chat & Sync
+    const rodCheckout = await fetch(`${baseUrl}/api/marketplace/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: 'leviathanRod', quantity: 1, paymentMethod: 'apple_pay', trainerName: 'Aria' })
+    });
+    assert.equal(rodCheckout.status, 200);
+    const rodData = await rodCheckout.json();
+    assert.equal(rodData.ok, true);
+    assert.equal(rodData.order.granted.items.leviathanRod, 1);
+
+    const chatPost = await fetch(`${baseUrl}/api/world/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId: 'wk_test1', trainerName: 'Aria', zone: 'meadow', channel: 'global', text: 'Hooked a 5% Rare Krakenlord!' })
+    });
+    assert.equal(chatPost.status, 200);
+    const chatData = await chatPost.json();
+    assert.equal(chatData.ok, true);
+    assert.ok(chatData.messages.some((m) => (m.text || m.message || '').includes('Krakenlord')));
   });
 });

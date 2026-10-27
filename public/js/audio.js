@@ -86,6 +86,140 @@
       }
     }
 
+
+    playEncounterStinger(mode = 'wild') {
+      const notes = mode === 'warden' || mode === 'pvp'
+        ? [392, 466.16, 523.25, 587.33, 698.46, 783.99, 932.33, 1046.5]
+        : [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
+      notes.forEach((n, idx) => {
+        this.playTone(n, 0.065, 'square', 0.11, idx * 0.055);
+        this.playTone(n * 0.5, 0.065, 'sawtooth', 0.06, idx * 0.055);
+      });
+      return { ok: true, mode, noteCount: notes.length };
+    }
+
+    playKinCry(kinId = 1, element = 'Pyre', stage = 1, isFaint = false) {
+      const idNum = Math.max(1, Number(kinId) || 1);
+      const stg = Math.max(1, Math.min(3, Number(stage) || 1));
+      const elMap = {
+        Pyre: 340, Ember: 340, Tide: 290, Grove: 380, Volt: 510,
+        Terra: 195, Frost: 460, Cryo: 460, Gale: 440, Solar: 490, Aether: 420, Umbra: 240
+      };
+      const baseFreq = (elMap[element] || 330) + ((idNum * 29) % 160) - (stg - 1) * 48;
+      const wave = (stg === 3 || element === 'Terra' || element === 'Pyre') ? 'sawtooth' : 'square';
+      const durScale = 0.85 + stg * 0.22;
+
+      if (isFaint) {
+        this.playTone(baseFreq * 1.15, 0.11 * durScale, wave, 0.10, 0, baseFreq * 0.72);
+        this.playTone(baseFreq * 0.72, 0.14 * durScale, wave, 0.09, 0.10 * durScale, baseFreq * 0.42);
+        this.playTone(baseFreq * 0.42, 0.22 * durScale, 'triangle', 0.08, 0.22 * durScale, Math.max(65, baseFreq * 0.24));
+        return { ok: true, kinId: idNum, element, stage: stg, isFaint: true, baseFreq };
+      }
+
+      // 3-part classic handheld formant/vibrato creature cry
+      this.playTone(baseFreq, 0.08 * durScale, wave, 0.10, 0, baseFreq * 1.32);
+      this.playTone(baseFreq * 1.28, 0.07 * durScale, 'square', 0.09, 0.07 * durScale, baseFreq * 0.92);
+      this.playTone(baseFreq * 1.05, 0.15 * durScale, wave, 0.10, 0.13 * durScale, baseFreq * (stg === 3 ? 0.78 : 1.42));
+      this.playTone(baseFreq * 0.5, 0.18 * durScale, 'triangle', 0.06, 0.05 * durScale, baseFreq * 0.65);
+      return { ok: true, kinId: idNum, element, stage: stg, isFaint: false, baseFreq };
+    }
+
+    playElementMoveSfx(element = 'Pyre', isSpecial = false) {
+      const el = String(element || 'Pyre');
+      if (el === 'Pyre' || el === 'Ember') {
+        this.playTone(220, 0.10, 'sawtooth', 0.11, 0, 520);
+        this.playTone(440, 0.12, 'square', 0.09, 0.06, 180);
+        this.playTone(310, 0.14, 'sawtooth', 0.08, 0.11, 140);
+      } else if (el === 'Tide') {
+        [360, 480, 620, 520].forEach((f, i) => {
+          this.playTone(f, 0.07, 'sine', 0.10, i * 0.045, f * 1.2);
+          this.playTone(f * 0.75, 0.07, 'triangle', 0.06, i * 0.045);
+        });
+      } else if (el === 'Grove') {
+        [520, 680, 840].forEach((f, i) => {
+          this.playTone(f, 0.055, 'square', 0.09, i * 0.04, f * 0.65);
+        });
+      } else if (el === 'Volt') {
+        [880, 440, 960, 520, 1040].forEach((f, i) => {
+          this.playTone(f, 0.045, 'sawtooth', 0.10, i * 0.032, f * 0.8);
+        });
+      } else if (el === 'Terra') {
+        this.playTone(150, 0.14, 'sawtooth', 0.12, 0, 65);
+        this.playTone(110, 0.18, 'triangle', 0.12, 0.07, 52);
+      } else if (el === 'Frost' || el === 'Cryo') {
+        [740, 987.77, 1174.66, 1480].forEach((f, i) => {
+          this.playTone(f, 0.08, 'sine', 0.09, i * 0.045);
+        });
+      } else if (el === 'Gale') {
+        this.playTone(340, 0.14, 'triangle', 0.09, 0, 760);
+        this.playTone(680, 0.12, 'sine', 0.08, 0.06, 320);
+      } else {
+        // Solar / Aether / Umbra cosmic resonance
+        [440, 554.37, 659.25, 880].forEach((f, i) => {
+          this.playTone(f, 0.09, isSpecial ? 'sawtooth' : 'triangle', 0.09, i * 0.05, f * 0.9);
+        });
+      }
+      return { ok: true, element: el, isSpecial: Boolean(isSpecial) };
+    }
+
+    playHitImpactSfx(effectiveness = 1.0, isCrit = false) {
+      if (isCrit) {
+        this.playTone(1046.5, 0.06, 'square', 0.12, 0, 1567.98);
+        this.playTone(1318.5, 0.08, 'sawtooth', 0.11, 0.04, 880);
+      }
+      this.playAttack(effectiveness);
+      return {
+        ok: true,
+        effectiveness,
+        isCrit: Boolean(isCrit),
+        profile: effectiveness > 1 ? 'super' : effectiveness < 1 ? 'resisted' : 'normal'
+      };
+    }
+
+    playLowHpBeep() {
+      this.playTone(659.25, 0.07, 'square', 0.07, 0);
+      this.playTone(523.25, 0.07, 'square', 0.07, 0.09);
+      return { ok: true };
+    }
+
+    playSnareWobble(step = 1) {
+      this.playPrismShake(step);
+      return { ok: true, step };
+    }
+
+    startBattleBgm(type = 'battle') {
+      this.bgmMode = type === 'warden' || type === 'pvp' ? 'warden' : 'battle';
+      if (this.muted) return { ok: false, muted: true };
+      this.init();
+      this.stopBgm();
+
+      const leadNotes = this.bgmMode === 'warden'
+        ? [329.63, 392.00, 493.88, 659.25, 587.33, 493.88, 440.00, 392.00, 349.23, 440.00, 523.25, 698.46, 659.25, 523.25, 493.88, 392.00]
+        : [330, 392, 440, 330, 493.88, 440, 392, 293.66, 349.23, 440, 523.25, 440, 392, 349.23, 329.63, 293.66];
+      const bassNotes = [164.81, 196.00, 146.83, 174.61];
+      this.bgmStep = 0;
+
+      this.bgmTimer = setInterval(() => {
+        if (this.muted) return;
+        const lead = leadNotes[this.bgmStep % leadNotes.length];
+        const bass = bassNotes[Math.floor(this.bgmStep / 2) % bassNotes.length];
+        this.playTone(lead, 0.13, 'square', 0.032);
+        if (this.bgmStep % 2 === 0) {
+          this.playTone(bass, 0.19, 'triangle', 0.038);
+        }
+        this.bgmStep++;
+      }, 175);
+      return { ok: true, mode: this.bgmMode };
+    }
+
+    stopBattleBgm() {
+      this.stopBgm();
+      if (this.bgmEnabled && !this.muted) {
+        this.startBgm('overworld');
+      }
+      return { ok: true };
+    }
+
     playEncounterAlert() {
       const notes = [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5];
       notes.forEach((n, idx) => {
@@ -188,5 +322,9 @@
     }
   }
 
-  root.WILDKIN_AUDIO = new ChiptuneAudio();
-})(typeof self !== 'undefined' ? self : this);
+  const instance = new ChiptuneAudio();
+  root.WILDKIN_AUDIO = instance;
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = instance;
+  }
+})(typeof self !== 'undefined' ? self : globalThis);

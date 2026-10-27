@@ -1,3 +1,111 @@
+  function syncRemotePlayers(remoteList = []) {
+    const THREE = getThree();
+    if (!THREE || !overworld.initialized || !overworld.scene) return;
+    if (!overworld.remoteGroup) {
+      overworld.remoteGroup = new THREE.Group();
+      overworld.scene.add(overworld.remoteGroup);
+    }
+
+    const list = Array.isArray(remoteList) ? remoteList : [];
+    const seenIds = new Set();
+
+    list.forEach((rp, idx) => {
+      const pid = rp.id || `remote_${idx}`;
+      seenIds.add(pid);
+
+      let wrapper = overworld.remoteGroup.children.find(
+        (c) => c.userData && c.userData.playerId === pid
+      );
+
+      const wx = Number(rp.x || 13) * TILE_SIZE;
+      const wz = Number(rp.y || 11) * TILE_SIZE;
+      const wy = Math.max(0, getWorldElevation(overworld.currentZoneId, rp.x || 13, rp.y || 11));
+
+      if (!wrapper) {
+        wrapper = new THREE.Group();
+        const paletteColors = [0x38bdf8, 0xf43f5e, 0xa855f7, 0x10b981, 0xf59e0b, 0xec4899];
+        const tunicColor = paletteColors[idx % paletteColors.length];
+        const tamerMesh = buildHumanoid3D({
+          coatColor: tunicColor,
+          trimColor: 0xfde047,
+          hairColor: 0x1e293b,
+          isPlayer: true
+        });
+        wrapper.add(tamerMesh);
+
+        // Glowing cyan/gold multiplayer ring under remote tamer
+        const ringGeo = new THREE.RingGeometry(0.55, 0.72, 24);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: rp.isHuman ? 0x22d3ee : 0xfacc15,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.75
+        });
+        const mpRing = new THREE.Mesh(ringGeo, ringMat);
+        mpRing.rotation.x = -Math.PI / 2;
+        mpRing.position.y = 0.06;
+        wrapper.add(mpRing);
+
+        // Overhead PvP Challenge Sword / Star Crystal
+        const pvpDiamond = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.18, 0),
+          new THREE.MeshBasicMaterial({ color: rp.isHuman ? 0x38bdf8 : 0xf43f5e })
+        );
+        pvpDiamond.position.set(0, 2.25, 0);
+        wrapper.add(pvpDiamond);
+
+        // Companion Lead Kin following beside remote player
+        const leadId = Number(rp.leadSpeciesId || 1);
+        const speciesObj =
+          (root.WILDKIN_DATA &&
+            typeof root.WILDKIN_DATA.getSpeciesById === "function" &&
+            root.WILDKIN_DATA.getSpeciesById(leadId)) || {
+            id: leadId,
+            name: "Wild Kin",
+            affinity: "Tide"
+          };
+        const leadKin = buildKin3DMesh(speciesObj, Boolean(rp.isRadiant));
+        if (leadKin) {
+          leadKin.scale.setScalar(0.52);
+          leadKin.position.set(-1.1, 0, -0.75);
+          wrapper.add(leadKin);
+        }
+
+        wrapper.position.set(wx, wy, wz);
+        wrapper.userData = {
+          playerId: pid,
+          name: rp.name || "Tamer",
+          isHuman: Boolean(rp.isHuman),
+          level: rp.level || 10,
+          targetX: wx,
+          targetZ: wz,
+          baseY: wy,
+          tamerMesh,
+          mpRing,
+          pvpDiamond,
+          leadKin,
+          phase: idx * 1.1
+        };
+        overworld.remoteGroup.add(wrapper);
+      } else {
+        wrapper.userData.targetX = wx;
+        wrapper.userData.targetZ = wz;
+        wrapper.userData.baseY = wy;
+        wrapper.userData.name = rp.name || wrapper.userData.name;
+        wrapper.userData.level = rp.level || wrapper.userData.level;
+        wrapper.userData.isHuman = Boolean(rp.isHuman);
+      }
+    });
+
+    // Remove players who left the zone
+    for (let i = overworld.remoteGroup.children.length - 1; i >= 0; i--) {
+      const child = overworld.remoteGroup.children[i];
+      if (!child.userData || !seenIds.has(child.userData.playerId)) {
+        overworld.remoteGroup.remove(child);
+      }
+    }
+  }
+
 /**
  * WILDKIN: AETHER BOUND — Full 3D WebGL Engine (Three.js)
  * Features:
@@ -115,13 +223,13 @@
   function getArchetypeForSpecies(speciesId) {
     const id = Number(speciesId) || 1;
     // Winged Raptors / Sky Drakes / Astral Dragon
-    if ([12, 13, 23, 24, 27].includes(id)) return 'winged';
+    if ([12, 13, 23, 24, 27, 37, 38, 39, 41].includes(id)) return 'winged';
     // Heavy Armored Golems / Beetles / Colossi
-    if ([14, 17, 18, 19, 20].includes(id)) return 'golem';
+    if ([14, 17, 18, 19, 20, 29].includes(id)) return 'golem';
     // Spectral Wraiths / Levitating Astral Forms
-    if ([21, 22].includes(id)) return 'wraith';
+    if ([21, 22, 40].includes(id)) return 'wraith';
     // Aquatic Leviathans / Hydro Beasts
-    if ([4, 5, 6].includes(id)) return 'aquatic';
+    if ([4, 5, 6, 30, 31, 32, 33, 34, 35, 36].includes(id)) return 'aquatic';
     // Fierce Quadrupeds / Wolves / Stags / Wildcats (1-3, 7-11, 15-16, 25-26)
     return 'quadruped';
   }
@@ -129,8 +237,8 @@
   function getScaleForSpecies(speciesId) {
     const id = Number(speciesId) || 1;
     // Final evolutions & Legendary (#27 Aetherion) are larger and more imposing
-    if (id === 27) return 1.45;
-    if ([3, 6, 9, 11, 13, 16, 18, 20, 22, 24, 26].includes(id)) return 1.25;
+    if ([27, 33, 36, 39, 41].includes(id)) return 1.42;
+    if ([3, 6, 9, 11, 13, 16, 18, 20, 22, 24, 26, 29, 31, 35, 38].includes(id)) return 1.25;
     if ([2, 5, 8].includes(id)) return 1.05;
     return 0.88;
   }
@@ -943,18 +1051,20 @@
     overworld.hemiLight = hemiLight;
 
     const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.35);
-    dirLight.position.set(22, 34, 24);
+    dirLight.position.set(35, 38, 32);
+    dirLight.target.position.set(35, 0, 27);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 1024;
     dirLight.shadow.mapSize.height = 1024;
     dirLight.shadow.camera.near = 2;
-    dirLight.shadow.camera.far = 90;
-    const d = 38;
+    dirLight.shadow.camera.far = 110;
+    const d = 46;
     dirLight.shadow.camera.left = -d;
     dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d;
     dirLight.shadow.camera.bottom = -d;
     overworld.scene.add(dirLight);
+    overworld.scene.add(dirLight.target);
     overworld.dirLight = dirLight;
 
     overworld.zoneGroup = new THREE.Group();
@@ -1509,6 +1619,13 @@
       wildGem.position.y = 1.45;
       wrapper.add(wildGem);
 
+      if (root.WILDKIN_MAPS && typeof root.WILDKIN_MAPS.isWalkableLandForRoamer === "function") {
+        if (!root.WILDKIN_MAPS.isWalkableLandForRoamer(overworld.currentZoneId, sp.x, sp.y)) {
+          const snapped = root.WILDKIN_MAPS.snapToWalkableLand(overworld.currentZoneId, sp.x, sp.y);
+          sp.x = snapped.x;
+          sp.y = snapped.y;
+        }
+      }
       const spElev = getWorldElevation(overworld.currentZoneId, sp.x || 4, sp.y || 4);
       wrapper.position.set((sp.x || 4) * TILE_SIZE, spElev, (sp.y || 4) * TILE_SIZE);
       wrapper.userData = { kinMesh, wildRing, wildGem, spawnId: sp.id || ("w_" + idx), phase: idx * 1.1 };
@@ -1547,6 +1664,235 @@
       overworld.targetBeacon.userData.outerRing.material.color.setHex(colorHex);
       overworld.targetBeacon.userData.innerBeam.material.color.setHex(colorHex);
     }
+  }
+
+  /**
+   * Renders a 3D Fishing Pole cast from the Tamer to water tile (waterX, waterY):
+   * - Tiered 3D Fishing Rod (Bamboo Green Lv.1, Carbon Cyan Lv.2, Sovereign Gold Lv.3)
+   * - Glowing curved 3D Fishing Line from rod tip to water surface
+   * - Floating 3D Bobber + expanding concentric 3D water ripples + bite splash!
+   */
+
+  /**
+   * Syncs 3D Remote Multiplayer Tamers & their Companion Kin in the Overworld
+   */
+  function syncRemotePlayers(remotePlayers) {
+    const THREE = getThree();
+    if (!THREE || !overworld.initialized || !overworld.scene) return;
+    if (!overworld.remoteGroup) {
+      overworld.remoteGroup = new THREE.Group();
+      overworld.scene.add(overworld.remoteGroup);
+    }
+
+    const list = Array.isArray(remotePlayers) ? remotePlayers.slice(0, 12) : [];
+    const existingById = new Map();
+    overworld.remoteGroup.children.forEach((child) => {
+      if (child.userData && child.userData.playerId) {
+        existingById.set(child.userData.playerId, child);
+      }
+    });
+
+    const seenIds = new Set();
+    const outfits = {
+      homestead_tunic: 0x0ea5e9,
+      crimson_vanguard: 0xe11d48,
+      storm_runner: 0xeab308,
+      astral_sovereign: 0x9333ea,
+      tide_corsair: 0x06b6d4
+    };
+
+    list.forEach((rp, idx) => {
+      const pid = String(rp.playerId || ("rp_" + idx));
+      seenIds.add(pid);
+      let wrapper = existingById.get(pid);
+      const tunicColor = outfits[rp.outfitId] || (rp.isHuman ? 0x10b981 : 0x6366f1);
+
+      if (!wrapper) {
+        wrapper = new THREE.Group();
+        const tamerMesh = buildHumanoid3D(THREE, tunicColor, 0x1e293b, 0xfde047, true);
+        wrapper.add(tamerMesh);
+
+        // Glowing Multiplayer Presence Ring under feet
+        const ringColor = rp.isHuman ? 0x10b981 : 0x38bdf8;
+        const mpRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.42, 0.58, 24),
+          new THREE.MeshBasicMaterial({ color: ringColor, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+        );
+        mpRing.rotation.x = Math.PI / 2;
+        mpRing.position.y = 0.04;
+        wrapper.add(mpRing);
+
+        // Floating PvP Sword Beacon above head
+        const pvpDiamond = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.18, 0),
+          new THREE.MeshStandardMaterial({
+            color: rp.isHuman ? 0x22c55e : 0x38bdf8,
+            emissive: rp.isHuman ? 0x16a34a : 0x0284c7,
+            emissiveIntensity: 0.75
+          })
+        );
+        pvpDiamond.position.y = 2.15;
+        wrapper.add(pvpDiamond);
+
+        // Companion Lead Kin following beside remote player
+        const leadId = Number(rp.leadSpeciesId || 1);
+        const leadKin = buildKin3DMesh(leadId, Boolean(rp.isRadiant), 0.52);
+        if (leadKin) {
+          leadKin.position.set(-1.1, 0, -0.75);
+          wrapper.add(leadKin);
+        }
+
+        const wx = Number(rp.x || 13) * TILE_SIZE;
+        const wz = Number(rp.y || 11) * TILE_SIZE;
+        const wy = getWorldElevation(overworld.currentZoneId, rp.x || 13, rp.y || 11);
+        wrapper.position.set(wx, wy, wz);
+        wrapper.userData = {
+          playerId: pid,
+          name: rp.name || "Tamer",
+          isHuman: Boolean(rp.isHuman),
+          level: rp.level || 10,
+          targetX: wx,
+          targetZ: wz,
+          tamerMesh,
+          mpRing,
+          pvpDiamond,
+          leadKin,
+          phase: idx * 1.1
+        };
+        overworld.remoteGroup.add(wrapper);
+      } else {
+        wrapper.userData.targetX = Number(rp.x || 13) * TILE_SIZE;
+        wrapper.userData.targetZ = Number(rp.y || 11) * TILE_SIZE;
+        wrapper.userData.name = rp.name || wrapper.userData.name;
+        wrapper.userData.level = rp.level || wrapper.userData.level;
+        wrapper.userData.isHuman = Boolean(rp.isHuman);
+      }
+    });
+
+    // Remove players who left the zone
+    for (let i = overworld.remoteGroup.children.length - 1; i >= 0; i--) {
+      const child = overworld.remoteGroup.children[i];
+      if (!child.userData || !seenIds.has(child.userData.playerId)) {
+        overworld.remoteGroup.remove(child);
+      }
+    }
+  }
+
+  function playFishingCast3D(waterX, waterY, rodTier = 1, onComplete = null) {
+    const THREE = getThree();
+    if (!THREE || !overworld.initialized || !overworld.scene || !overworld.playerMesh) {
+      if (typeof onComplete === "function") onComplete();
+      return { ok: true, mode: "instant" };
+    }
+
+    if (overworld.fishingCast && overworld.fishingCast.group) {
+      overworld.scene.remove(overworld.fishingCast.group);
+      overworld.fishingCast = null;
+    }
+
+    const px = overworld.playerMesh.position.x;
+    const py = overworld.playerMesh.position.y;
+    const pz = overworld.playerMesh.position.z;
+    const wx = Number(waterX) * TILE_SIZE;
+    const wz = Number(waterY) * TILE_SIZE;
+    const wy = -0.14;
+
+    // Face player toward the water tile
+    overworld.playerMesh.rotation.y = Math.atan2(wx - px, wz - pz);
+
+    const group = new THREE.Group();
+    const tierColors = {
+      1: { rod: 0x84cc16, line: 0xbae6fd, bobber: 0xef4444, ring: 0x38bdf8 },
+      2: { rod: 0x0ea5e9, line: 0x38bdf8, bobber: 0x38bdf8, ring: 0x22d3ee },
+      3: { rod: 0xfacc15, line: 0xfef08a, bobber: 0xf59e0b, ring: 0xfacc15 }
+    };
+    const tc = tierColors[rodTier] || tierColors[1];
+
+    // 1. 3D Fishing Rod angled from Tamer toward water
+    const rodShaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.065, 2.2, 10),
+      new THREE.MeshStandardMaterial({ color: tc.rod, roughness: 0.3, metalness: rodTier >= 2 ? 0.55 : 0.15 })
+    );
+    const angleToWater = Math.atan2(wx - px, wz - pz);
+    const tipX = px + Math.sin(angleToWater) * 1.45;
+    const tipY = py + 1.85;
+    const tipZ = pz + Math.cos(angleToWater) * 1.45;
+    rodShaft.position.set(
+      (px + tipX) * 0.5,
+      py + 1.35,
+      (pz + tipZ) * 0.5
+    );
+    rodShaft.lookAt(tipX, tipY + 0.5, tipZ);
+    rodShaft.rotateX(Math.PI / 2);
+    group.add(rodShaft);
+
+    // 2. Curved 3D Fishing Line from rod tip to bobber
+    const linePts = [];
+    for (let i = 0; i <= 16; i++) {
+      const t = i / 16;
+      const lx = tipX + (wx - tipX) * t;
+      const lz = tipZ + (wz - tipZ) * t;
+      const sag = Math.sin(t * Math.PI) * 0.42;
+      const ly = tipY * (1 - t) + (wy + 0.15) * t + sag;
+      linePts.push(new THREE.Vector3(lx, ly, lz));
+    }
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(linePts);
+    const lineMesh = new THREE.Line(
+      lineGeo,
+      new THREE.LineBasicMaterial({ color: tc.line, transparent: true, opacity: 0.92 })
+    );
+    group.add(lineMesh);
+
+    // 3. 3D Bobber Float on water
+    const bobberGroup = new THREE.Group();
+    const bobSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.24, 14, 12),
+      new THREE.MeshStandardMaterial({ color: tc.bobber, emissive: tc.bobber, emissiveIntensity: 0.35, roughness: 0.25 })
+    );
+    const bobCap = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.12, 0.28, 10),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    bobCap.position.y = 0.22;
+    bobberGroup.add(bobSphere, bobCap);
+    bobberGroup.position.set(wx, wy + 0.14, wz);
+    group.add(bobberGroup);
+
+    // 4. Expanding Water Ripple Ring
+    const rippleRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.22, 0.36, 24),
+      new THREE.MeshBasicMaterial({ color: tc.ring, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+    );
+    rippleRing.rotation.x = Math.PI / 2;
+    rippleRing.position.set(wx, wy + 0.04, wz);
+    group.add(rippleRing);
+
+    overworld.scene.add(group);
+    let completed = false;
+    const finishCast = () => {
+      if (completed) return;
+      completed = true;
+      if (overworld.fishingCast && overworld.fishingCast.group) {
+        overworld.scene.remove(overworld.fishingCast.group);
+      }
+      overworld.fishingCast = null;
+      if (typeof onComplete === "function") onComplete();
+    };
+
+    overworld.fishingCast = {
+      group,
+      bobberGroup,
+      rippleRing,
+      wx,
+      wy,
+      wz,
+      startMs: performance.now(),
+      durationMs: 880,
+      finishCast
+    };
+
+    setTimeout(finishCast, 920);
+    return { ok: true, mode: "3d_animated" };
   }
 
   /**
@@ -1635,14 +1981,34 @@
         const u = wrapper.userData || {};
         const match = spawnsList.find((s) => s.id === u.spawnId) || spawnsList[idx];
         if (match) {
+          if (root.WILDKIN_MAPS && typeof root.WILDKIN_MAPS.isWalkableLandForRoamer === "function") {
+            if (!root.WILDKIN_MAPS.isWalkableLandForRoamer(overworld.currentZoneId, match.x, match.y)) {
+              const snapped = root.WILDKIN_MAPS.snapToWalkableLand(overworld.currentZoneId, match.x, match.y);
+              match.x = snapped.x;
+              match.y = snapped.y;
+            }
+          }
           const tx = (match.x || 0) * TILE_SIZE;
           const tz = (match.y || 0) * TILE_SIZE;
-          wrapper.position.x += (tx - wrapper.position.x) * 0.18;
-          wrapper.position.z += (tz - wrapper.position.z) * 0.18;
-          wrapper.position.y = getWorldElevation(
-            overworld.currentZoneId,
-            wrapper.position.x / TILE_SIZE,
-            wrapper.position.z / TILE_SIZE
+          const nextX = wrapper.position.x + (tx - wrapper.position.x) * 0.18;
+          const nextZ = wrapper.position.z + (tz - wrapper.position.z) * 0.18;
+          const nextTile = root.WILDKIN_MAPS && root.WILDKIN_MAPS.getTileAt
+            ? root.WILDKIN_MAPS.getTileAt(overworld.currentZoneId, Math.round(nextX / TILE_SIZE), Math.round(nextZ / TILE_SIZE))
+            : ".";
+          if (nextTile === "~") {
+            wrapper.position.x = tx;
+            wrapper.position.z = tz;
+          } else {
+            wrapper.position.x = nextX;
+            wrapper.position.z = nextZ;
+          }
+          wrapper.position.y = Math.max(
+            0,
+            getWorldElevation(
+              overworld.currentZoneId,
+              wrapper.position.x / TILE_SIZE,
+              wrapper.position.z / TILE_SIZE
+            )
           );
           if (typeof match.angle === "number") {
             wrapper.rotation.y = match.angle;
@@ -1658,6 +2024,38 @@
       });
     }
 
+    // Animate Remote Multiplayer Tamers & Companion Kin
+    if (overworld.remoteGroup && overworld.remoteGroup.children.length > 0) {
+      overworld.remoteGroup.children.forEach((rw) => {
+        const u = rw.userData || {};
+        if (typeof u.targetX === "number" && typeof u.targetZ === "number") {
+          const dx = u.targetX - rw.position.x;
+          const dz = u.targetZ - rw.position.z;
+          const dist = Math.hypot(dx, dz);
+          rw.position.x += dx * 0.16;
+          rw.position.z += dz * 0.16;
+          rw.position.y = getWorldElevation(
+            overworld.currentZoneId,
+            rw.position.x / TILE_SIZE,
+            rw.position.z / TILE_SIZE
+          );
+          if (dist > 0.04 && u.tamerMesh) {
+            u.tamerMesh.rotation.y = Math.atan2(dx, dz);
+          }
+          if (u.tamerMesh) {
+            animateHumanoid3D(u.tamerMesh, timeSec + (u.phase || 0), dist > 0.03 ? 1 : 0);
+          }
+        }
+        if (u.pvpDiamond) {
+          u.pvpDiamond.rotation.y = timeSec * 3.0;
+          u.pvpDiamond.position.y = 2.15 + Math.sin(timeSec * 4 + (u.phase || 0)) * 0.08;
+        }
+        if (u.leadKin) {
+          animateKinMesh(u.leadKin, timeSec + (u.phase || 0), true, 0);
+        }
+      });
+    }
+
     // Animate Target Beacon
     if (overworld.targetBeacon && overworld.targetBeacon.visible) {
       const b = overworld.targetBeacon.userData;
@@ -1665,6 +2063,21 @@
       b.outerRing.scale.setScalar(pulse);
       b.diamond.rotation.y = timeSec * 4;
       b.diamond.position.y = 1.05 + Math.sin(timeSec * 6) * 0.16;
+    }
+
+    // Animate 3D Fishing Bobber & Water Ripples
+    if (overworld.fishingCast) {
+      const fc = overworld.fishingCast;
+      const elapsed = (timeMs || performance.now()) - fc.startMs;
+      const prog = Math.min(1, elapsed / fc.durationMs);
+      const dip = prog > 0.72 ? -0.24 * Math.sin(((prog - 0.72) / 0.28) * Math.PI) : Math.sin(elapsed * 0.022) * 0.08;
+      fc.bobberGroup.position.y = fc.wy + 0.14 + dip;
+      const rippleScale = 1 + (prog * 3.4) % 2.4;
+      fc.rippleRing.scale.setScalar(rippleScale);
+      fc.rippleRing.material.opacity = Math.max(0.1, 0.9 - (rippleScale - 1) * 0.35);
+      if (prog >= 1 && typeof fc.finishCast === "function") {
+        fc.finishCast();
+      }
     }
 
     // Smooth Spring-Damped 3D Camera
@@ -1850,7 +2263,7 @@
         roughness: 0.65
       })
     );
-    innerStone.position.y = 0.02;
+    innerStone.position.y = 0.06;
     innerStone.receiveShadow = true;
     battle3d.arenaGroup.add(innerStone);
     floor.position.y = -0.3;
@@ -1868,7 +2281,7 @@
       })
     );
     centerRing.rotation.x = Math.PI / 2;
-    centerRing.position.y = 0.02;
+    centerRing.position.y = 0.11;
     battle3d.arenaGroup.add(centerRing);
 
     // Player & Enemy Glowing Combat Pedestals
@@ -1922,7 +2335,11 @@
    */
   function syncBattleCombatants(playerKin, enemyKin, speciesCatalog, zoneId = 'meadow') {
     if (!battle3d.initialized) return;
-    buildBattleStadiumGeometry(zoneId);
+    const nextZone = zoneId || 'meadow';
+    if (battle3d.zoneId !== nextZone || !battle3d.arenaGroup || battle3d.arenaGroup.children.length === 0) {
+      buildBattleStadiumGeometry(nextZone);
+      battle3d.zoneId = nextZone;
+    }
 
     const resolveSpec = (id) => {
       if (!speciesCatalog || !id) return null;
@@ -2031,6 +2448,229 @@
    * - Camera cut to defender impact + heavy 3D screen shake + knockback recoil!
    */
 
+
+  const BATTLE_ANIM_ARCHETYPES = [
+    'tornado',
+    'lightning',
+    'fire_eruption',
+    'hydro_vortex',
+    'quake_boulders',
+    'blizzard_spikes',
+    'leaf_storm',
+    'shadow_miasma',
+    'aether_beam',
+    'claw_slash'
+  ];
+
+  function resolveBattleAnimArchetype(move) {
+    if (!move) return 'claw_slash';
+    if (move.animType && BATTLE_ANIM_ARCHETYPES.includes(move.animType)) {
+      return move.animType;
+    }
+    const id = String(move.id || move.moveId || '').toLowerCase();
+    const name = String(move.name || '').toLowerCase();
+    const aff = String(move.affinity || move.element || '');
+    const eff = String(move.effect || (move.status && move.status.type) || '');
+
+    if (id.includes('gale') || id.includes('vortex') && aff === 'Volt' || name.includes('gale') || name.includes('wind') || name.includes('cyclone') || aff === 'Gale') {
+      return 'tornado';
+    }
+    if (id.includes('rime') || id.includes('frost') || id.includes('blizzard') || name.includes('rime') || name.includes('ice') || aff === 'Frost') {
+      return 'blizzard_spikes';
+    }
+    if (eff.includes('poison') || id.includes('venom') || id.includes('miasma') || id.includes('toxin') || id.includes('dusk') || id.includes('void') || aff === 'Umbra') {
+      return 'shadow_miasma';
+    }
+    if (id.includes('eclipse') || id.includes('aether') || name.includes('astral') || aff === 'Aether') {
+      return 'aether_beam';
+    }
+    if (id.includes('claw') || id.includes('dash') || id.includes('peck') || id.includes('pounce') || (move.category === 'physical' && (move.power || 50) <= 60 && aff !== 'Tide' && aff !== 'Grove')) {
+      return 'claw_slash';
+    }
+    if (aff === 'Volt') return 'lightning';
+    if (aff === 'Pyre' || aff === 'Ember') return 'fire_eruption';
+    if (aff === 'Tide') return 'hydro_vortex';
+    if (aff === 'Terra') return 'quake_boulders';
+    if (aff === 'Grove') return 'leaf_storm';
+    return 'claw_slash';
+  }
+
+  function build3DAttackVfxGroup(THREE, animArchetype, affHex, isBigHit) {
+    const projGroup = new THREE.Group();
+    projGroup.userData = { animArchetype };
+
+    if (animArchetype === 'tornado') {
+      // Spinning multi-ring 3D Tornado funnel cloud + swirling wind debris!
+      for (let i = 0; i < 6; i++) {
+        const radius = 0.22 + i * 0.16;
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(radius, 0.055, 10, 24),
+          new THREE.MeshBasicMaterial({
+            color: i % 2 === 0 ? 0x67e8f9 : 0xe0f2fe,
+            transparent: true,
+            opacity: 0.85
+          })
+        );
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = -0.5 + i * 0.28;
+        projGroup.add(ring);
+      }
+      const funnelCone = new THREE.Mesh(
+        new THREE.ConeGeometry(0.95, 2.1, 18, 1, true),
+        new THREE.MeshBasicMaterial({
+          color: 0x38bdf8,
+          transparent: true,
+          opacity: 0.35,
+          side: THREE.DoubleSide
+        })
+      );
+      funnelCone.rotation.x = Math.PI;
+      funnelCone.position.y = 0.25;
+      projGroup.add(funnelCone);
+    } else if (animArchetype === 'lightning') {
+      // Jagged 3D Electric Lightning Bolt + Plasma Ring!
+      const boltMat = new THREE.MeshBasicMaterial({ color: 0xfde047 });
+      const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      for (let seg = 0; seg < 5; seg++) {
+        const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.65, 8), seg % 2 === 0 ? boltMat : coreMat);
+        cyl.position.set((seg % 2 === 0 ? 0.14 : -0.14), (seg - 2) * 0.42, 0);
+        cyl.rotation.z = seg % 2 === 0 ? 0.48 : -0.48;
+        projGroup.add(cyl);
+      }
+      const plasmaHalo = new THREE.Mesh(
+        new THREE.TorusGeometry(0.72, 0.07, 8, 24),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+      );
+      projGroup.add(plasmaHalo);
+    } else if (animArchetype === 'fire_eruption') {
+      // Blazing Fireball Core + 4 Orbiting Flame Cones!
+      const core = new THREE.Mesh(
+        new THREE.SphereGeometry(isBigHit ? 0.62 : 0.48, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xf97316 })
+      );
+      const inner = new THREE.Mesh(
+        new THREE.SphereGeometry(0.34, 12, 12),
+        new THREE.MeshBasicMaterial({ color: 0xfef08a })
+      );
+      projGroup.add(core, inner);
+      for (let f = 0; f < 4; f++) {
+        const ang = (f / 4) * Math.PI * 2;
+        const cone = new THREE.Mesh(
+          new THREE.ConeGeometry(0.22, 0.68, 10),
+          new THREE.MeshBasicMaterial({ color: 0xef4444 })
+        );
+        cone.position.set(Math.cos(ang) * 0.55, 0.15, Math.sin(ang) * 0.55);
+        projGroup.add(cone);
+      }
+    } else if (animArchetype === 'hydro_vortex') {
+      // Swirling Aqua Vortex Rings + Pressurized Water Bubbles!
+      for (let r = 0; r < 3; r++) {
+        const torus = new THREE.Mesh(
+          new THREE.TorusGeometry(0.42 + r * 0.22, 0.07, 10, 28),
+          new THREE.MeshBasicMaterial({ color: r % 2 === 0 ? 0x0ea5e9 : 0x7dd3fc, transparent: true, opacity: 0.88 })
+        );
+        torus.rotation.x = r * 0.6;
+        projGroup.add(torus);
+      }
+      const waterOrb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.78 })
+      );
+      projGroup.add(waterOrb);
+    } else if (animArchetype === 'quake_boulders') {
+      // Tectonic 3D Rock Monoliths & Floating Boulders!
+      for (let b = 0; b < 4; b++) {
+        const rock = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(0.34 + (b % 2) * 0.14, 0),
+          new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.75, emissive: 0x78350f, emissiveIntensity: 0.25 })
+        );
+        const ang = (b / 4) * Math.PI * 2;
+        rock.position.set(Math.cos(ang) * 0.48, (b % 2) * 0.24 - 0.1, Math.sin(ang) * 0.48);
+        projGroup.add(rock);
+      }
+    } else if (animArchetype === 'blizzard_spikes') {
+      // Crystalline 3D Ice Spikes & Frost Halo!
+      for (let s = 0; s < 6; s++) {
+        const spike = new THREE.Mesh(
+          new THREE.ConeGeometry(0.16, 0.85, 6),
+          new THREE.MeshBasicMaterial({ color: s % 2 === 0 ? 0xbae6fd : 0x38bdf8 })
+        );
+        const ang = (s / 6) * Math.PI * 2;
+        spike.position.set(Math.cos(ang) * 0.42, 0, Math.sin(ang) * 0.42);
+        spike.rotation.z = Math.cos(ang) * 0.6;
+        spike.rotation.x = Math.sin(ang) * 0.6;
+        projGroup.add(spike);
+      }
+    } else if (animArchetype === 'leaf_storm') {
+      // Swirling Razor Leaves + Emerald Sylvan Ring!
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.68, 0.06, 8, 24),
+        new THREE.MeshBasicMaterial({ color: 0x4ade80 })
+      );
+      projGroup.add(ring);
+      for (let l = 0; l < 8; l++) {
+        const leaf = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.22, 0),
+          new THREE.MeshBasicMaterial({ color: l % 2 === 0 ? 0x22c55e : 0xa3e635 })
+        );
+        leaf.scale.set(1.6, 0.25, 0.65);
+        const ang = (l / 8) * Math.PI * 2;
+        leaf.position.set(Math.cos(ang) * 0.65, ((l % 3) - 1) * 0.22, Math.sin(ang) * 0.65);
+        projGroup.add(leaf);
+      }
+    } else if (animArchetype === 'shadow_miasma') {
+      // Toxic Shadow-Poison Miasma Orbs (Violet + Acid Green) & Dark Halo!
+      const darkCore = new THREE.Mesh(
+        new THREE.SphereGeometry(0.46, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0x581c87 })
+      );
+      const venomHalo = new THREE.Mesh(
+        new THREE.TorusGeometry(0.74, 0.08, 10, 24),
+        new THREE.MeshBasicMaterial({ color: 0x4ade80 })
+      );
+      projGroup.add(darkCore, venomHalo);
+      for (let p = 0; p < 5; p++) {
+        const bubble = new THREE.Mesh(
+          new THREE.SphereGeometry(0.18, 10, 10),
+          new THREE.MeshBasicMaterial({ color: p % 2 === 0 ? 0xa855f7 : 0x22c55e })
+        );
+        const ang = (p / 5) * Math.PI * 2;
+        bubble.position.set(Math.cos(ang) * 0.56, Math.sin(ang * 2) * 0.25, Math.sin(ang) * 0.56);
+        projGroup.add(bubble);
+      }
+    } else if (animArchetype === 'aether_beam') {
+      // Cosmic Starlight Beam Cylinder + Dual Golden Astral Rings!
+      const beam = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.28, 1.8, 16),
+        new THREE.MeshBasicMaterial({ color: 0xfde047 })
+      );
+      beam.rotation.x = Math.PI / 2;
+      const ringA = new THREE.Mesh(
+        new THREE.TorusGeometry(0.68, 0.06, 8, 24),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+      );
+      const ringB = new THREE.Mesh(
+        new THREE.TorusGeometry(0.85, 0.05, 8, 24),
+        new THREE.MeshBasicMaterial({ color: 0xf472b6 })
+      );
+      ringB.rotation.y = Math.PI / 3;
+      projGroup.add(beam, ringA, ringB);
+    } else {
+      // claw_slash: 3 Glowing Crescent Energy Slash Blades!
+      for (let c = -1; c <= 1; c++) {
+        const arc = new THREE.Mesh(
+          new THREE.TorusGeometry(0.58, 0.065, 8, 18, Math.PI * 0.85),
+          new THREE.MeshBasicMaterial({ color: c === 0 ? 0xffffff : affHex })
+        );
+        arc.position.set(c * 0.24, c * 0.12, 0);
+        arc.rotation.z = -Math.PI * 0.25;
+        projGroup.add(arc);
+      }
+    }
+
+    return projGroup;
+  }
+
   function setBattleTurnPhase(phase = "idle") {
     battle3d.turnPhase = phase || "idle";
   }
@@ -2047,17 +2687,9 @@
     const startPos = isPlayerAttacking ? { ...PLAYER_BASE_POS } : { ...ENEMY_BASE_POS };
     const endPos = isPlayerAttacking ? { ...ENEMY_BASE_POS } : { ...PLAYER_BASE_POS };
 
-    // Create 3D Projectile / Energy Core Mesh
-    const projGroup = new THREE.Group();
-    const coreMesh = new THREE.Mesh(
-      new THREE.OctahedronGeometry(isBigHit ? 0.62 : 0.46, 1),
-      new THREE.MeshBasicMaterial({ color: affHex })
-    );
-    const outerHalo = new THREE.Mesh(
-      new THREE.TorusGeometry(0.75, 0.08, 8, 24),
-      new THREE.MeshBasicMaterial({ color: 0xffffff })
-    );
-    projGroup.add(coreMesh, outerHalo);
+    // Create 3D Elemental Attack Animation Mesh (10 distinct archetypes!)
+    const animArchetype = resolveBattleAnimArchetype(move);
+    const projGroup = build3DAttackVfxGroup(THREE, animArchetype, affHex, isBigHit);
     projGroup.position.set(startPos.x, startPos.y + 1.0, startPos.z);
     battle3d.vfxGroup.add(projGroup);
 
@@ -2071,6 +2703,7 @@
 
     battle3d.activeAction = {
       type: 'attack',
+      animArchetype,
       isPlayerAttacking,
       affHex,
       isBigHit,
@@ -2217,8 +2850,19 @@
               1.02 + Math.sin(lungeT * Math.PI) * 0.65,
               s.z + (e.z - s.z) * lungeT
             );
-            act.projGroup.rotation.x += 0.25;
-            act.projGroup.rotation.y += 0.32;
+            if (act.animArchetype === 'tornado' || act.animArchetype === 'leaf_storm' || act.animArchetype === 'hydro_vortex') {
+              act.projGroup.rotation.y += 0.55;
+              act.projGroup.position.y = 0.85 + Math.sin(lungeT * Math.PI) * 0.45;
+            } else if (act.animArchetype === 'lightning') {
+              act.projGroup.position.y = 1.65 - lungeT * 0.65;
+              act.projGroup.rotation.y += 0.45;
+            } else if (act.animArchetype === 'quake_boulders') {
+              act.projGroup.position.y = 0.38 + Math.abs(Math.sin(lungeT * Math.PI * 3)) * 0.45;
+              act.projGroup.rotation.x += 0.35;
+            } else {
+              act.projGroup.rotation.x += 0.25;
+              act.projGroup.rotation.y += 0.32;
+            }
           }
 
           // Gentle, readable camera dolly-in toward the action center (no wild camera teleport!)
@@ -2409,6 +3053,8 @@
     syncTamerOutfit: syncPlayerOutfit,
     screenToWorldTile,
     setTargetBeacon,
+    playFishingCast3D,
+    syncRemotePlayers,
     renderOverworldFrame,
     initBattleArena,
     resizeBattleArena,
@@ -2418,6 +3064,8 @@
     playPrismCapture3D,
     playSnareTrapCapture3D: playPrismCapture3D,
     renderBattleFrame,
-    buildKin3DMesh
+    buildKin3DMesh,
+    BATTLE_ANIM_ARCHETYPES,
+    resolveBattleAnimArchetype
   };
 });

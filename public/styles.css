@@ -1149,6 +1149,8 @@ html, body {
   justify-content: center;
   gap: 8px;
   pointer-events: auto;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .world-pill-btn {
@@ -2220,4 +2222,370 @@ body.in-lobby #questTrackerHud,
 body.in-lobby #worldActionBar,
 body.in-lobby #recoveryAlertBanner {
   display: none !important;
+}
+
+/* =========================================================================
+   LIVE MULTIPLAYER OVERWORLD CHAT DOCK & 3D REMOTE PLAYER BUBBLES
+   ========================================================================= */
+.remote-player-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 12;
+  overflow: hidden;
+}
+.remote-player-tag {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transition: left 0.12s linear, top 0.12s linear;
+}
+.remote-speech-bubble {
+  background: rgba(15, 23, 42, 0.94);
+  border: 1.5px solid #38bdf8;
+  color: #f8fafc;
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  max-width: 170px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+  animation: popInBubble 0.2s ease-out;
+}
+.remote-name-pill {
+  background: rgba(6, 12, 26, 0.86);
+  border: 1px solid rgba(34, 197, 94, 0.65);
+  color: #e2e8f0;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.remote-name-pill.bot-pill {
+  border-color: rgba(56, 189, 248, 0.6);
+}
+@keyframes popInBubble {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.world-chat-dock {
+  position: absolute;
+  left: 10px;
+  bottom: 58px;
+  width: min(305px, calc(100vw - 20px));
+  background: rgba(8, 13, 27, 0.86);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  border-radius: 12px;
+  z-index: 22;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: height 0.18s ease, opacity 0.18s ease;
+}
+.world-chat-dock.minimized .world-chat-body {
+  display: none;
+}
+.world-chat-dock.minimized {
+  width: auto;
+  min-width: 195px;
+}
+.world-chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.world-chat-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #f8fafc;
+}
+.chat-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+}
+.world-chat-online {
+  font-size: 0.62rem;
+  color: #86efac;
+  background: rgba(22, 163, 74, 0.2);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  padding: 1px 5px;
+  border-radius: 999px;
+}
+.world-chat-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.chat-chan-btn, .chat-min-btn {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #cbd5e1;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.chat-chan-btn.active {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+.world-chat-body {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  gap: 5px;
+}
+.world-chat-feed {
+  max-height: 92px;
+  min-height: 66px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  padding-right: 2px;
+}
+.world-chat-msg {
+  background: rgba(15, 23, 42, 0.68);
+  padding: 3px 6px;
+  border-radius: 6px;
+  border-left: 2px solid #38bdf8;
+  color: #e2e8f0;
+  word-break: break-word;
+}
+.world-chat-msg.self-msg {
+  border-left-color: #4ade80;
+}
+.world-chat-author {
+  font-weight: 800;
+  color: #fde047;
+  cursor: pointer;
+  margin-right: 4px;
+}
+.world-chat-author:hover {
+  text-decoration: underline;
+}
+.world-chat-zone-tag {
+  font-size: 0.56rem;
+  color: #38bdf8;
+  margin-right: 3px;
+}
+.world-chat-quick-row {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+.chat-quick-chip {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #bae6fd;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.world-chat-form {
+  display: flex;
+  gap: 4px;
+}
+.world-chat-input {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 7px;
+  color: #ffffff;
+  font-size: 0.68rem;
+  padding: 4px 7px;
+}
+.world-chat-send-btn {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+/* 1-Tap Fishing Rod Deploy & Rod Tier Selector Bar */
+.fishing-quick-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(8, 28, 48, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  border-radius: 999px;
+  padding: 4px 8px;
+  margin-bottom: 5px;
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.35);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+.fishing-quick-bar.near-water {
+  border-color: #22d3ee;
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.65);
+}
+.fishing-cast-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  color: #f8fafc;
+  border: 1px solid #7dd3fc;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fishing-quick-bar.near-water .fishing-cast-cta {
+  background: linear-gradient(135deg, #059669, #10b981);
+  border-color: #6ee7b7;
+}
+.rod-tier-selector {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.rod-tier-pill {
+  background: rgba(15, 23, 42, 0.85);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.rod-tier-pill.active {
+  background: #0369a1;
+  color: #e0f2fe;
+  border-color: #38bdf8;
+}
+.rod-tier-pill.owned:not(.active) {
+  color: #cbd5e1;
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+/* Reviewer Fix #6: Hide overworld chat & remote player overlays during battle and lobby */
+body.in-battle #worldChatDock,
+body.in-battle #remotePlayerLabels,
+body.in-battle #fishingQuickBar,
+body.in-lobby #worldChatDock,
+body.in-lobby #remotePlayerLabels,
+body.in-lobby #fishingQuickBar {
+  display: none !important;
+}
+
+/* Interactive Moving-Bar Fishing Reel-In Mini-Game */
+.fishing-reel-card {
+  background: linear-gradient(160deg, rgba(8, 28, 52, 0.96), rgba(15, 23, 42, 0.98));
+  border: 2px solid #38bdf8;
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 14px 36px rgba(2, 6, 23, 0.8), 0 0 24px rgba(56, 189, 248, 0.28);
+}
+.fishing-reel-card.rare-hook {
+  border-color: #facc15;
+  box-shadow: 0 14px 36px rgba(2, 6, 23, 0.85), 0 0 32px rgba(250, 204, 21, 0.45);
+}
+.fishing-reel-track {
+  position: relative;
+  width: 100%;
+  height: 36px;
+  background: rgba(2, 6, 23, 0.92);
+  border: 2px solid rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 14px 0;
+  cursor: pointer;
+  user-select: none;
+}
+.fishing-reel-target-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.45), rgba(52, 211, 153, 0.85), rgba(16, 185, 129, 0.45));
+  border-left: 2px solid #fde047;
+  border-right: 2px solid #fde047;
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.65);
+  transition: left 0.18s ease, width 0.18s ease;
+}
+.fishing-reel-marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 10px;
+  margin-left: -5px;
+  background: #fde047;
+  border: 2px solid #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 0 14px #fde047, 0 0 6px #ffffff;
+  pointer-events: none;
+}
+.fishing-reel-pips {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+.fishing-reel-pip {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #94a3b8;
+}
+.fishing-reel-pip.hit {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-color: #a7f3d0;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.55);
+}
+.btn-tap-reel-bar {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 2px solid #fde047;
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45);
+}
+.btn-tap-reel-bar:active {
+  transform: scale(0.97);
 }
